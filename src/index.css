@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  --color-parchment-50: #fdf8ee;
+  --color-parchment-100: #f5e6c8;
+  --color-parchment-200: #e9c97e;
+  --color-dnd-red: #9b1c1c;
+  --color-dnd-red-dark: #7f1d1d;
+  --color-dnd-gold: #c9a84c;
+  --color-dnd-blue: #1e3a5f;
+  --color-dnd-dark: #1a0a00;
+  --color-dnd-encounter: #991b1b;
+  --color-dnd-daily: #111827;
+  --color-dnd-atwill: #065f46;
+  --color-dnd-utility: #1e3a5f;
+
+  --font-fantasy: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-color: var(--color-parchment-100);
+  font-family: system-ui, -apple-system, sans-serif;
+  overscroll-behavior: none;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #c9a84c;
+  border-radius: 3px;
+}
+
+/* Touch-friendly minimum tap target */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Power card colors */
+.power-at-will {
+  border-left: 4px solid var(--color-dnd-atwill);
+}
+.power-encounter {
+  border-left: 4px solid var(--color-dnd-encounter);
+}
+.power-daily {
+  border-left: 4px solid var(--color-dnd-daily);
+}
+.power-utility {
+  border-left: 4px solid var(--color-dnd-utility);
+}
+
+.power-at-will .power-header {
+  background-color: var(--color-dnd-atwill);
+}
+.power-encounter .power-header {
+  background-color: var(--color-dnd-encounter);
+}
+.power-daily .power-header {
+  background-color: var(--color-dnd-daily);
+}
+.power-utility .power-header {
+  background-color: var(--color-dnd-utility);
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}
