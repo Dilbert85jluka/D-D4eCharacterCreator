@@ -14,7 +14,8 @@ import { MonsterModal } from '../components/monsters/MonsterModal';
 import type { MonsterRole, MonsterData } from '../types/monster';
 import type { Campaign } from '../types/campaign';
 import type { CampaignSession } from '../types/session';
-import type { SessionEncounter } from '../types/encounter';
+import type { SessionEncounter, InitiativeEntry, SavedInitiativeState } from '../types/encounter';
+import { v4 as uuidv4 } from 'uuid';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -320,11 +321,48 @@ export function CampaignManagementPage() {
     }
   };
 
+  // ── Derived (early — used by initiative tracker) ─────────────────────────
+  const activeCampaign =
+    mode.type === 'campaign' ? campaigns.find((c) => c.id === mode.campaignId) :
+    mode.type === 'new-session' ? campaigns.find((c) => c.id === mode.campaignId) :
+    mode.type === 'session' ? campaigns.find((c) => c.id === mode.campaignId) : undefined;
+
+  const activeSession =
+    mode.type === 'session'
+      ? getSessionsForCampaign(mode.campaignId).find((s) => s.id === mode.sessionId)
+      : undefined;
+
   // ── Encounters ────────────────────────────────────────────────────────────
   const [showMonsterPicker, setShowMonsterPicker]               = useState(false);
   const [pickerTargetEncounterId, setPickerTargetEncounterId]   = useState<string | null>(null);
   const [monsterSearch, setMonsterSearch]                       = useState('');
   const [viewingMonster, setViewingMonster]                     = useState<MonsterData | null>(null);
+
+  // ── Initiative Tracker state ──────────────────────────────────────────
+  const [activeEncounterId, setActiveEncounterId]   = useState<string | null>(null);
+  const [initiativeEntries, setInitiativeEntries]   = useState<InitiativeEntry[]>([]);
+  const [addingCombatant, setAddingCombatant]       = useState<{
+    type: 'monster' | 'pc';
+    monsterId?: string;
+    characterId?: string;
+    displayName: string;
+    defaultHp: number;
+    instanceKey: string;  // unique key for this pool row
+  } | null>(null);
+  const [promptInit, setPromptInit] = useState('');
+  const [promptHp, setPromptHp]     = useState('');
+  const [activeTurnIndex, setActiveTurnIndex] = useState(-1);
+  // Track which pool items have been added (by instanceKey)
+  const [addedInstanceKeys, setAddedInstanceKeys] = useState<Set<string>>(new Set());
+  // Track ad-hoc monsters added to initiative (not from encounter plan)
+  const [adHocMonsters, setAdHocMonsters] = useState<Array<{
+    instanceKey: string;
+    monsterId: string;
+    displayName: string;
+    monster: MonsterData;
+  }>>([]);
+  // Whether the monster picker is being used for ad-hoc initiative adds
+  const [monsterPickerForInitiative, setMonsterPickerForInitiative] = useState(false);
 
   const activeSessionId    = mode.type === 'session' ? mode.sessionId : null;
   const sessionEncounters  = activeSessionId ? getEncountersForSession(activeSessionId) : [];
@@ -387,6 +425,227 @@ export function CampaignManagementPage() {
     setMonsterSearch('');
   };
 
+  // ── Initiative Tracker handlers ──────────────────────────────────────
+  const activeEncounter = activeEncounterId
+    ? sessionEncounters.find((e) => e.id === activeEncounterId)
+    : null;
+
+  // Build the expanded monster pool for the active encounter
+  const monsterPool = activeEncounter
+    ? activeEncounter.monsterEntries.flatMap(({ monsterId, quantity }) => {
+        const monster = getMonsterById(monsterId);
+        if (!monster) return [];
+        return Array.from({ length: quantity }, (_, i) => ({
+          instanceKey: `${monsterId}-${i}`,
+          monsterId,
+          displayName: quantity > 1 ? `${monster.name} #${i + 1}` : monster.name,
+          monster,
+          index: i,
+        }));
+      })
+    : [];
+
+  // PC pool: campaign characters
+  const pcPool = activeCampaign
+    ? activeCampaign.characterIds
+        .map((id) => characters.find((c) => c.id === id))
+        .filter((c): c is NonNullable<typeof c> => !!c)
+    : [];
+
+  // addedInstanceKeys tracks which pool items have been added
+
+  // Sorted initiative list (descending by initiative, ties by insertion order)
+  const sortedInitiative = [...initiativeEntries].sort((a, b) => b.initiative - a.initiative);
+
+  const handleStartEncounter = (encounterId: string) => {
+    const enc = sessionEncounters.find((e) => e.id === encounterId);
+    setActiveEncounterId(encounterId);
+    setAddingCombatant(null);
+    setPromptInit('');
+    setPromptHp('');
+
+    if (enc?.initiativeState) {
+      // Resume from saved state
+      setInitiativeEntries(enc.initiativeState.initiativeEntries);
+      setActiveTurnIndex(enc.initiativeState.activeTurnIndex);
+      setAddedInstanceKeys(new Set(enc.initiativeState.addedInstanceKeys));
+      // Reconstruct adHocMonsters with full MonsterData from compendium
+      setAdHocMonsters(
+        enc.initiativeState.adHocMonsters
+          .map((m) => {
+            const monster = getMonsterById(m.monsterId);
+            if (!monster) return null;
+            return { ...m, monster };
+          })
+          .filter((m): m is NonNullable<typeof m> => m !== null),
+      );
+    } else {
+      // Fresh start
+      setInitiativeEntries([]);
+      setActiveTurnIndex(-1);
+      setAddedInstanceKeys(new Set());
+      setAdHocMonsters([]);
+    }
+  };
+
+  /** Close tracker UI — auto-saves current state if combatants exist, used by back arrow */
+  const handleCloseTracker = async () => {
+    // Auto-save if there are combatants in the initiative
+    if (activeEncounterId && initiativeEntries.length > 0) {
+      await handleSaveEncounterState();
+    }
+    setActiveEncounterId(null);
+    setInitiativeEntries([]);
+    setAddingCombatant(null);
+    setActiveTurnIndex(-1);
+    setAddedInstanceKeys(new Set());
+    setAdHocMonsters([]);
+  };
+
+  /** End encounter deliberately — clears saved state from DB */
+  const handleEndEncounter = async () => {
+    if (activeEncounterId) {
+      const enc = sessionEncounters.find((e) => e.id === activeEncounterId);
+      if (enc?.initiativeState) {
+        const updated = { ...enc, initiativeState: null, updatedAt: Date.now() };
+        await encounterRepository.update(updated);
+        updateEncounter(updated);
+      }
+    }
+    handleCloseTracker();
+  };
+
+  const handleBeginAdd = (combatant: typeof addingCombatant) => {
+    setAddingCombatant(combatant);
+    setPromptInit('');
+    setPromptHp(combatant ? String(combatant.defaultHp) : '');
+  };
+
+  const handleConfirmAdd = () => {
+    if (!addingCombatant) return;
+    const init = parseInt(promptInit);
+    if (isNaN(init)) return;
+    const hp = parseInt(promptHp) || addingCombatant.defaultHp;
+    const entry: InitiativeEntry = {
+      id: uuidv4(),
+      type: addingCombatant.type,
+      monsterId: addingCombatant.monsterId,
+      characterId: addingCombatant.characterId,
+      displayName: addingCombatant.displayName,
+      initiative: init,
+      hp,
+      maxHp: hp,
+      instanceKey: addingCombatant.instanceKey,
+    };
+    setInitiativeEntries((prev) => [...prev, entry]);
+    setAddedInstanceKeys((prev) => new Set([...prev, addingCombatant.instanceKey]));
+    setAddingCombatant(null);
+    setPromptInit('');
+    setPromptHp('');
+  };
+
+  const handleRemoveFromInitiative = (entryId: string, instanceKey: string) => {
+    setInitiativeEntries((prev) => prev.filter((e) => e.id !== entryId));
+    setAddedInstanceKeys((prev) => {
+      const next = new Set(prev);
+      next.delete(instanceKey);
+      return next;
+    });
+    // Reset active turn if needed
+    setActiveTurnIndex((idx) => {
+      const newList = initiativeEntries.filter((e) => e.id !== entryId);
+      if (newList.length === 0) return -1;
+      if (idx >= newList.length) return 0;
+      return idx;
+    });
+  };
+
+  const handleNextTurn = () => {
+    if (sortedInitiative.length === 0) return;
+    setActiveTurnIndex((prev) => {
+      if (prev < 0) return 0;
+      return (prev + 1) % sortedInitiative.length;
+    });
+  };
+
+  const handleAdHocMonsterPick = (monsterId: string) => {
+    const monster = getMonsterById(monsterId);
+    if (!monster) return;
+    // Find a unique instance number for this monster type among ad-hoc entries
+    const existingCount = adHocMonsters.filter((m) => m.monsterId === monsterId).length;
+    const instanceNum = existingCount + 1;
+    // Also count how many are in the planned pool
+    const plannedCount = monsterPool.filter((m) => m.monsterId === monsterId).length;
+    const totalCount = plannedCount + instanceNum;
+    const displayName = (plannedCount > 0 || instanceNum > 1)
+      ? `${monster.name} #${totalCount}`
+      : monster.name;
+    const instanceKey = `adhoc-${monsterId}-${instanceNum}`;
+
+    const entry = { instanceKey, monsterId, displayName, monster };
+    setAdHocMonsters((prev) => [...prev, entry]);
+    setShowMonsterPicker(false);
+    setMonsterSearch('');
+    setMonsterPickerForInitiative(false);
+    // Immediately open the add prompt for this monster
+    handleBeginAdd({
+      type: 'monster',
+      monsterId,
+      displayName,
+      defaultHp: monster.hp,
+      instanceKey,
+    });
+  };
+
+  // Per-combatant HP adjustment amount (keyed by entry ID)
+  const [hpAmounts, setHpAmounts] = useState<Record<string, string>>({});
+
+  const handleHpChange = (entryId: string, direction: 1 | -1) => {
+    const raw = hpAmounts[entryId];
+    const amount = raw ? parseInt(raw) : 1;
+    const delta = (isNaN(amount) ? 1 : Math.max(1, amount)) * direction;
+    setInitiativeEntries((prev) =>
+      prev.map((e) =>
+        e.id === entryId
+          ? { ...e, hp: Math.max(0, Math.min(e.maxHp, e.hp + delta)) }
+          : e,
+      ),
+    );
+    // Clear the input back to empty (defaults to 1)
+    setHpAmounts((prev) => {
+      const next = { ...prev };
+      delete next[entryId];
+      return next;
+    });
+  };
+
+  // ── Save / Resume encounter state ──────────────────────────────────
+  const [saveConfirm, setSaveConfirm] = useState(false);
+
+  const handleSaveEncounterState = async () => {
+    if (!activeEncounterId) return;
+    const enc = sessionEncounters.find((e) => e.id === activeEncounterId);
+    if (!enc) return;
+
+    const state: SavedInitiativeState = {
+      initiativeEntries,
+      activeTurnIndex,
+      addedInstanceKeys: Array.from(addedInstanceKeys),
+      adHocMonsters: adHocMonsters.map((m) => ({
+        instanceKey: m.instanceKey,
+        monsterId: m.monsterId,
+        displayName: m.displayName,
+      })),
+    };
+
+    const updated = { ...enc, initiativeState: state, updatedAt: Date.now() };
+    await encounterRepository.update(updated);
+    updateEncounter(updated);
+    // Brief visual confirmation
+    setSaveConfirm(true);
+    setTimeout(() => setSaveConfirm(false), 1500);
+  };
+
   // ── Back (mobile) ─────────────────────────────────────────────────────────
   const handleBack = () => {
     setShowEditor(false);
@@ -406,15 +665,6 @@ export function CampaignManagementPage() {
   };
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const activeCampaign =
-    mode.type === 'campaign' ? campaigns.find((c) => c.id === mode.campaignId) :
-    mode.type === 'new-session' ? campaigns.find((c) => c.id === mode.campaignId) :
-    mode.type === 'session' ? campaigns.find((c) => c.id === mode.campaignId) : undefined;
-
-  const activeSession =
-    mode.type === 'session'
-      ? getSessionsForCampaign(mode.campaignId).find((s) => s.id === mode.sessionId)
-      : undefined;
 
   const editorVisible = showEditor || (mode.type !== 'none');
 
@@ -944,8 +1194,478 @@ export function CampaignManagementPage() {
             </div>
           )}
 
+          {/* ── Initiative Tracker ─────────────────────────────────────── */}
+          {activeEncounterId && activeEncounter && (
+            <div className="flex flex-col h-full overflow-hidden">
+              {/* Header */}
+              <div className="bg-teal-900 px-4 py-3 flex items-center gap-3 flex-shrink-0">
+                <button onClick={handleCloseTracker}
+                  className="text-teal-200 hover:text-white transition-colors
+                             min-h-[44px] min-w-[44px] flex items-center justify-center -ml-1 flex-shrink-0"
+                  title="Back to session"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className="text-teal-300 text-xs font-medium truncate">Initiative Tracker</p>
+                  <h2 className="text-white font-bold text-base truncate">{activeEncounter.title}</h2>
+                </div>
+                <button
+                  onClick={handleSaveEncounterState}
+                  className={`text-xs font-bold px-4 py-1.5 rounded-lg transition-colors min-h-[36px]
+                             border-2 ${saveConfirm
+                               ? 'border-emerald-400 bg-emerald-600 text-white'
+                               : 'border-teal-400 bg-transparent hover:bg-teal-700 text-teal-100'}`}
+                >{saveConfirm ? '✓ Saved' : '💾 Save'}</button>
+                <button
+                  onClick={handleEndEncounter}
+                  className="text-xs font-bold px-4 py-1.5 rounded-lg transition-colors min-h-[36px]
+                             bg-teal-700 hover:bg-teal-600 text-white"
+                >End Encounter</button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto">
+                <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+
+                  {/* ── Initiative Table ──────────────────────────────── */}
+                  <section>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className={labelCls}>Initiative Order</label>
+                      {sortedInitiative.length > 0 && (
+                        <button
+                          onClick={handleNextTurn}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg
+                                     bg-teal-700 hover:bg-teal-600 text-white transition-colors min-h-[32px]"
+                        >Next Turn →</button>
+                      )}
+                    </div>
+
+                    {sortedInitiative.length === 0 ? (
+                      <div className="border-2 border-dashed border-stone-200 rounded-xl py-8 text-center">
+                        <p className="text-stone-400 text-sm">
+                          No combatants yet — add monsters and PCs from the pool below.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {sortedInitiative.map((entry, idx) => {
+                          const isActive = idx === activeTurnIndex;
+                          const hpPct = entry.maxHp > 0 ? Math.round((entry.hp / entry.maxHp) * 100) : 0;
+                          const hpColor = hpPct > 50 ? 'text-emerald-700' : hpPct > 25 ? 'text-amber-700' : 'text-red-700';
+                          const monster = entry.type === 'monster' && entry.monsterId ? getMonsterById(entry.monsterId) : null;
+                          const pc = entry.type === 'pc' && entry.characterId ? characters.find((c) => c.id === entry.characterId) : null;
+                          const cls = pc ? getClassById(pc.classId) : null;
+
+                          return (
+                            <div key={entry.id}
+                              className={[
+                                'flex items-center gap-2 p-2.5 rounded-xl border transition-colors',
+                                isActive
+                                  ? 'bg-teal-50 border-teal-400 ring-2 ring-teal-200'
+                                  : 'bg-white border-stone-200',
+                                entry.hp <= 0 ? 'opacity-50' : '',
+                              ].join(' ')}
+                            >
+                              {/* Initiative number */}
+                              <span className="flex-shrink-0 w-8 h-8 rounded-lg bg-teal-100 text-teal-800
+                                               font-bold text-sm flex items-center justify-center">
+                                {entry.initiative}
+                              </span>
+
+                              {/* Avatar / role badge */}
+                              {entry.type === 'monster' && monster ? (
+                                <span className={[
+                                  'flex-shrink-0 px-1.5 py-0.5 rounded-full text-xs font-bold',
+                                  monsterRoleCls(monster.role),
+                                ].join(' ')}>
+                                  {monster.roleModifier ? monster.roleModifier[0] : monster.role[0]}
+                                </span>
+                              ) : (
+                                charAvatar(pc?.portrait, cls?.role)
+                              )}
+
+                              {/* Name */}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-stone-800 truncate">
+                                  {entry.displayName}
+                                  {isActive && <span className="ml-1.5 text-teal-600 text-xs font-bold">← TURN</span>}
+                                </p>
+                                {entry.hp <= 0 && (
+                                  <p className="text-xs text-red-500 font-medium">Unconscious / Defeated</p>
+                                )}
+                              </div>
+
+                              {/* HP controls */}
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <button
+                                  onClick={() => handleHpChange(entry.id, -1)}
+                                  className="w-8 h-8 rounded-md bg-red-100 hover:bg-red-200
+                                             text-red-700 text-sm font-bold transition-colors min-h-[32px]"
+                                >−</button>
+                                <span className={`text-xs font-bold tabular-nums min-w-[3.5rem] text-center ${hpColor}`}>
+                                  {entry.hp}/{entry.maxHp}
+                                </span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={hpAmounts[entry.id] ?? ''}
+                                  onChange={(e) => setHpAmounts((prev) => ({ ...prev, [entry.id]: e.target.value }))}
+                                  placeholder="1"
+                                  className="w-12 h-8 rounded-md border border-stone-300 text-center text-xs font-semibold
+                                             text-stone-700 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-200
+                                             placeholder:text-stone-300 [appearance:textfield]
+                                             [&::-webkit-inner-spin-button]:appearance-none
+                                             [&::-webkit-outer-spin-button]:appearance-none"
+                                />
+                                <button
+                                  onClick={() => handleHpChange(entry.id, 1)}
+                                  className="w-8 h-8 rounded-md bg-emerald-100 hover:bg-emerald-200
+                                             text-emerald-700 text-sm font-bold transition-colors min-h-[32px]"
+                                >+</button>
+                              </div>
+
+                              {/* Remove */}
+                              <button
+                                onClick={() => handleRemoveFromInitiative(entry.id, entry.instanceKey)}
+                                className="text-stone-300 hover:text-red-400 text-lg leading-none
+                                           flex-shrink-0 transition-colors w-7 h-7 flex items-center justify-center"
+                                title="Remove from initiative"
+                              >×</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+
+                  {/* ── Combatant Pool: Monsters ─────────────────────── */}
+                  <section>
+                    <label className={labelCls}>Monsters</label>
+                    <p className="text-xs text-stone-400 mb-2">Click "Add" to enter initiative and HP, then add to the table.</p>
+                    {monsterPool.length === 0 ? (
+                      <p className="text-sm text-stone-400 italic text-center py-4
+                                    bg-stone-50 rounded-xl border border-stone-200">
+                        No monsters in this encounter.
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {monsterPool.map((mp) => {
+                          const isAdded = addedInstanceKeys.has(mp.instanceKey);
+                          const isPrompting = addingCombatant?.instanceKey === mp.instanceKey;
+
+                          return (
+                            <div key={mp.instanceKey}>
+                              <div className={[
+                                'flex items-center gap-2 p-2.5 rounded-xl border transition-colors',
+                                isAdded ? 'bg-stone-50 border-stone-100 opacity-50' : 'bg-white border-stone-200',
+                              ].join(' ')}>
+                                <span className={[
+                                  'flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-bold',
+                                  monsterRoleCls(mp.monster.role),
+                                ].join(' ')}>
+                                  {mp.monster.roleModifier
+                                    ? `${mp.monster.roleModifier[0]}`
+                                    : mp.monster.role[0]}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-semibold text-stone-800 truncate">{mp.displayName}</p>
+                                  <p className="text-xs text-stone-400">
+                                    Lv {mp.monster.level} · {mp.monster.hp} HP · {mp.monster.xp} XP
+                                  </p>
+                                </div>
+                                {!isAdded && !isPrompting && (
+                                  <button
+                                    onClick={() => handleBeginAdd({
+                                      type: 'monster',
+                                      monsterId: mp.monsterId,
+                                      displayName: mp.displayName,
+                                      defaultHp: mp.monster.hp,
+                                      instanceKey: mp.instanceKey,
+                                    })}
+                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg
+                                               bg-teal-700 hover:bg-teal-600 text-white transition-colors
+                                               flex-shrink-0 min-h-[32px]"
+                                  >Add</button>
+                                )}
+                                {isAdded && (
+                                  <span className="text-xs text-stone-400 font-medium flex-shrink-0">Added</span>
+                                )}
+                              </div>
+
+                              {/* Inline add prompt */}
+                              {isPrompting && (
+                                <div className="ml-4 mt-1.5 p-3 bg-teal-50 border border-teal-200 rounded-xl
+                                                flex items-center gap-3 flex-wrap">
+                                  <div className="flex items-center gap-1.5">
+                                    <label className="text-xs font-bold text-teal-800">Init:</label>
+                                    <input
+                                      type="number"
+                                      value={promptInit}
+                                      onChange={(e) => setPromptInit(e.target.value)}
+                                      className="w-16 border border-teal-300 rounded-lg px-2 py-1.5 text-sm
+                                                 text-center font-bold outline-none focus:border-teal-500
+                                                 focus:ring-2 focus:ring-teal-200"
+                                      placeholder="#"
+                                      autoFocus
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <label className="text-xs font-bold text-teal-800">HP:</label>
+                                    <input
+                                      type="number"
+                                      value={promptHp}
+                                      onChange={(e) => setPromptHp(e.target.value)}
+                                      className="w-20 border border-teal-300 rounded-lg px-2 py-1.5 text-sm
+                                                 text-center font-bold outline-none focus:border-teal-500
+                                                 focus:ring-2 focus:ring-teal-200"
+                                    />
+                                  </div>
+                                  <button
+                                    onClick={handleConfirmAdd}
+                                    disabled={promptInit === ''}
+                                    className={[
+                                      'text-xs font-bold px-3 py-1.5 rounded-lg transition-colors min-h-[32px]',
+                                      promptInit !== ''
+                                        ? 'bg-teal-700 hover:bg-teal-600 text-white'
+                                        : 'bg-teal-200 text-teal-400 cursor-not-allowed',
+                                    ].join(' ')}
+                                  >Confirm</button>
+                                  <button
+                                    onClick={() => setAddingCombatant(null)}
+                                    className="text-xs text-stone-500 hover:text-stone-700 font-medium
+                                               transition-colors"
+                                  >Cancel</button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Ad-hoc monsters (added from compendium during combat) */}
+                    {adHocMonsters.length > 0 && (
+                      <div className="space-y-1.5 mt-2">
+                        <p className="text-xs text-stone-400 font-medium uppercase tracking-wider">Ad-hoc Additions</p>
+                        {adHocMonsters.map((am) => {
+                          const isAdded = addedInstanceKeys.has(am.instanceKey);
+                          const isPrompting = addingCombatant?.instanceKey === am.instanceKey;
+
+                          return (
+                            <div key={am.instanceKey}>
+                              <div className={[
+                                'flex items-center gap-2 p-2.5 rounded-xl border transition-colors',
+                                isAdded ? 'bg-stone-50 border-stone-100 opacity-50' : 'bg-white border-stone-200',
+                              ].join(' ')}>
+                                <span className={[
+                                  'flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-bold',
+                                  monsterRoleCls(am.monster.role),
+                                ].join(' ')}>
+                                  {am.monster.roleModifier
+                                    ? am.monster.roleModifier[0]
+                                    : am.monster.role[0]}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-semibold text-stone-800 truncate">{am.displayName}</p>
+                                  <p className="text-xs text-stone-400">
+                                    Lv {am.monster.level} · {am.monster.hp} HP · {am.monster.xp} XP
+                                  </p>
+                                </div>
+                                {!isAdded && !isPrompting && (
+                                  <button
+                                    onClick={() => handleBeginAdd({
+                                      type: 'monster',
+                                      monsterId: am.monsterId,
+                                      displayName: am.displayName,
+                                      defaultHp: am.monster.hp,
+                                      instanceKey: am.instanceKey,
+                                    })}
+                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg
+                                               bg-teal-700 hover:bg-teal-600 text-white transition-colors
+                                               flex-shrink-0 min-h-[32px]"
+                                  >Add</button>
+                                )}
+                                {isAdded && (
+                                  <span className="text-xs text-stone-400 font-medium flex-shrink-0">Added</span>
+                                )}
+                              </div>
+
+                              {/* Inline add prompt */}
+                              {isPrompting && (
+                                <div className="ml-4 mt-1.5 p-3 bg-teal-50 border border-teal-200 rounded-xl
+                                                flex items-center gap-3 flex-wrap">
+                                  <div className="flex items-center gap-1.5">
+                                    <label className="text-xs font-bold text-teal-800">Init:</label>
+                                    <input
+                                      type="number"
+                                      value={promptInit}
+                                      onChange={(e) => setPromptInit(e.target.value)}
+                                      className="w-16 border border-teal-300 rounded-lg px-2 py-1.5 text-sm
+                                                 text-center font-bold outline-none focus:border-teal-500
+                                                 focus:ring-2 focus:ring-teal-200"
+                                      placeholder="#"
+                                      autoFocus
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <label className="text-xs font-bold text-teal-800">HP:</label>
+                                    <input
+                                      type="number"
+                                      value={promptHp}
+                                      onChange={(e) => setPromptHp(e.target.value)}
+                                      className="w-20 border border-teal-300 rounded-lg px-2 py-1.5 text-sm
+                                                 text-center font-bold outline-none focus:border-teal-500
+                                                 focus:ring-2 focus:ring-teal-200"
+                                    />
+                                  </div>
+                                  <button
+                                    onClick={handleConfirmAdd}
+                                    disabled={promptInit === ''}
+                                    className={[
+                                      'text-xs font-bold px-3 py-1.5 rounded-lg transition-colors min-h-[32px]',
+                                      promptInit !== ''
+                                        ? 'bg-teal-700 hover:bg-teal-600 text-white'
+                                        : 'bg-teal-200 text-teal-400 cursor-not-allowed',
+                                    ].join(' ')}
+                                  >Confirm</button>
+                                  <button
+                                    onClick={() => setAddingCombatant(null)}
+                                    className="text-xs text-stone-500 hover:text-stone-700 font-medium
+                                               transition-colors"
+                                  >Cancel</button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Add monster from compendium button */}
+                    <button
+                      onClick={() => {
+                        setMonsterPickerForInitiative(true);
+                        setMonsterSearch('');
+                        setShowMonsterPicker(true);
+                      }}
+                      className="w-full mt-2 text-xs font-semibold text-teal-700 border border-teal-200
+                                 border-dashed rounded-lg py-2 hover:bg-teal-50 transition-colors"
+                    >
+                      ＋ Add Monster from Compendium
+                    </button>
+                  </section>
+
+                  {/* ── Combatant Pool: Player Characters ────────────── */}
+                  <section>
+                    <label className={labelCls}>Player Characters</label>
+                    {pcPool.length === 0 ? (
+                      <p className="text-sm text-stone-400 italic text-center py-4
+                                    bg-stone-50 rounded-xl border border-stone-200">
+                        No characters in this campaign.
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {pcPool.map((char) => {
+                          const race = getRaceById(char.raceId);
+                          const cls  = getClassById(char.classId);
+                          const instanceKey = `pc-${char.id}`;
+                          const isAdded = addedInstanceKeys.has(instanceKey);
+                          const isPrompting = addingCombatant?.instanceKey === instanceKey;
+
+                          return (
+                            <div key={char.id}>
+                              <div className={[
+                                'flex items-center gap-3 p-2.5 rounded-xl border transition-colors',
+                                isAdded ? 'bg-stone-50 border-stone-100 opacity-50' : 'bg-white border-stone-200',
+                              ].join(' ')}>
+                                {charAvatar(char.portrait, cls?.role)}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-semibold text-stone-800 truncate">{char.name}</p>
+                                  <p className="text-xs text-stone-400">
+                                    Lv {char.level} · {race?.name} {cls?.name} · HP: {char.currentHp}
+                                  </p>
+                                </div>
+                                {!isAdded && !isPrompting && (
+                                  <button
+                                    onClick={() => handleBeginAdd({
+                                      type: 'pc',
+                                      characterId: char.id,
+                                      displayName: char.name,
+                                      defaultHp: char.currentHp,
+                                      instanceKey,
+                                    })}
+                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg
+                                               bg-teal-700 hover:bg-teal-600 text-white transition-colors
+                                               flex-shrink-0 min-h-[32px]"
+                                  >Add</button>
+                                )}
+                                {isAdded && (
+                                  <span className="text-xs text-stone-400 font-medium flex-shrink-0">Added</span>
+                                )}
+                              </div>
+
+                              {/* Inline add prompt */}
+                              {isPrompting && (
+                                <div className="ml-4 mt-1.5 p-3 bg-teal-50 border border-teal-200 rounded-xl
+                                                flex items-center gap-3 flex-wrap">
+                                  <div className="flex items-center gap-1.5">
+                                    <label className="text-xs font-bold text-teal-800">Init:</label>
+                                    <input
+                                      type="number"
+                                      value={promptInit}
+                                      onChange={(e) => setPromptInit(e.target.value)}
+                                      className="w-16 border border-teal-300 rounded-lg px-2 py-1.5 text-sm
+                                                 text-center font-bold outline-none focus:border-teal-500
+                                                 focus:ring-2 focus:ring-teal-200"
+                                      placeholder="#"
+                                      autoFocus
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <label className="text-xs font-bold text-teal-800">HP:</label>
+                                    <input
+                                      type="number"
+                                      value={promptHp}
+                                      onChange={(e) => setPromptHp(e.target.value)}
+                                      className="w-20 border border-teal-300 rounded-lg px-2 py-1.5 text-sm
+                                                 text-center font-bold outline-none focus:border-teal-500
+                                                 focus:ring-2 focus:ring-teal-200"
+                                    />
+                                  </div>
+                                  <button
+                                    onClick={handleConfirmAdd}
+                                    disabled={promptInit === ''}
+                                    className={[
+                                      'text-xs font-bold px-3 py-1.5 rounded-lg transition-colors min-h-[32px]',
+                                      promptInit !== ''
+                                        ? 'bg-teal-700 hover:bg-teal-600 text-white'
+                                        : 'bg-teal-200 text-teal-400 cursor-not-allowed',
+                                    ].join(' ')}
+                                  >Confirm</button>
+                                  <button
+                                    onClick={() => setAddingCombatant(null)}
+                                    className="text-xs text-stone-500 hover:text-stone-700 font-medium
+                                               transition-colors"
+                                  >Cancel</button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+
+                  <div className="h-6" />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ── Session editor ───────────────────────────────────────────── */}
-          {(mode.type === 'session' || mode.type === 'new-session') && (
+          {!activeEncounterId && (mode.type === 'session' || mode.type === 'new-session') && (
             <div className="flex flex-col h-full overflow-hidden">
               {/* Header */}
               <div className="bg-amber-900 px-4 py-3 flex items-center gap-3 flex-shrink-0">
@@ -1118,6 +1838,21 @@ export function CampaignManagementPage() {
                                            focus:rounded-lg focus:px-2 focus:py-0.5 transition-all"
                                 placeholder="Encounter title"
                               />
+                              {enc.initiativeState && (
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-full
+                                                 bg-teal-100 text-teal-700 flex-shrink-0">
+                                  ⚔️ In Progress
+                                </span>
+                              )}
+                              <button
+                                onClick={() => handleStartEncounter(enc.id)}
+                                className="text-xs font-semibold px-2.5 py-1 rounded-lg
+                                           bg-teal-700 hover:bg-teal-600 text-white transition-colors
+                                           flex-shrink-0 min-h-[28px]"
+                                title={enc.initiativeState
+                                  ? "Resume encounter — restore initiative tracker"
+                                  : "Start encounter — open initiative tracker"}
+                              >{enc.initiativeState ? 'Resume' : 'Start'}</button>
                               <button
                                 onClick={() => handleDeleteEncounter(enc.id)}
                                 className="text-stone-400 hover:text-red-500 transition-colors
@@ -1318,14 +2053,14 @@ export function CampaignManagementPage() {
         return (
           <div
             className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-3 pb-3 sm:pb-0"
-            onClick={(e) => { if (e.target === e.currentTarget) setShowMonsterPicker(false); }}
+            onClick={(e) => { if (e.target === e.currentTarget) { setShowMonsterPicker(false); setMonsterPickerForInitiative(false); } }}
           >
             <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
               {/* Header */}
-              <div className="bg-amber-900 px-4 py-3 flex items-center justify-between flex-shrink-0">
-                <h3 className="text-white font-bold">Add Monster to Encounter</h3>
+              <div className={`${monsterPickerForInitiative ? 'bg-teal-900' : 'bg-amber-900'} px-4 py-3 flex items-center justify-between flex-shrink-0`}>
+                <h3 className="text-white font-bold">{monsterPickerForInitiative ? 'Add Monster to Initiative' : 'Add Monster to Encounter'}</h3>
                 <button
-                  onClick={() => setShowMonsterPicker(false)}
+                  onClick={() => { setShowMonsterPicker(false); setMonsterPickerForInitiative(false); }}
                   className="text-amber-200 hover:text-white text-2xl leading-none w-9 h-9
                              flex items-center justify-center"
                 >×</button>
@@ -1352,7 +2087,7 @@ export function CampaignManagementPage() {
                   results.map((m) => (
                     <button
                       key={m.id}
-                      onClick={() => handlePickMonster(m.id)}
+                      onClick={() => monsterPickerForInitiative ? handleAdHocMonsterPick(m.id) : handlePickMonster(m.id)}
                       className="w-full flex items-center gap-2 p-2.5 bg-stone-50 rounded-xl
                                  border border-stone-200 hover:border-amber-300 hover:bg-amber-50
                                  transition-colors text-left"

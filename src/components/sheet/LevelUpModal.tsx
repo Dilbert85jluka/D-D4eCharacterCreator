@@ -49,8 +49,8 @@ function getPowerGains(
   if ([1, 3, 7, 13, 17, 23, 27].includes(newLevel) && (cls?.encounterPowerCount ?? 1) > 0)
     gains.push(makeAttackGain('encounter', `Level ${newLevel} Encounter Power`));
 
-  // Psion gains a new at-will attack power at level 3 (instead of encounter power)
-  if (newLevel === 3 && classId === 'psion') {
+  // Psionic augmenters (Ardent, Battlemind, Psion) gain a new at-will at level 3 (instead of encounter power)
+  if (newLevel === 3 && isPsionicClass(classId)) {
     gains.push({
       usage: 'at-will',
       level: newLevel,
@@ -127,18 +127,6 @@ export function LevelUpModal({ character, derived, onClose }: Props) {
   const selectedIds         = character.selectedPowers.map((p) => p.powerId);
   const powerGains          = getPowerGains(character.classId, newLevel, selectedIds, character.spellbookPowerIds ?? []);
 
-  // Psion at-will swap at encounter-power levels (7, 13, 17, 23, 27)
-  const psionSwapLevel = psionic && character.classId === 'psion' && [7, 13, 17, 23, 27].includes(newLevel);
-  const currentPsionAtWills = psionSwapLevel
-    ? character.selectedPowers
-        .map((sp) => getPowerById(sp.powerId))
-        .filter((p): p is PowerData => !!p && p.classId === 'psion' && p.usage === 'at-will' && p.powerType !== 'utility')
-    : [];
-  const psionSwapOptions = psionSwapLevel
-    ? getPowersByClassUpToLevel('psion', newLevel, 'at-will')
-        .filter((p) => p.powerType !== 'utility' && p.level > 0 && !selectedIds.includes(p.id) && p.id !== psionSwapOldId)
-    : [];
-
   // Power picks: for each gain label → array of selected powerIds (max 1 normally, max 2 for wizard daily/utility)
   const [allPicks, setAllPicks] = useState<Record<string, string[]>>({});
   // Wizard ritual mastery picks (up to 2 ritual IDs)
@@ -150,9 +138,21 @@ export function LevelUpModal({ character, derived, onClose }: Props) {
   const [selectedPathId, setSelectedPathId] = useState(character.paragonPath ?? '');
   // Ability score boosts: ability → number of +1s allocated (0–2, total ≤ ABILITY_BOOST_COUNT)
   const [abilityBoosts, setAbilityBoosts]   = useState<Partial<Record<Ability, number>>>({});
-  // Psion at-will swap (levels 7, 13, 17, 23, 27)
+  // Psionic at-will swap (levels 7, 13, 17, 23, 27)
   const [psionSwapOldId, setPsionSwapOldId] = useState('');
   const [psionSwapNewId, setPsionSwapNewId] = useState('');
+
+  // Psionic at-will swap at encounter-power levels (7, 13, 17, 23, 27)
+  const psionSwapLevel = psionic && [7, 13, 17, 23, 27].includes(newLevel);
+  const currentPsionAtWills = psionSwapLevel
+    ? character.selectedPowers
+        .map((sp) => getPowerById(sp.powerId))
+        .filter((p): p is PowerData => !!p && p.classId === character.classId && p.usage === 'at-will' && p.powerType !== 'utility')
+    : [];
+  const psionSwapOptions = psionSwapLevel
+    ? getPowersByClassUpToLevel(character.classId, newLevel, 'at-will')
+        .filter((p) => p.powerType !== 'utility' && p.level > 0 && !selectedIds.includes(p.id) && p.id !== psionSwapOldId)
+    : [];
 
   const togglePick = (gainLabel: string, powerId: string, maxPicks: number) =>
     setAllPicks((prev) => {

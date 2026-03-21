@@ -220,6 +220,8 @@ export interface Character {
   usedDailyPowers: string[];
   /** Psionic: current power points remaining. Undefined = full pool (defaults to max). */
   currentPowerPoints?: number;
+  /** Quick Access Powers tray — up to 9 power IDs pinned for fast combat reference */
+  quickTrayPowerIds?: string[];
 
   // Notes
   notes: string;

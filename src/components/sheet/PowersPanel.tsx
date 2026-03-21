@@ -28,8 +28,8 @@ function maxPowersForLevel(
   if (baseCount === 0) return 0;
   switch (usage) {
     case 'at-will':
-      // Psion gains a 3rd at-will at level 3 (psionic at-will progression)
-      if (classId === 'psion' && level >= 3) return baseCount + 1;
+      // Psionic augmenters (Ardent, Battlemind, Psion) gain a 3rd at-will at level 3
+      if (classId && isPsionicClass(classId) && level >= 3) return baseCount + 1;
       return baseCount;
     case 'encounter':
       if (level >= 27) return 7;
@@ -290,6 +290,12 @@ export function PowersPanel({ character }: Props) {
     setMcPickerSlot(null);
   };
 
+  const addToQuickTray = (powerId: string) => {
+    const tray = character.quickTrayPowerIds ?? [];
+    if (tray.length >= 9 || tray.includes(powerId)) return;
+    patch({ quickTrayPowerIds: [...tray, powerId] });
+  };
+
   const removePower = (powerId: string) => {
     patch({
       selectedPowers: character.selectedPowers.filter((p) => p.powerId !== powerId),
@@ -441,11 +447,25 @@ export function PowersPanel({ character }: Props) {
           <span className={`text-[10px] font-bold ${badgeColor} text-white px-1.5 py-0.5 rounded`}>
             {slotLabel}
           </span>
-          <button
-            onClick={() => removePower(sp.powerId)}
-            className="w-6 h-6 flex items-center justify-center rounded-full bg-stone-100 text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm leading-none border border-stone-200"
-            title="Remove power"
-          >×</button>
+          <div className="flex items-center gap-1">
+            {(character.quickTrayPowerIds ?? []).includes(sp.powerId) ? (
+              <span
+                className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300"
+                title="In quick tray"
+              >✓</span>
+            ) : (character.quickTrayPowerIds ?? []).length < 9 && (
+              <button
+                onClick={() => addToQuickTray(sp.powerId)}
+                className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200"
+                title="Pin to quick tray"
+              >⚡</button>
+            )}
+            <button
+              onClick={() => removePower(sp.powerId)}
+              className="w-6 h-6 flex items-center justify-center rounded-full bg-stone-100 text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm leading-none border border-stone-200"
+              title="Remove power"
+            >×</button>
+          </div>
         </div>
         <PowerCard
           power={power}

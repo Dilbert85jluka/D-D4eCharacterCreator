@@ -22,4 +22,33 @@ export interface SessionEncounter {
   title: string;
   description: string;
   monsterEntries: EncounterMonsterEntry[];
+  /** Saved initiative tracker state — resume mid-combat */
+  initiativeState?: SavedInitiativeState | null;
+}
+
+export interface SavedAdHocMonster {
+  instanceKey: string;
+  monsterId: string;
+  displayName: string;
+}
+
+export interface SavedInitiativeState {
+  initiativeEntries: InitiativeEntry[];
+  activeTurnIndex: number;
+  addedInstanceKeys: string[];          // Set<string> serialized as array
+  adHocMonsters: SavedAdHocMonster[];   // without full MonsterData (reconstructed on load)
+}
+
+/** Local UI state for initiative tracking — NOT persisted to DB */
+export interface InitiativeEntry {
+  id: string;
+  type: 'monster' | 'pc';
+  monsterId?: string;
+  characterId?: string;
+  displayName: string;
+  initiative: number;
+  hp: number;
+  maxHp: number;
+  /** Pool instance key for tracking which pool row this came from */
+  instanceKey: string;
 }

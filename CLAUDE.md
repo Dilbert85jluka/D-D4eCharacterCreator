@@ -178,6 +178,7 @@ interface Character {
   currentSurges: number;
   usedEncounterPowers: string[];   // Array of powerIds
   usedDailyPowers: string[];
+  quickTrayPowerIds?: string[];    // Up to 9 pinned power IDs for quick access tray
   // Wizard spellbook (wizard only)
   hasSpellbook?: boolean;
   spellbooks?: WizardSpellbook[];              // Canonical multi-book structure (new)
@@ -414,7 +415,7 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 
 | Main Tab | Sub-tabs |
 |---|---|
-| Actions | Combat · Available Actions · Proficiencies |
+| Actions | Available Actions · Actions Descriptions · Proficiencies |
 | Powers | Powers · Channel Divinity\* · Discipline Powers\*\*\*\*\* · Implement Mastery\*\* · Eldritch Pact\*\*\* · Feats |
 | Class Features | (no sub-tabs) |
 | Paragon | (no sub-tabs) |
@@ -425,7 +426,7 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 \*\* Implement Mastery: wizard only
 \*\*\* Eldritch Pact: warlock only
 \*\*\*\* Spellbooks: wizard only (and any class that purchased a spellbook)
-\*\*\*\*\* Discipline Powers: psion only
+\*\*\*\*\* Discipline Powers: psion + ardent + battlemind
 
 ### Panel Files
 
@@ -437,12 +438,13 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 | DefensesBlock.tsx | AC, Fort, Ref, Will in 2×2 grid |
 | HitPointsBlock.tsx | HP/bloodied/surge tracker with rest buttons; Power Points row for psionic classes |
 | SkillsPanel.tsx | All 17 skills with trained/untrained indicators |
-| CombatActionsPanel.tsx | Weapon attack cards from equipped weapons (Actions → Combat) |
-| AvailableActionsPanel.tsx | PHB p.289 "Actions in Combat" reference table — 7 category tabs: Standard, Move, Minor, Free, Immediate Interrupts, Immediate Reactions, Opportunity (Actions → Available Actions) |
+| CombatActionsPanel.tsx | Weapon attack cards from equipped weapons (Actions → Available Actions, top section) |
+| ActionsByTypePanel.tsx | Read-only power cards grouped by action type with 5 sub-tabs: Standard, Minor, Move, Immediate (interrupt + reaction), Free. Powers collected from selectedPowers + level 0 class powers + dilettante. Encounter/daily powers toggleable (used/available) with circle button, synced to DB. No remove button. (Actions → Available Actions, below weapon cards) |
+| AvailableActionsPanel.tsx | PHB p.289 "Actions in Combat" reference table — 7 category tabs: Standard, Move, Minor, Free, Immediate Interrupts, Immediate Reactions, Opportunity (Actions → Actions Descriptions) |
 | ProficienciesPanel.tsx | Shows all proficiencies (armor, weapons, shields, implements) sourced from class + feats + MC feat choices (Actions → Proficiencies) |
 | PowersPanel.tsx | At-will / Encounter / Daily tabs with picker modal. Utility powers appear within encounter/daily tabs. Auto-shows wizard cantrip and warlock pact boon (no remove button). |
 | ChannelDivinityPanel.tsx | Channel Divinity powers for cleric/paladin; Encounter/At-Will sub-tabs |
-| DisciplinePowersPanel.tsx | Psion discipline powers (telekinesis/telepathy); 2 encounter powers per discipline; individually tracked |
+| DisciplinePowersPanel.tsx | Psion discipline powers + Ardent mantle powers + Battlemind psionic study/defense powers; encounter powers per discipline/mantle/study; Battlemind also shows 3 Psionic Defense at-will powers (teal-themed, no Use button); individually tracked; dynamic labels ("Discipline Powers" for psion, "Ardent Powers" for ardent, "Battlemind Powers" for battlemind) |
 | ArcaneImplementMasteryPanel.tsx | Shows all 3 implement options; chosen one highlighted; full encounter power text |
 | EldritchPactPanel.tsx | Shows all 3 pact options; chosen one highlighted amber; pact lore + boon trigger/effect |
 | ClassFeaturesPanel.tsx | All class features for chosen class; enhanced detail for wizard implement + warlock pact choices |
@@ -453,6 +455,7 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 | RitualsPanel.tsx | Ritual scroll shop + ritual book; BuyScrollModal; AddToBookModal; skill check table display |
 | SpellbookPanel.tsx | Wizard multi-spellbook UI (Inventory → Spellbooks tab). Per-book cards with page bar, rename, delete. Prepare/unprepare daily and utility powers. Mastered ritual management. Buy additional books (50 gp). Auto-migrates legacy flat data to `spellbooks[]` on first open. |
 | NotesPanel.tsx | Notes textarea + Profile (appearance/languages/background). **No Features sub-tab** — class features are in ClassFeaturesPanel. |
+| QuickTrayPanel.tsx | Quick Access Powers tray — 3×3 grid of pinned PowerCards below the 3-column layout. Up to 9 powers; remove button per card; encounter/daily toggle synced to DB; psionic augment support. `quickTrayPowerIds: string[]` on Character. ⚡ pin button in PowersPanel and ActionsByTypePanel. |
 | LevelUpModal.tsx | Level-up flow: power gain picker + feat (only on FEAT_LEVELS) + paragon path (L11) + ability scores |
 
 ---
@@ -590,10 +593,11 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Descriptive pickers in Step 3 for both pact and implement — show lore text + granted power card before advancing
 - [x] canProceed validation in CreationWizard: wizard requires arcaneImplement, warlock requires warlockPact before Step 4
 - [x] Class Features tab: new top-level tab between Powers and Paragon showing all features for chosen class with enhanced detail for wizard/warlock choices
-- [x] Available Actions tab: PHB p.289 reference table under Actions → Available Actions; 7 category tabs (Standard, Move, Minor, Free, Immediate Interrupts, Immediate Reactions, Opportunity)
+- [x] Actions Descriptions tab: PHB p.289 reference table under Actions → Actions Descriptions; 7 category tabs (Standard, Move, Minor, Free, Immediate Interrupts, Immediate Reactions, Opportunity)
 - [x] Feats expanded to 161 PHB1 feats (95 Heroic, 49 Paragon, 17 Epic) with accurate benefit text from iws.mx
 - [x] Removed redundant Features sub-tab from NotesPanel (class features now live in ClassFeaturesPanel)
-- [x] Tab label swap: top-level "Combat" tab renamed "Actions"; sub-tab "Actions" renamed "Combat"
+- [x] Tab label swap: top-level "Combat" tab renamed "Actions"; sub-tabs renamed: "Combat" → "Available Actions", "Available Actions" → "Actions Descriptions"
+- [x] Available Actions tab (Actions → Available Actions): CombatActionsPanel (weapon attack cards) at top + ActionsByTypePanel below with 5 action-type sub-tabs (Standard, Minor, Move, Immediate, Free). Shows all character powers as read-only PowerCards grouped by `actionType`. Encounter/daily powers have circle toggle for used/available state (synced to DB, restored on rest). No remove button — power management stays in Powers tab. Collects powers from `selectedPowers`, level 0 class powers (cantrips, pact boons, CD/class features), and dilettante.
 - [x] Feat bonuses integrated into derived stats: Great Fortitude (+2/+3/+4 Fortitude), Iron Will (+2/+3/+4 Will), Lightning Reflexes (+2/+3/+4 Reflex), Improved Initiative (+4 initiative), Toughness (+5/+10/+15 HP), Durable (+2 surges/day), Alertness (+2 Perception), Human Perseverance (+1 saves), Fleet-Footed (+1 speed), Armor Specialization feats (+1 AC when wearing matching armor). "Feats" row shown in defense breakdowns when non-zero.
 - [x] Channel Divinity panel fixed: CD powers identified by `keywords.includes('Channel Divinity')` (not `powerType`); Healing Word and other non-CD level 0 class feature encounter powers tracked individually alongside CD powers
 - [x] Wizard multi-spellbook system: `WizardSpellbook` type + `spellbooks[]` on Character; 128-page limit per book (pages = power/ritual level); 1 free book at creation; additional books 50 gp; rename/delete books; auto-migration from legacy flat fields; backward compat preserved
@@ -625,9 +629,10 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] AbilityBlock hover breakdown: hover over any ability score on character sheet to see expandable breakdown panel (Base Score, Racial, Subrace, Racial Choice) matching DefensesBlock pattern; `AbilityBreakdownRow` type + `abilityBreakdowns` field added to `DerivedStats` and computed in `useCharacterDerived.ts`
 - [x] AbilityBlock click-to-roll: click any ability score on character sheet to roll d20 + ability modifier with result card (d20 chip, mod chip, total, Nat 20/Nat 1 badges), matching SkillsPanel pattern; plays `playDiceRollSound(1)`
 - [x] Psionic augmentation system: Power point tracking + augment selector for Ardent, Battlemind, Psion. `currentPowerPoints` and `augmentSelections` on Character; violet-themed PP row in HitPointsBlock with +/− buttons; augment selector bar on psionic at-will PowerCards (Base / +1 PP / +2 PP buttons) with structured augment descriptions; PP spend/refund managed in PowersPanel `selectAugment` handler; PP restored on short/extended rest (SheetHeader); PP initialized at creation (useWizardStore). Utility functions in `src/utils/psionics.ts`: `isPsionicClass`, `getMaxPowerPoints`, `parseAugments`, `getNonAugmentSpecialText`.
-- [x] Psion at-will power progression: At level 3, Psion gains a new at-will attack power (increasing total from 2 to 3) via LevelUpModal teal-themed picker. At levels 7/13/17/23/27, Psion can optionally replace one existing at-will with another (up to current level) via dropdown swap UI. `maxPowersForLevel` in PowersPanel returns 3 for Psion at level 3+. Psion at-will data exists at levels 1/3/7/13/17/23/27 in `psionPowers.ts`.
-- [x] Psion Discipline Powers panel: sub-tab under Powers for Psion showing 2 discipline-specific encounter powers (telekinesis: Far Hand + Forceful Push; telepathy: Distract + Send Thoughts); individually tracked in `usedEncounterPowers`; indigo-themed; `DisciplinePowersPanel.tsx` with `DISCIPLINE_CLASSES` and `DISCIPLINE_POWER_MAP` exports
+- [x] Psionic at-will power progression: All psionic classes (Ardent, Battlemind, Psion) gain a 3rd at-will attack power at level 3 via LevelUpModal teal-themed picker. At levels 7/13/17/23/27, psionic classes can optionally replace one existing at-will with another (up to current level) via dropdown swap UI. `maxPowersForLevel` in PowersPanel returns `baseCount + 1` for psionic classes at level 3+. Uses `isPsionicClass()` from `src/utils/psionics.ts` (not hardcoded Psion check). At-will data exists at levels 1/3/7/13/17/23/27 in each psionic class's power file.
+- [x] Discipline/Ardent/Battlemind Powers panel: shared `DisciplinePowersPanel.tsx` sub-tab under Powers for Psion, Ardent, and Battlemind. `DISCIPLINE_CLASSES = ['psion', 'ardent', 'battlemind']` drives tab visibility in CharacterSheet.tsx. `DISCIPLINE_POWER_MAP` maps discipline/mantle/study choice keys to auto-granted encounter power IDs: telekinesis → Far Hand + Forceful Push; telepathy → Distract + Send Thoughts; clarity → Ardent Alacrity + Ardent Surge; elation → Ardent Outrage + Ardent Surge; resilience → Battle Resilience; speed → Speed of Thought. Battlemind also shows 3 Psionic Defense at-will powers (Battlemind's Demand, Blurred Step, Mind Spike) via `BATTLEMIND_DEFENSE_POWERS` constant — rendered as teal-themed `AtWillPowerCard` components (no Use button). Dynamic labels: "Discipline Powers" for Psion, "Ardent Powers" for Ardent, "Battlemind Powers" for Battlemind. Badge: "Discipline" / "Mantle" / "Study". Sub-tab label in CharacterSheet also dynamic. Encounter powers individually tracked in `usedEncounterPowers`; indigo-themed encounter cards, teal-themed at-will cards.
 - [x] Ritual Caster auto-granted feat: Classes with Ritual Casting class feature (wizard, cleric, bard, druid, invoker, psion) show Ritual Caster under Feats as a known feat that doesn't count against budget, cannot be removed, marked "Class Feature". `AUTO_GRANTED` map in FeatsPanel, Step7_Feats, and LevelUpModal.
+- [x] Quick Access Powers tray: `QuickTrayPanel.tsx` rendered below the 3-column layout in CharacterSheet, spanning full width. 3×3 grid of up to 9 pinned PowerCards. `quickTrayPowerIds: string[]` on Character (DB v5). ⚡ pin button added to `renderFilledCard` in PowersPanel.tsx and to each power in ActionsByTypePanel.tsx — amber-themed, shows ✓ when already pinned, hidden when tray full (9/9). Tray supports encounter/daily used toggle (synced to `usedEncounterPowers`/`usedDailyPowers`), psionic augment buttons, and × remove from tray. Collapsible header with power count badge. Empty slots rendered as dashed placeholders.
 - [x] Psion ritual book: Psion gets a ritual book (not spellbook) at creation with choice of Sending or Tenser's Floating Disk; stored in `ritualBooks: RitualBook[]` on Character; picker in Step3_Class; `psionStartingRitualId` in useWizardStore
 
 ---
@@ -1339,7 +1344,7 @@ All three generation functions (`gen4eDesc`, `gen4ePower`, `gen5eDesc`) follow t
 
 ## Known Limitations / Future Work
 
-- LevelUpModal currently only handles powers gained at EXACTLY the new level. "Power swap" mechanic (replacing old encounter/daily at certain levels per 4e rules) not implemented for non-psionic classes. Psion at-will swap is implemented.
+- LevelUpModal currently only handles powers gained at EXACTLY the new level. "Power swap" mechanic (replacing old encounter/daily at certain levels per 4e rules) not implemented for non-psionic classes. Psionic at-will swap is implemented for all psionic classes (Ardent, Battlemind, Psion).
 - No Epic Destiny selection (level 21 milestone message shown but no picker).
 - Campaign encounter tracker is basic.
 - Paragon/Epic class-specific feats only cover some PHB1 classes (Fighter, Rogue, Warlord, Cleric). Other PHB1 classes and PHB2 classes may have gaps in class-specific paragon/epic feats.

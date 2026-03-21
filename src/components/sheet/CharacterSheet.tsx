@@ -20,6 +20,8 @@ import { ArcaneImplementMasteryPanel } from './ArcaneImplementMasteryPanel';
 import { EldritchPactPanel } from './EldritchPactPanel';
 import { ClassFeaturesPanel } from './ClassFeaturesPanel';
 import { AvailableActionsPanel } from './AvailableActionsPanel';
+import { ActionsByTypePanel } from './ActionsByTypePanel';
+import { QuickTrayPanel } from './QuickTrayPanel';
 import { DiceRollerModal } from '../dice/DiceRollerModal';
 import { RitualsPanel } from './RitualsPanel';
 import { SpellbookPanel } from './SpellbookPanel';
@@ -38,9 +40,9 @@ export function CharacterSheet({ character }: Props) {
   type CombatTab = 'actions' | 'available-actions' | 'proficiencies';
   const [combatTab, setCombatTab] = useState<CombatTab>('actions');
   const combatTabs: { key: CombatTab; label: string }[] = [
-    { key: 'actions',           label: 'Combat'             },
-    { key: 'available-actions', label: 'Available Actions'  },
-    { key: 'proficiencies',     label: 'Proficiencies'      },
+    { key: 'actions',           label: 'Available Actions'    },
+    { key: 'available-actions', label: 'Actions Descriptions' },
+    { key: 'proficiencies',     label: 'Proficiencies'        },
   ];
 
   const hasChannelDivinity = (CHANNEL_DIVINITY_CLASSES as readonly string[]).includes(character.classId);
@@ -52,7 +54,7 @@ export function CharacterSheet({ character }: Props) {
   const powersTabs: { key: PowersTab; label: string }[] = [
     { key: 'powers',           label: 'Powers'             },
     ...(hasChannelDivinity        ? [{ key: 'channel-divinity'  as PowersTab, label: 'Channel Divinity'  }] : []),
-    ...(hasDisciplinePowers       ? [{ key: 'discipline-powers' as PowersTab, label: 'Discipline Powers' }] : []),
+    ...(hasDisciplinePowers       ? [{ key: 'discipline-powers' as PowersTab, label: character.classId === 'ardent' ? 'Ardent Powers' : character.classId === 'battlemind' ? 'Battlemind Powers' : 'Discipline Powers' }] : []),
     ...(hasArcaneImplementMastery ? [{ key: 'arcane-implement'  as PowersTab, label: 'Implement Mastery' }] : []),
     ...(hasEldritchPact           ? [{ key: 'eldritch-pact'    as PowersTab, label: 'Eldritch Pact'     }] : []),
     { key: 'feats',              label: 'Feats'              },
@@ -146,7 +148,12 @@ export function CharacterSheet({ character }: Props) {
                 </div>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto">
-                {combatTab === 'actions'            && <CombatActionsPanel character={character} derived={derived} />}
+                {combatTab === 'actions'            && (
+                  <div className="space-y-3">
+                    <CombatActionsPanel character={character} derived={derived} />
+                    <ActionsByTypePanel character={character} />
+                  </div>
+                )}
                 {combatTab === 'available-actions' && <AvailableActionsPanel />}
                 {combatTab === 'proficiencies'     && <ProficienciesPanel character={character} />}
               </div>
@@ -230,6 +237,11 @@ export function CharacterSheet({ character }: Props) {
 
         </div>{/* end absolute inner */}
         </div>{/* end Column 3 */}
+      </div>
+
+      {/* ── Quick Access Powers Tray ── */}
+      <div className="max-w-6xl mx-auto px-3 mt-4">
+        <QuickTrayPanel character={character} />
       </div>
 
       {/* ── Floating Dice Roller FAB ── */}

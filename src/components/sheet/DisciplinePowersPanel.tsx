@@ -8,14 +8,28 @@ interface Props {
   character: Character;
 }
 
-/** Classes that have Discipline Powers */
-export const DISCIPLINE_CLASSES = ['psion'] as const;
+/** Classes that have Discipline / Mantle / Battlemind Powers */
+export const DISCIPLINE_CLASSES = ['psion', 'ardent', 'battlemind'] as const;
 
-/** Map discipline choice → the two auto-granted encounter power IDs */
+/** Map discipline/mantle/study choice → the auto-granted encounter power IDs */
 const DISCIPLINE_POWER_MAP: Record<string, string[]> = {
+  // Psion disciplines
   telekinesis: ['psion-far-hand', 'psion-forceful-push'],
   telepathy: ['psion-distract', 'psion-send-thoughts'],
+  // Ardent mantles
+  clarity: ['ardent-ardent-alacrity', 'ardent-ardent-surge'],
+  elation: ['ardent-ardent-outrage', 'ardent-ardent-surge'],
+  // Battlemind psionic studies
+  resilience: ['battlemind-battle-resilience'],
+  speed: ['battlemind-speed-of-thought'],
 };
+
+/** Battlemind Psionic Defense at-will powers (all Battleminds get all 3) */
+const BATTLEMIND_DEFENSE_POWERS = [
+  'battlemind-battleminds-demand',
+  'battlemind-blurred-step',
+  'battlemind-mind-spike',
+];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -90,10 +104,12 @@ function DisciplinePowerCard({
   power,
   used,
   onUse,
+  badgeLabel,
 }: {
   power: PowerData;
   used: boolean;
   onUse: () => void;
+  badgeLabel: string;
 }) {
   return (
     <div className={[
@@ -108,7 +124,7 @@ function DisciplinePowerCard({
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-white font-bold text-sm truncate">{power.name}</span>
           <span className="text-xs font-semibold bg-white/20 text-white px-1.5 py-0.5 rounded-full flex-shrink-0">
-            Discipline
+            {badgeLabel}
           </span>
         </div>
         <ActionBadge action={power.actionType} />
@@ -135,16 +151,58 @@ function DisciplinePowerCard({
   );
 }
 
+// ── Label maps ────────────────────────────────────────────────────────────────
+
+const DISCIPLINE_LABELS: Record<string, string> = {
+  telekinesis: 'Telekinesis',
+  telepathy: 'Telepathy',
+  clarity: 'Clarity',
+  elation: 'Elation',
+  resilience: 'Battle Resilience',
+  speed: 'Speed of Thought',
+};
+
 // ── Main Component ────────────────────────────────────────────────────────────
+
+/** Read-only power card for at-will class feature powers (no Use button) */
+function AtWillPowerCard({ power, badgeLabel }: { power: PowerData; badgeLabel: string }) {
+  return (
+    <div className="rounded-xl border overflow-hidden">
+      {/* Header */}
+      <div className="px-4 py-2.5 flex items-center justify-between gap-2 bg-teal-800">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-white font-bold text-sm truncate">{power.name}</span>
+          <span className="text-xs font-semibold bg-white/20 text-white px-1.5 py-0.5 rounded-full flex-shrink-0">
+            {badgeLabel}
+          </span>
+        </div>
+        <ActionBadge action={power.actionType} />
+      </div>
+
+      <PowerBody power={power} />
+    </div>
+  );
+}
 
 export function DisciplinePowersPanel({ character }: Props) {
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
 
-  const discipline = character.psionDiscipline ?? 'telekinesis';
+  const isArdent = character.classId === 'ardent';
+  const isBattlemind = character.classId === 'battlemind';
+  const discipline = isBattlemind
+    ? (character.battlemindOption ?? 'resilience')
+    : isArdent
+      ? (character.ardentMantle ?? 'clarity')
+      : (character.psionDiscipline ?? 'telekinesis');
   const powerIds = DISCIPLINE_POWER_MAP[discipline] ?? [];
   const powers: PowerData[] = powerIds
     .map((id) => getPowerById(id))
     .filter((p): p is PowerData => !!p);
+
+  // Battlemind Psionic Defense at-will powers (always available)
+  const defensePowers: PowerData[] = isBattlemind
+    ? BATTLEMIND_DEFENSE_POWERS.map((id) => getPowerById(id)).filter((p): p is PowerData => !!p)
+    : [];
 
   const patch = async (changes: Partial<typeof character>) => {
     await characterRepository.patch(character.id, changes);
@@ -158,31 +216,51 @@ export function DisciplinePowersPanel({ character }: Props) {
     });
   };
 
-  const disciplineLabel = discipline === 'telekinesis' ? 'Telekinesis' : 'Telepathy';
+  const sectionLabel = isBattlemind ? 'Battlemind Powers' : isArdent ? 'Ardent Powers' : 'Discipline Powers';
+  const badgeLabel = isBattlemind ? 'Study' : isArdent ? 'Mantle' : 'Discipline';
+  const disciplineLabel = DISCIPLINE_LABELS[discipline] ?? discipline;
 
   return (
     <div className="space-y-3 p-3">
       {/* Header card */}
       <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
-        <p className="text-sm font-bold text-indigo-800">Discipline Powers — {disciplineLabel}</p>
+        <p className="text-sm font-bold text-indigo-800">{sectionLabel} — {disciplineLabel}</p>
         <p className="text-xs text-indigo-600 mt-0.5">
-          Encounter powers — each can be used once between rests.
+          {isBattlemind
+            ? 'Psionic study encounter power and psionic defense at-will powers.'
+            : 'Encounter powers — each can be used once between rests.'}
         </p>
       </div>
 
-      {/* Power cards */}
+      {/* Encounter power cards */}
       {powers.map((power) => (
         <DisciplinePowerCard
           key={power.id}
           power={power}
           used={character.usedEncounterPowers.includes(power.id)}
           onUse={() => handleUse(power)}
+          badgeLabel={badgeLabel}
         />
       ))}
 
-      {powers.length === 0 && (
+      {/* Battlemind Psionic Defense at-will powers */}
+      {defensePowers.length > 0 && (
+        <>
+          <div className="bg-teal-50 border border-teal-200 rounded-xl px-4 py-3 mt-2">
+            <p className="text-sm font-bold text-teal-800">Psionic Defense</p>
+            <p className="text-xs text-teal-600 mt-0.5">
+              At-will powers — always available, no rest needed.
+            </p>
+          </div>
+          {defensePowers.map((power) => (
+            <AtWillPowerCard key={power.id} power={power} badgeLabel="Defense" />
+          ))}
+        </>
+      )}
+
+      {powers.length === 0 && defensePowers.length === 0 && (
         <div className="text-center py-8 text-stone-400 text-sm">
-          No discipline powers found.
+          No {isBattlemind ? 'battlemind' : isArdent ? 'ardent' : 'discipline'} powers found.
         </div>
       )}
     </div>
