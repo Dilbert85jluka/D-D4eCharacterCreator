@@ -124,13 +124,6 @@ export function LoginPage() {
           >
             {isLoading ? 'Sending...' : 'Send Magic Link'}
           </button>
-          <button
-            type="button"
-            onClick={() => navigate('home')}
-            className="w-full py-2 text-stone-500 hover:text-stone-700 text-sm font-medium transition-colors"
-          >
-            Skip — continue without signing in
-          </button>
         </form>
       </div>
     </div>

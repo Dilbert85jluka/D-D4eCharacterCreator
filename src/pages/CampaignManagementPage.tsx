@@ -20,6 +20,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useSharingStore } from '../store/useSharingStore';
 import { SharedCampaignView } from '../components/sharing/SharedCampaignView';
 import { JoinCampaignModal } from '../components/sharing/JoinCampaignModal';
+import { ShareCampaignModal } from '../components/sharing/ShareCampaignModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -93,8 +94,11 @@ export function CampaignManagementPage() {
   // ── Sharing state ──────────────────────────────────────────────────────────
   const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
-  const { sharedCampaigns, loadSharedCampaigns } = useSharingStore();
+  const { sharedCampaigns, loadSharedCampaigns, createCampaign: createSharedCampaign } = useSharingStore();
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareInviteCode, setShareInviteCode] = useState("");
+  const [shareCampaignName, setShareCampaignName] = useState("");
   useEffect(() => { if (user) loadSharedCampaigns(user.id); }, [user, loadSharedCampaigns]);
 
 
@@ -339,6 +343,30 @@ export function CampaignManagementPage() {
     mode.type === 'campaign' ? campaigns.find((c) => c.id === mode.campaignId) :
     mode.type === 'new-session' ? campaigns.find((c) => c.id === mode.campaignId) :
     mode.type === 'session' ? campaigns.find((c) => c.id === mode.campaignId) : undefined;
+
+  const handleShareOnline = async () => {
+    if (!user || !activeCampaign) return;
+    try {
+      // Check if this campaign is already shared (match by name + creator)
+      const existing = sharedCampaigns.find(
+        (sc) => sc.name === activeCampaign.name && sc.created_by === user.id
+      );
+      if (existing) {
+        // Already shared — just show the existing invite code
+        setShareInviteCode(existing.invite_code);
+        setShareCampaignName(existing.name);
+        setShowShareModal(true);
+        return;
+      }
+      const shared = await createSharedCampaign(activeCampaign.name, activeCampaign.description, user.id);
+      setShareInviteCode(shared.invite_code);
+      setShareCampaignName(shared.name);
+      setShowShareModal(true);
+      loadSharedCampaigns(user.id);
+    } catch (err) {
+      console.error("Failed to share campaign:", err);
+    }
+  };
 
   const activeSession =
     mode.type === 'session'
@@ -1115,6 +1143,12 @@ export function CampaignManagementPage() {
                       className="text-xs text-red-300 hover:text-red-100 font-semibold px-2.5 py-1.5
                                  rounded-lg hover:bg-red-900/40 transition-colors min-h-[36px]"
                     >Delete</button>
+                  )}
+                  {mode.type === 'campaign' && activeCampaign && profile && (
+                    <button
+                      onClick={handleShareOnline}
+                      className="text-xs text-indigo-200 hover:text-white font-semibold px-2.5 py-1.5 rounded-lg bg-indigo-700 hover:bg-indigo-600 transition-colors min-h-[36px]"
+                    >🌐 Share Campaign</button>
                   )}
                   <button
                     onClick={handleSaveCampaign}
@@ -2238,6 +2272,7 @@ export function CampaignManagementPage() {
       })()}
       {/* Join Campaign Modal */}
       <JoinCampaignModal isOpen={showJoinModal} onClose={() => setShowJoinModal(false)} />
+      <ShareCampaignModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} inviteCode={shareInviteCode} campaignName={shareCampaignName} />
 
     </div>
   );

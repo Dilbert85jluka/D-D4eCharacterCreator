@@ -16,6 +16,7 @@ import { MonsterCompendiumPage } from './pages/MonsterCompendiumPage';
 import { CampaignManagementPage } from './pages/CampaignManagementPage';
 import { MagicItemCompendiumPage } from './pages/MagicItemCompendiumPage';
 import { LoginPage } from './components/auth/LoginPage';
+import { useCharacterCloudSync } from './hooks/useCharacterCloudSync';
 
 export default function App() {
   const currentView    = useAppStore((s) => s.currentView);
@@ -24,6 +25,8 @@ export default function App() {
   const loadAllSessions   = useSessionsStore((s) => s.loadAllSessions);
   const loadAllEncounters = useEncountersStore((s) => s.loadAllEncounters);
   const initializeAuth  = useAuthStore((s) => s.initialize);
+  const user = useAuthStore((s) => s.user);
+  const isInitialized = useAuthStore((s) => s.isInitialized);
 
   // Load all data from IndexedDB on app start
   useEffect(() => { loadCharacters(); }, [loadCharacters]);
@@ -32,6 +35,23 @@ export default function App() {
   useEffect(() => { loadAllEncounters(); }, [loadAllEncounters]);
   // Initialize Supabase auth (checks existing session, subscribes to changes)
   useEffect(() => { initializeAuth(); }, [initializeAuth]);
+  useCharacterCloudSync();
+
+
+  // Show nothing while auth is initializing (checking existing session)
+  if (!isInitialized) {
+    return <div className="min-h-screen bg-parchment-100" />;
+  }
+
+  // Require login — show LoginPage if not authenticated
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-parchment-100">
+        <LoginPage />
+        <Toast />
+      </div>
+    );
+  }
 
   const isWizard    = currentView === 'wizard';
   const isFullPage  = isWizard || currentView === 'portrait';

@@ -36,6 +36,11 @@ export const characterRepository = {
     await db.characters.update(id, { ...changes, updatedAt: Date.now() });
   },
 
+  /** Insert or replace a character from cloud backup — preserves cloud updatedAt. */
+  async upsertFromCloud(character: Character): Promise<void> {
+    await db.characters.put(character);
+  },
+
   async delete(id: string): Promise<void> {
     await db.characters.delete(id);
   },
