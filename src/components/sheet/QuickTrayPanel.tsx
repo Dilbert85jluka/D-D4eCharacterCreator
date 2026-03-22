@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Character, PowerUsage } from '../../types/character';
+import { useCharacterDerived } from '../../hooks/useCharacterDerived';
 import type { PowerData } from '../../types/gameData';
 import { getPowerById } from '../../data/powers';
 import { PowerCard } from '../wizard/shared/PowerCard';
@@ -17,6 +18,8 @@ export function QuickTrayPanel({ character }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
 
+  const derived = useCharacterDerived(character);
+  const abilityMods = derived.abilityModifiers;
   const trayIds = character.quickTrayPowerIds ?? [];
   const trayPowers = trayIds
     .map((id) => ({ id, power: getPowerById(id) }))
@@ -128,6 +131,7 @@ export function QuickTrayPanel({ character }: Props) {
                           ? () => toggleUsed(id, power.usage)
                           : undefined
                       }
+                      abilityModifiers={abilityMods}
                       {...psionicAugmentProps}
                     />
                   </div>

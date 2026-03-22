@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useCharacterDerived } from '../../hooks/useCharacterDerived';
 import type { Character, PowerUsage } from '../../types/character';
 import type { PowerData } from '../../types/gameData';
 import { getPowerById, getPowersByClass } from '../../data/powers';
@@ -107,6 +108,8 @@ function groupByActionTab(powers: PowerData[]): Record<ActionTab, PowerData[]> {
 export function ActionsByTypePanel({ character }: Props) {
   const [activeTab, setActiveTab] = useState<ActionTab>('standard');
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
+  const derived = useCharacterDerived(character);
+  const abilityMods = derived.abilityModifiers;
 
   const allPowers = collectAllPowers(character);
   const grouped = groupByActionTab(allPowers);
@@ -201,6 +204,7 @@ export function ActionsByTypePanel({ character }: Props) {
                 power={power}
                 used={isUsed(power)}
                 onToggleUsed={() => toggleUsed(power.id, power.usage)}
+                abilityModifiers={abilityMods}
               />
             </div>
           ))

@@ -5,6 +5,9 @@ import { getPowersByClass, getPowerById } from '../../data/powers';
 import { getParagonPathById } from '../../data/paragonPaths';
 import type { Character } from '../../types/character';
 import type { PowerData } from '../../types/gameData';
+import { useCharacterDerived } from '../../hooks/useCharacterDerived';
+import { substituteMods } from '../../utils/powerText';
+import type { Ability } from '../../types/character';
 
 interface Props {
   character: Character;
@@ -32,7 +35,8 @@ function ActionBadge({ action }: { action: PowerData['actionType'] }) {
   );
 }
 
-function PowerBody({ power, effectColor }: { power: PowerData; effectColor: string }) {
+function PowerBody({ power, effectColor, abilityModifiers }: { power: PowerData; effectColor: string; abilityModifiers?: Record<Ability, number> }) {
+  const sub = (text: string | undefined) => substituteMods(text, abilityModifiers);
   return (
     <div className="bg-white px-4 py-3 space-y-2">
       {/* Keywords */}
@@ -52,7 +56,7 @@ function PowerBody({ power, effectColor }: { power: PowerData; effectColor: stri
       {power.attack && (
         <div className="text-sm">
           <span className="font-semibold text-stone-600">Attack: </span>
-          <span className="text-stone-700">{power.attack}</span>
+          <span className="text-stone-700">{sub(power.attack)}</span>
         </div>
       )}
 
@@ -60,7 +64,7 @@ function PowerBody({ power, effectColor }: { power: PowerData; effectColor: stri
       {power.hit && (
         <div className="text-sm">
           <span className="font-semibold text-red-700">Hit: </span>
-          <span className="text-stone-700">{power.hit}</span>
+          <span className="text-stone-700">{sub(power.hit)}</span>
         </div>
       )}
 
@@ -68,7 +72,7 @@ function PowerBody({ power, effectColor }: { power: PowerData; effectColor: stri
       {power.effect && (
         <div className="text-sm">
           <span className={`font-semibold ${effectColor}`}>Effect: </span>
-          <span className="text-stone-700">{power.effect}</span>
+          <span className="text-stone-700">{sub(power.effect)}</span>
         </div>
       )}
 
@@ -76,14 +80,14 @@ function PowerBody({ power, effectColor }: { power: PowerData; effectColor: stri
       {power.miss && (
         <div className="text-sm">
           <span className="font-semibold text-stone-500">Miss: </span>
-          <span className="text-stone-700">{power.miss}</span>
+          <span className="text-stone-700">{sub(power.miss)}</span>
         </div>
       )}
 
       {/* Special */}
       {power.special && (
         <div className="text-xs text-stone-500 italic border-t border-stone-100 pt-2 mt-1">
-          {power.special}
+          {sub(power.special)}
         </div>
       )}
     </div>
@@ -95,11 +99,13 @@ function EncounterPowerCard({
   used,
   cdExpended,
   onUse,
+  abilityModifiers,
 }: {
   power: PowerData;
   used: boolean;
   cdExpended: boolean;
   onUse: () => void;
+  abilityModifiers?: Record<Ability, number>;
 }) {
   return (
     <div className={[
@@ -120,7 +126,7 @@ function EncounterPowerCard({
         <ActionBadge action={power.actionType} />
       </div>
 
-      <PowerBody power={power} effectColor="text-violet-700" />
+      <PowerBody power={power} abilityModifiers={abilityModifiers} effectColor="text-violet-700" />
 
       {/* Use button */}
       <div className="bg-white px-4 pb-3">
@@ -152,10 +158,12 @@ function ClassFeatureEncounterCard({
   power,
   used,
   onUse,
+  abilityModifiers,
 }: {
   power: PowerData;
   used: boolean;
   onUse: () => void;
+  abilityModifiers?: Record<Ability, number>;
 }) {
   return (
     <div className={[
@@ -176,7 +184,7 @@ function ClassFeatureEncounterCard({
         <ActionBadge action={power.actionType} />
       </div>
 
-      <PowerBody power={power} effectColor="text-blue-700" />
+      <PowerBody power={power} abilityModifiers={abilityModifiers} effectColor="text-blue-700" />
 
       {/* Use button */}
       <div className="bg-white px-4 pb-3">
@@ -197,7 +205,7 @@ function ClassFeatureEncounterCard({
   );
 }
 
-function AtWillPowerCard({ power }: { power: PowerData }) {
+function AtWillPowerCard({ power, abilityModifiers }: { power: PowerData; abilityModifiers?: Record<Ability, number> }) {
   return (
     <div className="rounded-xl border overflow-hidden">
       {/* Header — emerald for at-will */}
@@ -211,7 +219,7 @@ function AtWillPowerCard({ power }: { power: PowerData }) {
         <ActionBadge action={power.actionType} />
       </div>
 
-      <PowerBody power={power} effectColor="text-emerald-700" />
+      <PowerBody power={power} abilityModifiers={abilityModifiers} effectColor="text-emerald-700" />
     </div>
   );
 }
@@ -220,6 +228,8 @@ function AtWillPowerCard({ power }: { power: PowerData }) {
 
 export function ChannelDivinityPanel({ character }: Props) {
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
+  const derived = useCharacterDerived(character);
+  const abilityMods = derived.abilityModifiers;
 
   // All level-0 auto-granted class feature powers
   const baseLevel0Powers = getPowersByClass(character.classId).filter((p) => p.level === 0);
@@ -319,6 +329,7 @@ export function ChannelDivinityPanel({ character }: Props) {
               used={character.usedEncounterPowers.includes(power.id)}
               cdExpended={cdExpended}
               onUse={() => handleUse(power)}
+              abilityModifiers={abilityMods}
             />
           ))}
 
@@ -341,6 +352,7 @@ export function ChannelDivinityPanel({ character }: Props) {
                   key={power.id}
                   power={power}
                   used={character.usedEncounterPowers.includes(power.id)}
+                  abilityModifiers={abilityMods}
                   onUse={async () => {
                     if (character.usedEncounterPowers.includes(power.id)) return;
                     await patch({ usedEncounterPowers: [...character.usedEncounterPowers, power.id] });
@@ -365,7 +377,7 @@ export function ChannelDivinityPanel({ character }: Props) {
 
           {/* At-will power cards */}
           {atWillPowers.map((power) => (
-            <AtWillPowerCard key={power.id} power={power} />
+            <AtWillPowerCard key={power.id} power={power} abilityModifiers={abilityMods} />
           ))}
 
           {atWillPowers.length === 0 && (

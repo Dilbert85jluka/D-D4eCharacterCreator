@@ -10,6 +10,7 @@ import type { PowerUsage } from '../../types/character';
 import type { PowerData } from '../../types/gameData';
 import { getMulticlassId } from '../../data/feats';
 import { isPsionicClass, getMaxPowerPoints, parseAugments, getNonAugmentSpecialText } from '../../utils/psionics';
+import { useCharacterDerived } from '../../hooks/useCharacterDerived';
 
 interface Props {
   character: Character;
@@ -89,6 +90,8 @@ export function PowersPanel({ character }: Props) {
   const isHuman   = character.raceId === 'human';
   const isWizard  = character.classId === 'wizard';
   const isPsionic = isPsionicClass(character.classId);
+  const derived = useCharacterDerived(character);
+  const abilityMods = derived.abilityModifiers;
   const maxPP     = isPsionic ? getMaxPowerPoints(character.level) : 0;
   const currentPP = isPsionic ? (character.currentPowerPoints ?? maxPP) : 0;
 
@@ -475,6 +478,7 @@ export function PowersPanel({ character }: Props) {
               ? () => toggleUsed(sp.powerId, power.usage)
               : undefined
           }
+          abilityModifiers={abilityMods}
           {...psionicAugmentProps}
         />
       </div>

@@ -1,4 +1,7 @@
 import { characterRepository } from '../../db/characterRepository';
+import { useCharacterDerived } from '../../hooks/useCharacterDerived';
+import { substituteMods } from '../../utils/powerText';
+import type { Ability } from '../../types/character';
 import { useCharactersStore } from '../../store/useCharactersStore';
 import { getPowerById } from '../../data/powers';
 import type { Character } from '../../types/character';
@@ -50,7 +53,8 @@ function ActionBadge({ action }: { action: PowerData['actionType'] }) {
   );
 }
 
-function PowerBody({ power }: { power: PowerData }) {
+function PowerBody({ power, abilityModifiers }: { power: PowerData; abilityModifiers?: Record<Ability, number> }) {
+  const sub = (text: string | undefined) => substituteMods(text, abilityModifiers);
   return (
     <div className="bg-white px-4 py-3 space-y-2">
       {/* Keywords */}
@@ -70,7 +74,7 @@ function PowerBody({ power }: { power: PowerData }) {
       {power.attack && (
         <div className="text-sm">
           <span className="font-semibold text-stone-600">Attack: </span>
-          <span className="text-stone-700">{power.attack}</span>
+          <span className="text-stone-700">{sub(power.attack)}</span>
         </div>
       )}
 
@@ -78,7 +82,7 @@ function PowerBody({ power }: { power: PowerData }) {
       {power.hit && (
         <div className="text-sm">
           <span className="font-semibold text-red-700">Hit: </span>
-          <span className="text-stone-700">{power.hit}</span>
+          <span className="text-stone-700">{sub(power.hit)}</span>
         </div>
       )}
 
@@ -86,14 +90,14 @@ function PowerBody({ power }: { power: PowerData }) {
       {power.effect && (
         <div className="text-sm">
           <span className="font-semibold text-indigo-700">Effect: </span>
-          <span className="text-stone-700">{power.effect}</span>
+          <span className="text-stone-700">{sub(power.effect)}</span>
         </div>
       )}
 
       {/* Special */}
       {power.special && (
         <div className="text-xs text-stone-500 italic border-t border-stone-100 pt-2 mt-1">
-          {power.special}
+          {sub(power.special)}
         </div>
       )}
     </div>
@@ -105,11 +109,13 @@ function DisciplinePowerCard({
   used,
   onUse,
   badgeLabel,
+  abilityModifiers,
 }: {
   power: PowerData;
   used: boolean;
   onUse: () => void;
   badgeLabel: string;
+  abilityModifiers?: Record<Ability, number>;
 }) {
   return (
     <div className={[
@@ -130,7 +136,7 @@ function DisciplinePowerCard({
         <ActionBadge action={power.actionType} />
       </div>
 
-      <PowerBody power={power} />
+      <PowerBody power={power} abilityModifiers={abilityModifiers} />
 
       {/* Use button */}
       <div className="bg-white px-4 pb-3">
@@ -165,7 +171,7 @@ const DISCIPLINE_LABELS: Record<string, string> = {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 /** Read-only power card for at-will class feature powers (no Use button) */
-function AtWillPowerCard({ power, badgeLabel }: { power: PowerData; badgeLabel: string }) {
+function AtWillPowerCard({ power, badgeLabel, abilityModifiers }: { power: PowerData; badgeLabel: string; abilityModifiers?: Record<Ability, number> }) {
   return (
     <div className="rounded-xl border overflow-hidden">
       {/* Header */}
@@ -179,13 +185,15 @@ function AtWillPowerCard({ power, badgeLabel }: { power: PowerData; badgeLabel: 
         <ActionBadge action={power.actionType} />
       </div>
 
-      <PowerBody power={power} />
+      <PowerBody power={power} abilityModifiers={abilityModifiers} />
     </div>
   );
 }
 
 export function DisciplinePowersPanel({ character }: Props) {
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
+  const derived = useCharacterDerived(character);
+  const abilityMods = derived.abilityModifiers;
 
   const isArdent = character.classId === 'ardent';
   const isBattlemind = character.classId === 'battlemind';
@@ -240,6 +248,7 @@ export function DisciplinePowersPanel({ character }: Props) {
           used={character.usedEncounterPowers.includes(power.id)}
           onUse={() => handleUse(power)}
           badgeLabel={badgeLabel}
+          abilityModifiers={abilityMods}
         />
       ))}
 
@@ -253,7 +262,7 @@ export function DisciplinePowersPanel({ character }: Props) {
             </p>
           </div>
           {defensePowers.map((power) => (
-            <AtWillPowerCard key={power.id} power={power} badgeLabel="Defense" />
+            <AtWillPowerCard key={power.id} power={power} badgeLabel="Defense" abilityModifiers={abilityMods} />
           ))}
         </>
       )}

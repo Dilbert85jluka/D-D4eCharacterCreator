@@ -1,6 +1,8 @@
+import type { Ability } from '../../../types/character';
 import type { PowerData, PowerUsage } from '../../../types/gameData';
 import { Badge } from '../../ui/Badge';
 import type { AugmentOption } from '../../../utils/psionics';
+import { substituteMods } from '../../../utils/powerText';
 
 interface PowerCardProps {
   power: PowerData;
@@ -18,6 +20,8 @@ interface PowerCardProps {
   nonAugmentSpecialText?: string;
   /** Callback when an augment is clicked — spends PP equal to cost. */
   onSpendAugment?: (cost: number) => void;
+  /** Character ability modifiers — when provided, numeric values are substituted into power text. */
+  abilityModifiers?: Record<Ability, number>;
 }
 
 const usageColors: Record<PowerUsage, string> = {
@@ -34,10 +38,11 @@ const usageLabels: Record<PowerUsage, string> = {
 
 export function PowerCard({
   power, selected, used, onClick, onToggleUsed, showCheckbox,
-  augmentOptions, currentPowerPoints, nonAugmentSpecialText, onSpendAugment,
+  augmentOptions, currentPowerPoints, nonAugmentSpecialText, onSpendAugment, abilityModifiers,
 }: PowerCardProps) {
   const usageClass = `power-${power.usage}`;
   const hasAugments = augmentOptions && augmentOptions.length > 0 && onSpendAugment;
+  const sub = (text: string | undefined) => substituteMods(text, abilityModifiers);
 
   return (
     <div
@@ -110,7 +115,7 @@ export function PowerCard({
 
         {/* Attack line */}
         {power.attack && (
-          <p><span className="font-semibold">Attack:</span> {power.attack}</p>
+          <p><span className="font-semibold">Attack:</span> {sub(power.attack)}</p>
         )}
 
         {/* Target */}
@@ -118,17 +123,17 @@ export function PowerCard({
 
         {/* Hit */}
         {power.hit && (
-          <p><span className="font-semibold text-emerald-700">Hit:</span> {power.hit}</p>
+          <p><span className="font-semibold text-emerald-700">Hit:</span> {sub(power.hit)}</p>
         )}
 
         {/* Miss */}
         {power.miss && (
-          <p><span className="font-semibold text-red-600">Miss:</span> {power.miss}</p>
+          <p><span className="font-semibold text-red-600">Miss:</span> {sub(power.miss)}</p>
         )}
 
         {/* Effect */}
         {power.effect && (
-          <p><span className="font-semibold text-blue-700">Effect:</span> {power.effect}</p>
+          <p><span className="font-semibold text-blue-700">Effect:</span> {sub(power.effect)}</p>
         )}
 
         {/* Special — structured augment display for psionic powers, raw text otherwise */}
@@ -136,7 +141,7 @@ export function PowerCard({
           <div className="space-y-2 mt-1">
             {/* Non-augment prefix text */}
             {nonAugmentSpecialText && (
-              <p><span className="font-semibold text-amber-700">Special:</span> {nonAugmentSpecialText}</p>
+              <p><span className="font-semibold text-amber-700">Special:</span> {sub(nonAugmentSpecialText)}</p>
             )}
 
             {/* Augment cards — each card spends PP on click */}
@@ -165,7 +170,7 @@ export function PowerCard({
                   ].join(' ')}>
                     Augment +{aug.cost}PP
                   </span>
-                  <p className="text-xs text-stone-700 leading-relaxed">{aug.description}</p>
+                  <p className="text-xs text-stone-700 leading-relaxed">{sub(aug.description)}</p>
                 </button>
               );
             })}
@@ -173,7 +178,7 @@ export function PowerCard({
         ) : (
           /* Standard special text (non-psionic) */
           power.special && (
-            <p><span className="font-semibold text-amber-700">Special:</span> {power.special}</p>
+            <p><span className="font-semibold text-amber-700">Special:</span> {sub(power.special)}</p>
           )
         )}
 

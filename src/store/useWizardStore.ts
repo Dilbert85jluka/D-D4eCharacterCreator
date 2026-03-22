@@ -154,6 +154,8 @@ interface WizardState {
 
   addEquipment: (item: EquipmentItem) => void;
   removeEquipment: (itemId: string) => void;
+  removeEquipmentByInstance: (instanceId: string) => void;
+  updateEquipmentQuantity: (itemId: string, newQty: number) => void;
   spendGold: (amount: number) => void;
   refundGold: (amount: number) => void;
 
@@ -441,6 +443,16 @@ export const useWizardStore = create<WizardState>((set, get) => ({
 
   removeEquipment: (itemId) =>
     set((s) => ({ equipment: s.equipment.filter((e) => e.itemId !== itemId) })),
+
+  removeEquipmentByInstance: (instanceId) =>
+    set((s) => ({ equipment: s.equipment.filter((e) => (e.instanceId ?? e.itemId) !== instanceId) })),
+
+  updateEquipmentQuantity: (itemId, newQty) =>
+    set((s) => ({
+      equipment: s.equipment.map((e) =>
+        e.itemId === itemId ? { ...e, quantity: newQty } : e
+      ),
+    })),
 
   spendGold: (amount) =>
     set((s) => ({ goldPieces: Math.max(0, s.goldPieces - amount) })),

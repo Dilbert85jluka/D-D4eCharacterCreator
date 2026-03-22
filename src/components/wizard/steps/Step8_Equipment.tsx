@@ -11,7 +11,8 @@ type Tab = 'weapons' | 'armor' | 'gear';
 export function Step8_Equipment() {
   const {
     classId,
-    equipment, goldPieces, addEquipment, removeEquipment, spendGold, refundGold,
+    equipment, goldPieces, addEquipment, removeEquipment, removeEquipmentByInstance,
+    updateEquipmentQuantity, spendGold, refundGold,
     wizardStartingRitualIds, toggleWizardStartingRitual,
   } = useWizardStore();
   const [tab, setTab] = useState<Tab>('weapons');
@@ -24,11 +25,20 @@ export function Step8_Equipment() {
     : level1Rituals;
 
   const addItem = (id: string, name: string, cost: number, slot?: string) => {
-    const existing = equipment.find((e) => e.itemId === id);
-    if (existing) return; // already added
     if (cost > goldPieces) return; // can't afford
 
+    // Gear (no slot) stacks by quantity
+    if (!slot) {
+      const existing = equipment.find((e) => e.itemId === id);
+      if (existing) {
+        updateEquipmentQuantity(id, existing.quantity + 1);
+        spendGold(cost);
+        return;
+      }
+    }
+
     const item: EquipmentItem = {
+      instanceId: crypto.randomUUID(),
       itemId: id,
       name,
       quantity: 1,
@@ -39,10 +49,20 @@ export function Step8_Equipment() {
     spendGold(cost);
   };
 
-  const removeItem = (id: string, cost: number) => {
-    removeEquipment(id);
+  const removeItem = (item: EquipmentItem, cost: number) => {
+    const isGear = !item.slot;
+    if (isGear && item.quantity > 1) {
+      updateEquipmentQuantity(item.itemId, item.quantity - 1);
+    } else if (item.instanceId) {
+      removeEquipmentByInstance(item.instanceId);
+    } else {
+      removeEquipment(item.itemId);
+    }
     refundGold(cost);
   };
+
+  const ownedCount = (id: string) => equipment.filter((e) => e.itemId === id).length;
+  const ownedGearQty = (id: string) => equipment.find((e) => e.itemId === id)?.quantity ?? 0;
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -141,15 +161,18 @@ export function Step8_Equipment() {
 
               return (
                 <div
-                  key={item.itemId}
+                  key={item.instanceId ?? item.itemId}
                   className="flex items-center justify-between bg-white border border-stone-200 rounded-lg px-3 py-2"
                 >
-                  <span className="text-sm text-stone-800">{item.name}</span>
+                  <span className="text-sm text-stone-800">
+                    {item.name}
+                    {item.quantity > 1 && <span className="text-xs text-stone-400 ml-1">×{item.quantity}</span>}
+                  </span>
                   <button
-                    onClick={() => removeItem(item.itemId, cost)}
+                    onClick={() => removeItem(item, cost)}
                     className="text-red-500 hover:text-red-700 text-sm px-2 py-1 min-h-[36px]"
                   >
-                    Remove
+                    {item.quantity > 1 ? 'Remove 1' : 'Remove'}
                   </button>
                 </div>
               );
@@ -177,20 +200,21 @@ export function Step8_Equipment() {
       {/* Item lists */}
       <div className="space-y-2">
         {tab === 'weapons' && WEAPONS.map((w) => {
-          const owned = equipment.find((e) => e.itemId === w.id);
+          const n = ownedCount(w.id);
           const canAfford = w.cost <= goldPieces;
           return (
             <div
               key={w.id}
               className={[
                 'flex items-center gap-3 p-3 rounded-xl border bg-white',
-                owned ? 'border-amber-300 bg-amber-50' : 'border-stone-200',
+                n > 0 ? 'border-amber-300 bg-amber-50' : 'border-stone-200',
               ].join(' ')}
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm text-stone-800">{w.name}</span>
                   <span className="text-xs text-stone-400">{w.category}</span>
+                  {n > 0 && <span className="text-xs text-emerald-600 font-semibold">×{n} owned</span>}
                 </div>
                 <div className="text-xs text-stone-500 mt-0.5">
                   Dmg: {w.damage} · Prof +{w.proficiencyBonus}
@@ -200,35 +224,34 @@ export function Step8_Equipment() {
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <span className="text-sm font-bold text-amber-700">{w.cost}gp</span>
-                {!owned ? (
-                  <button
-                    onClick={() => addItem(w.id, w.name, w.cost, 'main-hand')}
-                    disabled={!canAfford}
-                    className="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg disabled:opacity-40 min-h-[36px]"
-                  >
-                    Buy
-                  </button>
-                ) : (
-                  <span className="text-xs text-emerald-600 font-semibold">Owned</span>
-                )}
+                <button
+                  onClick={() => addItem(w.id, w.name, w.cost, 'main-hand')}
+                  disabled={!canAfford}
+                  className="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg disabled:opacity-40 min-h-[36px]"
+                >
+                  Buy
+                </button>
               </div>
             </div>
           );
         })}
 
         {tab === 'armor' && ARMOR.map((a) => {
-          const owned = equipment.find((e) => e.itemId === a.id);
+          const n = ownedCount(a.id);
           const canAfford = a.cost <= goldPieces;
           return (
             <div
               key={a.id}
               className={[
                 'flex items-center gap-3 p-3 rounded-xl border bg-white',
-                owned ? 'border-amber-300 bg-amber-50' : 'border-stone-200',
+                n > 0 ? 'border-amber-300 bg-amber-50' : 'border-stone-200',
               ].join(' ')}
             >
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm text-stone-800">{a.name}</div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm text-stone-800">{a.name}</span>
+                  {n > 0 && <span className="text-xs text-emerald-600 font-semibold">×{n} owned</span>}
+                </div>
                 <div className="text-xs text-stone-500 mt-0.5">
                   AC +{a.acBonus} · Type: {a.type}
                   {a.checkPenalty < 0 && ` · Check ${a.checkPenalty}`}
@@ -237,50 +260,45 @@ export function Step8_Equipment() {
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <span className="text-sm font-bold text-amber-700">{a.cost}gp</span>
-                {!owned ? (
-                  <button
-                    onClick={() => addItem(a.id, a.name, a.cost, a.type === 'Shield' ? 'off-hand' : 'body')}
-                    disabled={!canAfford}
-                    className="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg disabled:opacity-40 min-h-[36px]"
-                  >
-                    Buy
-                  </button>
-                ) : (
-                  <span className="text-xs text-emerald-600 font-semibold">Owned</span>
-                )}
+                <button
+                  onClick={() => addItem(a.id, a.name, a.cost, a.type === 'Shield' ? 'off-hand' : 'body')}
+                  disabled={!canAfford}
+                  className="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg disabled:opacity-40 min-h-[36px]"
+                >
+                  Buy
+                </button>
               </div>
             </div>
           );
         })}
 
         {tab === 'gear' && GEAR.map((g) => {
-          const owned = equipment.find((e) => e.itemId === g.id);
+          const qty = ownedGearQty(g.id);
           const canAfford = g.cost <= goldPieces;
           return (
             <div
               key={g.id}
               className={[
                 'flex items-center gap-3 p-3 rounded-xl border bg-white',
-                owned ? 'border-amber-300 bg-amber-50' : 'border-stone-200',
+                qty > 0 ? 'border-amber-300 bg-amber-50' : 'border-stone-200',
               ].join(' ')}
             >
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm text-stone-800">{g.name}</div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm text-stone-800">{g.name}</span>
+                  {qty > 0 && <span className="text-xs text-emerald-600 font-semibold">×{qty} owned</span>}
+                </div>
                 <div className="text-xs text-stone-500 mt-0.5 line-clamp-2">{g.description}</div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <span className="text-sm font-bold text-amber-700">{g.cost}gp</span>
-                {!owned ? (
-                  <button
-                    onClick={() => addItem(g.id, g.name, g.cost)}
-                    disabled={!canAfford}
-                    className="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg disabled:opacity-40 min-h-[36px]"
-                  >
-                    Buy
-                  </button>
-                ) : (
-                  <span className="text-xs text-emerald-600 font-semibold">Owned</span>
-                )}
+                <button
+                  onClick={() => addItem(g.id, g.name, g.cost)}
+                  disabled={!canAfford}
+                  className="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg disabled:opacity-40 min-h-[36px]"
+                >
+                  Buy
+                </button>
               </div>
             </div>
           );
