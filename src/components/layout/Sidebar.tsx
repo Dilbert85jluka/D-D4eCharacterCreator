@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import type { AppView } from '../../store/useAppStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { ImportExportModal } from '../settings/ImportExportModal';
 
 const SECTIONS: { label: string; emoji: string; view: AppView; activeFor: AppView[] }[] = [
@@ -32,6 +33,8 @@ const SECTIONS: { label: string; emoji: string; view: AppView; activeFor: AppVie
 
 export function Sidebar() {
   const { sidebarOpen, setSidebarOpen, navigate, currentView } = useAppStore();
+  const profile = useAuthStore((s) => s.profile);
+  const logout = useAuthStore((s) => s.logout);
   const [showImportExport, setShowImportExport] = useState(false);
 
   // Close on Escape key
@@ -112,6 +115,38 @@ export function Sidebar() {
             <span className="text-xl leading-none flex-shrink-0">📦</span>
             <span className="font-medium text-base leading-tight">Import / Export</span>
           </button>
+
+          {/* Divider */}
+          <div className="border-t border-amber-800 mx-1 my-2" />
+
+          {/* Account */}
+          <div className="px-4 py-1">
+            <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Account</span>
+          </div>
+
+          {profile ? (
+            <>
+              <div className="px-4 py-2 text-amber-200 text-sm">
+                <p className="font-semibold">{profile.display_name || 'No display name'}</p>
+                <p className="text-amber-400/70 text-xs mt-0.5">{profile.email}</p>
+              </div>
+              <button
+                onClick={() => { logout(); setSidebarOpen(false); }}
+                className="w-full flex items-center gap-4 px-4 rounded-xl transition-colors min-h-[52px] text-left text-amber-100 hover:bg-amber-800"
+              >
+                <span className="text-xl leading-none flex-shrink-0">🚪</span>
+                <span className="font-medium text-base leading-tight">Log Out</span>
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => { navigate('login'); setSidebarOpen(false); }}
+              className="w-full flex items-center gap-4 px-4 rounded-xl transition-colors min-h-[52px] text-left text-amber-100 hover:bg-amber-800"
+            >
+              <span className="text-xl leading-none flex-shrink-0">🔑</span>
+              <span className="font-medium text-base leading-tight">Sign In</span>
+            </button>
+          )}
         </nav>
       </aside>
 

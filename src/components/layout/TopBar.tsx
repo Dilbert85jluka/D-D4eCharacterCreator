@@ -1,7 +1,9 @@
 import { useAppStore } from '../../store/useAppStore';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export function TopBar() {
   const { toggleSidebar, currentView, navigate } = useAppStore();
+  const profile = useAuthStore((s) => s.profile);
 
   const isCharacterSection = currentView === 'sheet' || currentView === 'wizard' || currentView === 'portrait';
   const isCreatorActive    = currentView === 'home' || isCharacterSection;
@@ -72,6 +74,21 @@ export function TopBar() {
           ← Characters
         </button>
       )}
+
+      {/* User indicator */}
+      <button
+        onClick={() => navigate('login')}
+        className="flex-shrink-0 min-w-[36px] min-h-[36px] rounded-full flex items-center justify-center text-xs font-bold transition-colors border border-amber-700 hover:bg-amber-800"
+        title={profile ? profile.display_name || profile.email : 'Sign in'}
+      >
+        {profile ? (
+          <span className="text-amber-200">
+            {(profile.display_name || profile.email || '?').substring(0, 2).toUpperCase()}
+          </span>
+        ) : (
+          <span className="text-amber-400/60">?</span>
+        )}
+      </button>
     </header>
   );
 }

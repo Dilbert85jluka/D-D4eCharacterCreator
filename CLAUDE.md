@@ -29,6 +29,7 @@ Designed for tablet use (touch targets ≥44px, responsive layouts).
 | Dexie.js | 4.0.10 | IndexedDB wrapper for persistence |
 | vite-plugin-pwa | 0.21.1 | PWA manifest + service worker |
 | uuid | 11.1.0 | ID generation |
+| @supabase/supabase-js | latest | Supabase client (auth, database, realtime) |
 
 **Important:** Tailwind CSS v4 is used. Syntax differs from v3 — no `tailwind.config.js`, config is in CSS. Don't suggest v3 patterns.
 
@@ -46,6 +47,8 @@ src/
 │   ├── magicItems/            # MagicItemModal, RandomItemRoller
 │   ├── monsters/              # MonsterModal
 │   ├── settings/              # ImportExportModal
+│   ├── auth/                  # LoginPage.tsx — magic link email sign-in
+│   ├── sharing/               # ShareCampaignModal, JoinCampaignModal, LinkCharacterModal, SharedCampaignView
 │   ├── dice/                  # DiceRollerModal.tsx — floating dice roller (d2–d20 + d%)
 │   ├── sheet/                 # Character sheet panels (20 files — see below)
 │   ├── ui/                    # Button, Card, Badge, Modal (primitive components)
@@ -68,8 +71,14 @@ src/
 │   ├── campaignRepository.ts
 │   ├── sessionRepository.ts
 │   └── encounterRepository.ts
+├── lib/
+│   ├── supabase.ts            # Supabase client singleton
+│   ├── sharingService.ts      # Supabase CRUD: campaigns, members, character summaries
+│   └── summarySync.ts         # extractSummary() + createSyncDebouncer()
 ├── hooks/
-│   └── useCharacterDerived.ts # Memoized derived stats (modifiers, defenses, HP, skills, feat bonuses)
+│   ├── useCharacterDerived.ts # Memoized derived stats (modifiers, defenses, HP, skills, feat bonuses)
+│   ├── useCharacterSync.ts    # Auto-sync character summary to Supabase (debounced 2s)
+│   └── useRealtimeCampaign.ts # Supabase Realtime subscriptions for campaign updates
 ├── pages/
 │   ├── HomePage.tsx
 │   ├── WizardPage.tsx
@@ -84,7 +93,9 @@ src/
 │   ├── useWizardStore.ts      # Multi-step wizard state
 │   ├── useCampaignsStore.ts
 │   ├── useSessionsStore.ts
-│   └── useEncountersStore.ts
+│   ├── useEncountersStore.ts
+│   ├── useAuthStore.ts        # Supabase auth: magic link login/logout, profile
+│   └── useSharingStore.ts    # Shared campaign state: campaigns, members, summaries
 ├── types/
 │   ├── character.ts           # Character, DerivedStats, SelectedPower, EquipmentItem
 │   ├── gameData.ts            # RaceData, ClassData, PowerData, FeatData, WeaponData, etc.
@@ -93,7 +104,9 @@ src/
 │   ├── session.ts
 │   ├── magicItem.ts
 │   ├── monster.ts
-│   └── wizard.ts
+│   ├── wizard.ts
+│   ├── sharing.ts             # Profile, SharedCampaign, CampaignMember, CharacterSummary
+│   └── supabase.ts            # Database type definitions for Supabase client
 └── utils/
     ├── abilityScores.ts       # Point-buy, modifier calculations
     ├── defenses.ts            # AC, Fort, Ref, Will
@@ -537,6 +550,7 @@ const patch = async (changes: Partial<Character>) => {
 ```
 
 ---
+## Supabase Backend (Multi-User Campaign Sharing)**Supabase URL:** configured in `.env.local` (`VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`)**Auth:** Magic link (email, no passwords). `useAuthStore` manages session + profile.**Database:** 4 tables — `profiles`, `shared_campaigns`, `campaign_members`, `character_summaries`**Realtime:** Subscriptions on `character_summaries` and `campaign_members` for live updates.### Key Files| File | Purpose ||---|---|| `src/lib/supabase.ts` | Supabase client singleton || `src/lib/sharingService.ts` | All CRUD: create/join/leave campaign, link/unlink character, invite codes || `src/lib/summarySync.ts` | `extractSummary()` builds payload from Character + maxHp; `createSyncDebouncer()` || `src/store/useAuthStore.ts` | Auth state: `user`, `profile`, `login(email)`, `logout()`, `updateDisplayName()` || `src/store/useSharingStore.ts` | Shared campaigns, members, summaries; actions + realtime mutation handlers || `src/hooks/useCharacterSync.ts` | Auto-syncs character summary to Supabase on field changes (debounced 2s) || `src/hooks/useRealtimeCampaign.ts` | Subscribes to Realtime for campaign updates; wired into SharedCampaignView || `src/components/auth/LoginPage.tsx` | Magic link email sign-in page || `src/components/sharing/ShareCampaignModal.tsx` | Copy invite code/link for DM sharing || `src/components/sharing/JoinCampaignModal.tsx` | Enter invite code → preview → join campaign || `src/components/sharing/LinkCharacterModal.tsx` | Pick local character to link to campaign || `src/components/sharing/SharedCampaignView.tsx` | Campaign roster with member cards, HP bars, DM/player actions |### Campaign Sharing Flow1. DM signs in (magic link) → creates campaign → gets 6-char invite code2. DM shares code via Discord/text3. Player signs in → enters code in Join modal → previews campaign → confirms join4. Player links a local character → summary pushed to Supabase5. Character changes auto-sync (debounced 2s) — DM sees updates in real-time6. Supabase Realtime pushes INSERT/UPDATE/DELETE events to all connected clients### Character Summary Auto-Sync`useCharacterSync(character)` hook in SheetPage.tsx:- Checks if character is linked to any campaign (Supabase query on mount)- Watches: name, classId, raceId, level, currentHp, maxHp, paragonPath, epicDestiny, alignment, deity, playerName, portrait- On change: debounced 2s → calls `upsertCharacterSummary()` → Supabase upsert- Gracefully handles offline (silent fail, retries on next change)---
 
 ## Zustand Stores
 
@@ -634,6 +648,7 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Ritual Caster auto-granted feat: Classes with Ritual Casting class feature (wizard, cleric, bard, druid, invoker, psion) show Ritual Caster under Feats as a known feat that doesn't count against budget, cannot be removed, marked "Class Feature". `AUTO_GRANTED` map in FeatsPanel, Step7_Feats, and LevelUpModal.
 - [x] Quick Access Powers tray: `QuickTrayPanel.tsx` rendered below the 3-column layout in CharacterSheet, spanning full width. 3×3 grid of up to 9 pinned PowerCards. `quickTrayPowerIds: string[]` on Character (DB v5). ⚡ pin button added to `renderFilledCard` in PowersPanel.tsx and to each power in ActionsByTypePanel.tsx — amber-themed, shows ✓ when already pinned, hidden when tray full (9/9). Tray supports encounter/daily used toggle (synced to `usedEncounterPowers`/`usedDailyPowers`), psionic augment buttons, and × remove from tray. Collapsible header with power count badge. Empty slots rendered as dashed placeholders.
 - [x] Psion ritual book: Psion gets a ritual book (not spellbook) at creation with choice of Sending or Tenser's Floating Disk; stored in `ritualBooks: RitualBook[]` on Character; picker in Step3_Class; `psionStartingRitualId` in useWizardStore
+- [x] Supabase multi-user campaign sharing: Magic link auth (email, no passwords); `profiles`, `shared_campaigns`, `campaign_members`, `character_summaries` tables with RLS policies; 6-char invite codes for campaign sharing; DM creates campaign + shares code, players join via code + link local character; `SharedCampaignView` shows campaign roster with character cards (HP bars, race/class, level, portrait); auto-sync character summaries on sheet changes (debounced 2s via `useCharacterSync` hook); Supabase Realtime subscriptions for live updates (`useRealtimeCampaign` hook); TopBar user indicator (initials circle); Sidebar account section (login/logout); `LoginPage` with magic link flow; all sharing UI in `src/components/sharing/`; Dexie DB v5. App works fully offline — Supabase only for sharing features.
 
 ---
 

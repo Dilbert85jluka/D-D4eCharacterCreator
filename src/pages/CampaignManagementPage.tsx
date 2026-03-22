@@ -16,6 +16,10 @@ import type { Campaign } from '../types/campaign';
 import type { CampaignSession } from '../types/session';
 import type { SessionEncounter, InitiativeEntry, SavedInitiativeState } from '../types/encounter';
 import { v4 as uuidv4 } from 'uuid';
+import { useAuthStore } from '../store/useAuthStore';
+import { useSharingStore } from '../store/useSharingStore';
+import { SharedCampaignView } from '../components/sharing/SharedCampaignView';
+import { JoinCampaignModal } from '../components/sharing/JoinCampaignModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -24,7 +28,8 @@ type EditorMode =
   | { type: 'new-campaign' }
   | { type: 'campaign'; campaignId: string }
   | { type: 'new-session'; campaignId: string }
-  | { type: 'session'; campaignId: string; sessionId: string };
+  | { type: 'session'; campaignId: string; sessionId: string }
+  | { type: 'shared-campaign'; sharedCampaignId: string };
 
 // ── Form shape types ──────────────────────────────────────────────────────────
 
@@ -84,6 +89,14 @@ export function CampaignManagementPage() {
     getSessionsForCampaign, nextSessionNumber,
   } = useSessionsStore();
   const navigate = useAppStore((s) => s.navigate);
+
+  // ── Sharing state ──────────────────────────────────────────────────────────
+  const user = useAuthStore((s) => s.user);
+  const profile = useAuthStore((s) => s.profile);
+  const { sharedCampaigns, loadSharedCampaigns } = useSharingStore();
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  useEffect(() => { if (user) loadSharedCampaigns(user.id); }, [user, loadSharedCampaigns]);
+
 
   const {
     getEncountersForSession, addEncounter, updateEncounter,
@@ -1013,6 +1026,47 @@ export function CampaignManagementPage() {
               </ul>
             )}
           </div>
+
+          {/* ── Shared Campaigns ───────────────────────────────────────── */}
+          {profile && (
+            <div className="border-t border-stone-200 flex-shrink-0">
+              <div className="bg-indigo-900 px-4 py-3 flex items-center justify-between">
+                <h2 className="text-white font-bold text-base">Shared Campaigns</h2>
+                <button
+                  onClick={() => setShowJoinModal(true)}
+                  className="text-indigo-200 hover:text-white text-xs font-semibold
+                             bg-indigo-700 hover:bg-indigo-600 px-3 py-1.5 rounded-lg transition-colors min-h-[36px]"
+                >
+                  Join
+                </button>
+              </div>
+              <div className="overflow-y-auto max-h-48">
+                {sharedCampaigns.length === 0 ? (
+                  <div className="px-4 py-4 text-center">
+                    <p className="text-stone-400 text-xs">No shared campaigns yet</p>
+                  </div>
+                ) : (
+                  <ul>
+                    {sharedCampaigns.map((sc) => (
+                      <li key={sc.id}>
+                        <button
+                          onClick={() => { setMode({ type: 'shared-campaign', sharedCampaignId: sc.id }); setShowEditor(true); }}
+                          className={[
+                            'w-full text-left px-4 py-3 text-sm border-b border-stone-100 transition-colors min-h-[44px]',
+                            mode.type === 'shared-campaign' && mode.sharedCampaignId === sc.id
+                              ? 'bg-indigo-50 text-indigo-800 font-semibold'
+                              : 'text-stone-700 hover:bg-stone-50',
+                          ].join(' ')}
+                        >
+                          <span className="text-indigo-500 mr-1">🌐</span> {sc.name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Editor panel ──────────────────────────────────────────────── */}
@@ -1022,6 +1076,7 @@ export function CampaignManagementPage() {
         ].join(' ')}>
 
           {/* Nothing selected yet (desktop) */}
+{/* Shared campaign view */}          {mode.type === 'shared-campaign' && (            <div className="flex-1 overflow-y-auto">              <SharedCampaignView campaignId={mode.sharedCampaignId} />            </div>          )}
           {mode.type === 'none' && (
             <div className="hidden md:flex flex-col items-center justify-center h-full text-center px-8">
               <div className="text-6xl mb-4">🏰</div>
@@ -2181,6 +2236,9 @@ export function CampaignManagementPage() {
           </div>
         );
       })()}
+      {/* Join Campaign Modal */}
+      <JoinCampaignModal isOpen={showJoinModal} onClose={() => setShowJoinModal(false)} />
+
     </div>
   );
 }

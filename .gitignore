@@ -1,2 +1,5 @@
-# Ignore everything in the directory
-node_modules/*
+node_modules
+dist
+.env
+.env.local
+.env.*.local
