@@ -8,7 +8,7 @@ import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
 import { isPsionicClass, getMaxPowerPoints, parseAugments, getNonAugmentSpecialText } from '../../utils/psionics';
 
-const MAX_TRAY_SIZE = 9;
+const PAGE_SIZE = 9;
 
 interface Props {
   character: Character;
@@ -16,6 +16,7 @@ interface Props {
 
 export function QuickTrayPanel({ character }: Props) {
   const [collapsed, setCollapsed] = useState(false);
+  const [page, setPage] = useState(0);
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
 
   const derived = useCharacterDerived(character);
@@ -67,8 +68,12 @@ export function QuickTrayPanel({ character }: Props) {
     await patch({ currentPowerPoints: newPP });
   };
 
-  // Fill empty slots up to 9
-  const emptySlots = MAX_TRAY_SIZE - trayPowers.length;
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(trayPowers.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageStart = safePage * PAGE_SIZE;
+  const pagePowers = trayPowers.slice(pageStart, pageStart + PAGE_SIZE);
+  const emptySlots = safePage < totalPages - 1 ? 0 : PAGE_SIZE - pagePowers.length;
 
   return (
     <div className="bg-white rounded-xl border border-amber-300 shadow-sm overflow-hidden">
@@ -81,7 +86,7 @@ export function QuickTrayPanel({ character }: Props) {
           <span className="text-lg">⚡</span>
           <span className="text-sm font-bold text-amber-800">Quick Access Powers</span>
           <span className="text-[10px] bg-amber-200 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold">
-            {trayPowers.length}/{MAX_TRAY_SIZE}
+            {trayPowers.length}
           </span>
         </div>
         <span className="text-amber-600 text-sm">{collapsed ? '▼' : '▲'}</span>
@@ -98,7 +103,7 @@ export function QuickTrayPanel({ character }: Props) {
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-3">
-              {trayPowers.map(({ id, power }) => {
+              {pagePowers.map(({ id, power }) => {
                 // Psionic augment props
                 const psionicAugmentProps = isPsionic && power.usage === 'at-will' && power.special
                   ? (() => {
@@ -147,6 +152,25 @@ export function QuickTrayPanel({ character }: Props) {
                   <span className="text-stone-300 text-xs text-center px-2">Empty slot</span>
                 </div>
               ))}
+
+            {/* Page navigation */}
+            {totalPages > 1 && (
+              <div className="col-span-3 flex items-center justify-center gap-3 pt-2">
+                <button
+                  onClick={() => setPage(Math.max(0, safePage - 1))}
+                  disabled={safePage === 0}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm font-bold min-h-[44px] min-w-[44px]"
+                >←</button>
+                <span className="text-xs font-semibold text-stone-500">
+                  Page {safePage + 1} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage(Math.min(totalPages - 1, safePage + 1))}
+                  disabled={safePage >= totalPages - 1}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm font-bold min-h-[44px] min-w-[44px]"
+                >→</button>
+              </div>
+            )}
             </div>
           )}
         </div>

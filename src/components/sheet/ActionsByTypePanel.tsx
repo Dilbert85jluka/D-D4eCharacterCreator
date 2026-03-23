@@ -144,7 +144,7 @@ export function ActionsByTypePanel({ character }: Props) {
 
   const addToQuickTray = async (powerId: string) => {
     const tray = character.quickTrayPowerIds ?? [];
-    if (tray.length >= 9 || tray.includes(powerId)) return;
+    if (tray.includes(powerId)) return;
     await patch({ quickTrayPowerIds: [...tray, powerId] });
   };
 
@@ -192,7 +192,7 @@ export function ActionsByTypePanel({ character }: Props) {
                     className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300"
                     title="In quick tray"
                   >✓</span>
-                ) : (character.quickTrayPowerIds ?? []).length < 9 && (
+                ) : (
                   <button
                     onClick={() => addToQuickTray(power.id)}
                     className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200"

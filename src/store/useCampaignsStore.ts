@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { campaignRepository } from '../db/campaignRepository';
+import { useAuthStore } from './useAuthStore';
+import { deleteCloudCampaign } from '../lib/campaignCloudService';
 import { sessionRepository } from '../db/sessionRepository';
 import { encounterRepository } from '../db/encounterRepository';
 import { useEncountersStore } from './useEncountersStore';
@@ -16,6 +18,7 @@ interface CampaignsState {
   updateCampaign: (campaign: Campaign) => void;
   deleteCampaign: (id: string) => Promise<void>;
   getCampaignById: (id: string) => Campaign | undefined;
+  mergeCloudCampaigns: (cloudCampaigns: Campaign[]) => Promise<void>;
 }
 
 export const useCampaignsStore = create<CampaignsState>((set, get) => ({
@@ -50,7 +53,27 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
     await sessionRepository.deleteAllForCampaign(id);
     await campaignRepository.delete(id);
     set((s) => ({ campaigns: s.campaigns.filter((c) => c.id !== id) }));
+    // Cloud soft-delete (fire and forget)
+    const user = useAuthStore.getState().user;
+    if (user) deleteCloudCampaign(id, user.id).catch(() => {});
   },
 
   getCampaignById: (id) => get().campaigns.find((c) => c.id === id),
+
+  mergeCloudCampaigns: async (cloudCampaigns) => {
+    const localCampaigns = await campaignRepository.getAll();
+    const localMap = new Map(localCampaigns.map((c) => [c.id, c]));
+
+    for (const cloudCampaign of cloudCampaigns) {
+      const local = localMap.get(cloudCampaign.id);
+      if (!local) {
+        await campaignRepository.upsertFromCloud(cloudCampaign);
+      } else if (cloudCampaign.updatedAt > local.updatedAt) {
+        await campaignRepository.upsertFromCloud(cloudCampaign);
+      }
+    }
+
+    const updated = await campaignRepository.getAll();
+    set({ campaigns: updated });
+  },
 }));

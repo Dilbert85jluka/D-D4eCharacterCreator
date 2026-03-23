@@ -17,6 +17,7 @@ import { CampaignManagementPage } from './pages/CampaignManagementPage';
 import { MagicItemCompendiumPage } from './pages/MagicItemCompendiumPage';
 import { LoginPage } from './components/auth/LoginPage';
 import { useCharacterCloudSync } from './hooks/useCharacterCloudSync';
+import { useCampaignCloudSync } from './hooks/useCampaignCloudSync';
 
 export default function App() {
   const currentView    = useAppStore((s) => s.currentView);
@@ -36,6 +37,7 @@ export default function App() {
   // Initialize Supabase auth (checks existing session, subscribes to changes)
   useEffect(() => { initializeAuth(); }, [initializeAuth]);
   useCharacterCloudSync();
+  useCampaignCloudSync();
 
 
   // Show nothing while auth is initializing (checking existing session)

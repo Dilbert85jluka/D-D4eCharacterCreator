@@ -36,6 +36,11 @@ export const campaignRepository = {
     await db.campaigns.update(id, { ...changes, updatedAt: Date.now() });
   },
 
+  /** Insert or replace a campaign from cloud backup — preserves cloud updatedAt. */
+  async upsertFromCloud(campaign: Campaign): Promise<void> {
+    await db.campaigns.put(campaign);
+  },
+
   async delete(id: string): Promise<void> {
     await db.campaigns.delete(id);
   },

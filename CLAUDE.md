@@ -7,7 +7,8 @@ Project memory file. Read this at the start of every session.
 ## Project Overview
 
 A Progressive Web App (PWA) for D&D 4th Edition character creation and management.
-Fully offline — no server, no backend. All data stored in IndexedDB via Dexie.js.
+Local-first: primary data in IndexedDB (Dexie.js), with Supabase cloud backup for cross-device sync.
+Auth required (magic link email via Supabase). Hosted on Azure with IP whitelisting.
 Designed for tablet use (touch targets ≥44px, responsive layouts).
 
 **Location:** `C:\Claude\dnd4e-character-creator\`
@@ -66,7 +67,7 @@ src/
 │   ├── deities.ts
 │   └── languages.ts
 ├── db/
-│   ├── database.ts            # Dexie schema (4 versions)
+│   ├── database.ts            # Dexie schema (5 versions)
 │   ├── characterRepository.ts # Character CRUD: getAll, getById, create, update, patch, delete
 │   ├── campaignRepository.ts
 │   ├── sessionRepository.ts
@@ -75,12 +76,14 @@ src/
 │   ├── supabase.ts            # Supabase client singleton
 │   ├── sharingService.ts      # Supabase CRUD: campaigns, members, character summaries
 │   ├── summarySync.ts         # extractSummary() + createSyncDebouncer()
-│   └── characterCloudService.ts # Cloud backup: pushCharacterToCloud, pullAllCharactersFromCloud, deleteCloudCharacter
+│   ├── characterCloudService.ts # Cloud backup: pushCharacterToCloud, pullAllCharactersFromCloud, deleteCloudCharacter
+│   └── campaignCloudService.ts  # Cloud backup: pushCampaignToCloud, pullAllCampaignsFromCloud, deleteCloudCampaign
 ├── hooks/
 │   ├── useCharacterDerived.ts # Memoized derived stats (modifiers, defenses, HP, skills, feat bonuses)
 │   ├── useCharacterSync.ts    # Auto-sync character summary to Supabase (debounced 2s)
 │   ├── useRealtimeCampaign.ts # Supabase Realtime subscriptions for campaign updates
-│   └── useCharacterCloudSync.ts # Cloud backup: pull on startup + debounced push on character changes
+│   ├── useCharacterCloudSync.ts # Cloud backup: pull on startup + debounced push on character changes
+│   └── useCampaignCloudSync.ts  # Cloud backup: pull on startup + debounced push on campaign changes
 ├── pages/
 │   ├── HomePage.tsx
 │   ├── WizardPage.tsx
@@ -471,7 +474,7 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 | RitualsPanel.tsx | Ritual scroll shop + ritual book; BuyScrollModal; AddToBookModal; skill check table display |
 | SpellbookPanel.tsx | Wizard multi-spellbook UI (Inventory → Spellbooks tab). Per-book cards with page bar, rename, delete. Prepare/unprepare daily and utility powers. Mastered ritual management. Buy additional books (50 gp). Auto-migrates legacy flat data to `spellbooks[]` on first open. |
 | NotesPanel.tsx | Notes textarea + Profile (appearance/languages/background). **No Features sub-tab** — class features are in ClassFeaturesPanel. |
-| QuickTrayPanel.tsx | Quick Access Powers tray — 3×3 grid of pinned PowerCards below the 3-column layout. Up to 9 powers; remove button per card; encounter/daily toggle synced to DB; psionic augment support. `quickTrayPowerIds: string[]` on Character. ⚡ pin button in PowersPanel and ActionsByTypePanel. |
+| QuickTrayPanel.tsx | Quick Access Powers tray — paginated 3×3 grid of pinned PowerCards below the 3-column layout. Unlimited powers (9 per page with ← → navigation). Remove button per card; encounter/daily toggle synced to DB; psionic augment support. `quickTrayPowerIds: string[]` on Character. ⚡ pin button in PowersPanel and ActionsByTypePanel. |
 | LevelUpModal.tsx | Level-up flow: power gain picker + feat (only on FEAT_LEVELS) + paragon path (L11) + ability scores |
 
 ---
@@ -553,7 +556,67 @@ const patch = async (changes: Partial<Character>) => {
 ```
 
 ---
-## Supabase Backend (Multi-User Campaign Sharing)**Supabase URL:** configured in `.env.local` (`VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`)**Auth:** Magic link (email, no passwords). `useAuthStore` manages session + profile. Login is mandatory — `App.tsx` gates all views behind auth check. Supabase Redirect URLs must include both production (`https://dnd4ebuilder.com`) and dev (`http://localhost:5173`) URLs.**Database:** 5 tables — `profiles`, `shared_campaigns`, `campaign_members`, `character_summaries`, `user_characters`**Realtime:** Subscriptions on `character_summaries` and `campaign_members` for live updates.### Key Files| File | Purpose ||---|---|| `src/lib/supabase.ts` | Supabase client singleton || `src/lib/sharingService.ts` | All CRUD: create/join/leave campaign, link/unlink character, invite codes || `src/lib/summarySync.ts` | `extractSummary()` builds payload from Character + maxHp; `createSyncDebouncer()` || `src/store/useAuthStore.ts` | Auth state: `user`, `profile`, `login(email)`, `logout()`, `updateDisplayName()` || `src/store/useSharingStore.ts` | Shared campaigns, members, summaries; actions + realtime mutation handlers || `src/hooks/useCharacterSync.ts` | Auto-syncs character summary to Supabase on field changes (debounced 2s) || `src/hooks/useRealtimeCampaign.ts` | Subscribes to Realtime for campaign updates; wired into SharedCampaignView || `src/components/auth/LoginPage.tsx` | Magic link email sign-in page || `src/components/sharing/ShareCampaignModal.tsx` | Copy invite code/link for DM sharing || `src/components/sharing/JoinCampaignModal.tsx` | Enter invite code → preview → join campaign || `src/components/sharing/LinkCharacterModal.tsx` | Pick local character to link to campaign || `src/components/sharing/SharedCampaignView.tsx` | Campaign roster with member cards, HP bars, DM/player actions |### Campaign Sharing Flow1. DM signs in (magic link) → creates campaign → gets 6-char invite code2. DM shares code via Discord/text3. Player signs in → enters code in Join modal → previews campaign → confirms join4. Player links a local character → summary pushed to Supabase5. Character changes auto-sync (debounced 2s) — DM sees updates in real-time6. Supabase Realtime pushes INSERT/UPDATE/DELETE events to all connected clients### Character Summary Auto-Sync`useCharacterSync(character)` hook in SheetPage.tsx:- Checks if character is linked to any campaign (Supabase query on mount)- Watches: name, classId, raceId, level, currentHp, maxHp, paragonPath, epicDestiny, alignment, deity, playerName, portrait- On change: debounced 2s → calls `upsertCharacterSummary()` → Supabase upsert- Gracefully handles offline (silent fail, retries on next change)---
+## Supabase Backend (Multi-User Campaign Sharing)
+
+**Supabase URL:** configured in `.env.local` (`VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`)
+**Auth:** Magic link (email, no passwords). `useAuthStore` manages session + profile. Login is mandatory — `App.tsx` gates all views behind auth check. Supabase Redirect URLs must include both production (`https://dnd4ebuilder.com`) and dev (`http://localhost:5173`) URLs.
+**Database:** 6 tables — `profiles`, `shared_campaigns`, `campaign_members`, `character_summaries`, `user_characters`, `user_campaigns`
+**Realtime:** Subscriptions on `character_summaries` and `campaign_members` for live updates.
+
+### Key Files
+
+| File | Purpose |
+|---|---|
+| `src/lib/supabase.ts` | Supabase client singleton |
+| `src/lib/sharingService.ts` | All CRUD: create/join/leave campaign, link/unlink character, invite codes |
+| `src/lib/summarySync.ts` | `extractSummary()` builds payload from Character + maxHp; `createSyncDebouncer()` |
+| `src/lib/characterCloudService.ts` | Cloud backup: `pushCharacterToCloud()`, `pullAllCharactersFromCloud()`, `deleteCloudCharacter()` |
+| `src/lib/campaignCloudService.ts` | Cloud backup: `pushCampaignToCloud()`, `pullAllCampaignsFromCloud()`, `deleteCloudCampaign()` |
+| `src/store/useAuthStore.ts` | Auth state: `user`, `profile`, `login(email)`, `logout()`, `updateDisplayName()` |
+| `src/store/useSharingStore.ts` | Shared campaigns, members, summaries; actions + realtime mutation handlers |
+| `src/hooks/useCharacterSync.ts` | Auto-syncs character summary to Supabase on field changes (debounced 2s) |
+| `src/hooks/useCharacterCloudSync.ts` | Cloud backup: pull on startup, debounced push on character changes |
+| `src/hooks/useCampaignCloudSync.ts` | Cloud backup: pull on startup, debounced push on campaign changes |
+| `src/hooks/useRealtimeCampaign.ts` | Subscribes to Realtime for campaign updates; wired into SharedCampaignView |
+| `src/components/auth/LoginPage.tsx` | Magic link email sign-in page |
+| `src/components/sharing/ShareCampaignModal.tsx` | Copy invite code/link for DM sharing |
+| `src/components/sharing/JoinCampaignModal.tsx` | Enter invite code → preview → join campaign |
+| `src/components/sharing/LinkCharacterModal.tsx` | Pick local character to link to campaign |
+| `src/components/sharing/SharedCampaignView.tsx` | Campaign roster with member cards, HP bars, DM/player actions |
+
+### Campaign Sharing Flow
+
+1. DM signs in (magic link) → creates campaign → clicks "🌐 Share Campaign" → gets 6-char invite code
+2. DM shares code via Discord/text (subsequent clicks reuse existing code, not create new)
+3. Player signs in → enters code in Join modal → previews campaign → confirms join
+4. Player links a local character → summary pushed to Supabase
+5. Character changes auto-sync (debounced 2s) — DM sees updates in real-time
+6. Supabase Realtime pushes INSERT/UPDATE/DELETE events to all connected clients
+
+### Character Summary Auto-Sync
+
+`useCharacterSync(character)` hook in SheetPage.tsx:
+- Checks if character is linked to any campaign (Supabase query on mount)
+- Watches: name, classId, raceId, level, currentHp, maxHp, paragonPath, epicDestiny, alignment, deity, playerName, portrait
+- On change: debounced 2s → calls `upsertCharacterSummary()` → Supabase upsert
+- Gracefully handles offline (silent fail, retries on next change)
+
+### Cloud Character + Campaign Backup (Cross-Device Sync)
+
+Dexie stays primary (fast, offline). Supabase `user_characters` and `user_campaigns` tables store full JSON backups per user.
+
+**Push:** `useCharacterCloudSync` / `useCampaignCloudSync` hooks in App.tsx detect changes via `updatedAt` hashing, debounce 3s, push to cloud. Silent fail on offline.
+**Pull:** One-time pull on startup (after auth + Dexie load). `mergeCloudCharacters()` / `mergeCloudCampaigns()` in stores compare `updatedAt` timestamps — newer wins. New-from-cloud items inserted into local Dexie.
+**Delete:** Local delete soft-deletes in cloud (`deleted: true`). Cloud-deleted items not pulled on next startup.
+**Portrait handling:** Stored inline in JSONB (~30-50KB per portrait). Well within Supabase free tier limits.
+
+### Supabase RLS Notes
+
+- `shared_campaigns` and `campaign_members` SELECT policies use `USING (true)` (any authenticated user can see) — safe because app is IP whitelisted for friend group
+- `generate_invite_code()` and `lookup_campaign_by_invite_code()` are `SECURITY DEFINER` to bypass RLS
+- INSERT/UPDATE/DELETE policies enforce ownership (only owner can modify)
+
+---
 
 ## Zustand Stores
 
@@ -649,7 +712,7 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Psionic at-will power progression: All psionic classes (Ardent, Battlemind, Psion) gain a 3rd at-will attack power at level 3 via LevelUpModal teal-themed picker. At levels 7/13/17/23/27, psionic classes can optionally replace one existing at-will with another (up to current level) via dropdown swap UI. `maxPowersForLevel` in PowersPanel returns `baseCount + 1` for psionic classes at level 3+. Uses `isPsionicClass()` from `src/utils/psionics.ts` (not hardcoded Psion check). At-will data exists at levels 1/3/7/13/17/23/27 in each psionic class's power file.
 - [x] Discipline/Ardent/Battlemind Powers panel: shared `DisciplinePowersPanel.tsx` sub-tab under Powers for Psion, Ardent, and Battlemind. `DISCIPLINE_CLASSES = ['psion', 'ardent', 'battlemind']` drives tab visibility in CharacterSheet.tsx. `DISCIPLINE_POWER_MAP` maps discipline/mantle/study choice keys to auto-granted encounter power IDs: telekinesis → Far Hand + Forceful Push; telepathy → Distract + Send Thoughts; clarity → Ardent Alacrity + Ardent Surge; elation → Ardent Outrage + Ardent Surge; resilience → Battle Resilience; speed → Speed of Thought. Battlemind also shows 3 Psionic Defense at-will powers (Battlemind's Demand, Blurred Step, Mind Spike) via `BATTLEMIND_DEFENSE_POWERS` constant — rendered as teal-themed `AtWillPowerCard` components (no Use button). Dynamic labels: "Discipline Powers" for Psion, "Ardent Powers" for Ardent, "Battlemind Powers" for Battlemind. Badge: "Discipline" / "Mantle" / "Study". Sub-tab label in CharacterSheet also dynamic. Encounter powers individually tracked in `usedEncounterPowers`; indigo-themed encounter cards, teal-themed at-will cards.
 - [x] Ritual Caster auto-granted feat: Classes with Ritual Casting class feature (wizard, cleric, bard, druid, invoker, psion) show Ritual Caster under Feats as a known feat that doesn't count against budget, cannot be removed, marked "Class Feature". `AUTO_GRANTED` map in FeatsPanel, Step7_Feats, and LevelUpModal.
-- [x] Quick Access Powers tray: `QuickTrayPanel.tsx` rendered below the 3-column layout in CharacterSheet, spanning full width. 3×3 grid of up to 9 pinned PowerCards. `quickTrayPowerIds: string[]` on Character (DB v5). ⚡ pin button added to `renderFilledCard` in PowersPanel.tsx and to each power in ActionsByTypePanel.tsx — amber-themed, shows ✓ when already pinned, hidden when tray full (9/9). Tray supports encounter/daily used toggle (synced to `usedEncounterPowers`/`usedDailyPowers`), psionic augment buttons, and × remove from tray. Collapsible header with power count badge. Empty slots rendered as dashed placeholders.
+- [x] Quick Access Powers tray: `QuickTrayPanel.tsx` rendered below the 3-column layout in CharacterSheet, spanning full width. Paginated 3×3 grid (9 per page, unlimited total) with ← → page navigation. `quickTrayPowerIds: string[]` on Character (DB v5). ⚡ pin button added to `renderFilledCard` in PowersPanel.tsx and to each power in ActionsByTypePanel.tsx — amber-themed, shows ✓ when already pinned. No max limit on pinned powers. Tray supports encounter/daily used toggle (synced to `usedEncounterPowers`/`usedDailyPowers`), psionic augment buttons, ability modifier substitution, and × remove from tray. Collapsible header with power count badge. Empty slots rendered as dashed placeholders on last page.
 - [x] Psion ritual book: Psion gets a ritual book (not spellbook) at creation with choice of Sending or Tenser's Floating Disk; stored in `ritualBooks: RitualBook[]` on Character; picker in Step3_Class; `psionStartingRitualId` in useWizardStore
 - [x] Supabase multi-user campaign sharing: Magic link auth (email, no passwords); `profiles`, `shared_campaigns`, `campaign_members`, `character_summaries` tables with RLS policies; 6-char invite codes for campaign sharing; DM creates campaign + shares code, players join via code + link local character; `SharedCampaignView` shows campaign roster with character cards (HP bars, race/class, level, portrait); auto-sync character summaries on sheet changes (debounced 2s via `useCharacterSync` hook); Supabase Realtime subscriptions for live updates (`useRealtimeCampaign` hook); TopBar user indicator (initials circle); Sidebar account section (login/logout); `LoginPage` with magic link flow; all sharing UI in `src/components/sharing/`; Dexie DB v5.
 - [x] Mandatory auth gate: App.tsx checks `useAuthStore.isInitialized` + `user` before rendering. If not authenticated, only `LoginPage` is shown (no skip button). "Back to App" button on LoginPage only visible when already logged in. Auth session persists across refreshes via Supabase session.
@@ -658,6 +721,7 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Equipment multi-buy in wizard: Step8_Equipment.tsx `addItem()` no longer blocks duplicate purchases. Weapons/armor create unique instances (`instanceId` via `crypto.randomUUID()`); gear stacks by quantity. Buy button always visible (disabled only when can't afford). Inventory shows per-instance rows for weapons/armor, quantity badge for gear. `removeEquipmentByInstance()` and `updateEquipmentQuantity()` added to useWizardStore.
 - [x] Ability modifier substitution in power text: `substituteMods()` in `src/utils/powerText.ts` replaces "Dexterity modifier" → "3 (Dexterity modifier)" using character's computed ability modifiers. Applied via optional `abilityModifiers` prop on PowerCard. Wired into all 5 sheet panels (PowersPanel, ActionsByTypePanel, QuickTrayPanel, ChannelDivinityPanel, DisciplinePowersPanel) via `useCharacterDerived()`. Wizard pickers show raw text (no character yet). Works for all 6 abilities across all power text fields (attack, hit, miss, effect, special, augment descriptions).
 - [x] Cloud character backup + cross-device sync: `user_characters` Supabase table stores full Character JSON (JSONB) per user. `characterCloudService.ts` provides `pushCharacterToCloud()`, `pullAllCharactersFromCloud()`, `deleteCloudCharacter()`. `useCharacterCloudSync` hook in App.tsx: one-time pull on startup (after auth + Dexie load) merges cloud characters into local Dexie (newer wins via `updatedAt`); debounced 3s push on every character change. `mergeCloudCharacters()` action in useCharactersStore. `upsertFromCloud()` in characterRepository preserves cloud timestamps. Character delete soft-deletes in cloud (`deleted: true`). Works across browsers and devices — log in anywhere to see all characters.
+- [x] Cloud campaign backup + cross-device sync: `user_campaigns` Supabase table stores full Campaign JSON (JSONB) per user. `campaignCloudService.ts` provides `pushCampaignToCloud()`, `pullAllCampaignsFromCloud()`, `deleteCloudCampaign()`. `useCampaignCloudSync` hook in App.tsx: one-time pull on startup merges cloud campaigns into local Dexie (newer wins via `updatedAt`); debounced 3s push on every campaign change. `mergeCloudCampaigns()` action in useCampaignsStore. Campaign delete soft-deletes in cloud. Works across browsers and devices.
 
 ---
 
