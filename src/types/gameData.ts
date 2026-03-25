@@ -131,6 +131,8 @@ export interface FeatPrerequisites {
   otherFeat?: string;
   /** True if the character must already have taken any multiclass feat */
   anyMulticlassFeat?: boolean;
+  /** Deity ID the character must worship (e.g. 'bahamut') */
+  deity?: string;
 }
 
 /** Passive stat bonuses a feat grants when selected. Applied in useCharacterDerived. */
@@ -188,6 +190,8 @@ export interface FeatData {
   mcProficiencyChoices?: string[];
   /** For MC feats: a single fixed proficiency granted (no choice), e.g. 'Hand Crossbow' */
   mcFixedProficiency?: string;
+  /** Power IDs granted by this feat (e.g. deity Channel Divinity powers) */
+  grantedPowerIds?: string[];
 }
 
 export interface SkillData {

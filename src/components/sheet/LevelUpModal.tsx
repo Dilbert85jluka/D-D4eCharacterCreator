@@ -211,6 +211,8 @@ export function LevelUpModal({ character, derived, onClose }: Props) {
         character.trainedSkills,
         allFeatIds,
         newLevel,
+        undefined,
+        character.deity,
       ),
     )
     .sort((a, b) => a.name.localeCompare(b.name));

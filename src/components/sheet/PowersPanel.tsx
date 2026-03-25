@@ -8,7 +8,7 @@ import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
 import type { PowerUsage } from '../../types/character';
 import type { PowerData } from '../../types/gameData';
-import { getMulticlassId } from '../../data/feats';
+import { getMulticlassId, getFeatById } from '../../data/feats';
 import { isPsionicClass, getMaxPowerPoints, parseAugments, getNonAugmentSpecialText } from '../../utils/psionics';
 import { useCharacterDerived } from '../../hooks/useCharacterDerived';
 
@@ -154,6 +154,18 @@ export function PowersPanel({ character }: Props) {
   const pactBoonPower = character.classId === 'warlock' && character.warlockPact
     ? getPowersByClass('warlock').find((p) => p.pactBoon === character.warlockPact) ?? null
     : null;
+
+  // ── Feat-granted powers (e.g. deity Channel Divinity feats) ──────────────
+  const featGrantedPowers: PowerData[] = [];
+  for (const featId of character.selectedFeatIds) {
+    const feat = getFeatById(featId);
+    if (feat?.grantedPowerIds) {
+      for (const powerId of feat.grantedPowerIds) {
+        const p = getPowerById(powerId);
+        if (p) featGrantedPowers.push(p);
+      }
+    }
+  }
 
   // ── Power categorisation ──────────────────────────────────────────────────
   const selectedIds = character.selectedPowers.map((p) => p.powerId);
@@ -709,6 +721,38 @@ export function PowersPanel({ character }: Props) {
               );
             }
             return renderMcEmptySlot(mcSlot);
+          })}
+
+          {/* Feat-granted encounter powers (e.g. deity Channel Divinity) — auto-granted, no remove */}
+          {tab === 'encounter' && featGrantedPowers.filter((p) => p.usage === 'encounter').map((power) => {
+            const isUsed = character.usedEncounterPowers.includes(power.id);
+            return (
+              <div key={power.id}>
+                <div className="flex items-center justify-between mb-0.5 px-1">
+                  <span className="text-[10px] font-bold bg-violet-700 text-white px-1.5 py-0.5 rounded">Feat</span>
+                  <div className="flex items-center gap-1">
+                    {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                      <span
+                        className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300"
+                        title="In quick tray"
+                      >✓</span>
+                    ) : (
+                      <button
+                        onClick={() => addToQuickTray(power.id)}
+                        className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200"
+                        title="Pin to quick tray"
+                      >⚡</button>
+                    )}
+                  </div>
+                </div>
+                <PowerCard
+                  power={power}
+                  used={isUsed}
+                  onToggleUsed={() => toggleUsed(power.id, power.usage)}
+                  abilityModifiers={abilityMods}
+                />
+              </div>
+            );
           })}
 
           {/* MC daily slot */}

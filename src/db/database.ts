@@ -42,6 +42,14 @@ export class Dnd4eDatabase extends Dexie {
       sessions:   'id, campaignId, sessionNumber, updatedAt',
       encounters: 'id, sessionId, campaignId, sortOrder, updatedAt',
     });
+
+    // v6: sharedCampaignId field on campaigns (no index change needed)
+    this.version(6).stores({
+      characters: 'id, name, classId, raceId, level, updatedAt',
+      campaigns:  'id, name, updatedAt',
+      sessions:   'id, campaignId, sessionNumber, updatedAt',
+      encounters: 'id, sessionId, campaignId, sortOrder, updatedAt',
+    });
   }
 }
 

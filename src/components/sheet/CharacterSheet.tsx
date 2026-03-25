@@ -15,6 +15,8 @@ import { EquipmentPanel } from './EquipmentPanel';
 import { NotesPanel } from './NotesPanel';
 import { ProficienciesPanel } from './ProficienciesPanel';
 import { ChannelDivinityPanel, CHANNEL_DIVINITY_CLASSES } from './ChannelDivinityPanel';
+import { getFeatById } from '../../data/feats';
+import { getPowerById } from '../../data/powers';
 import { DisciplinePowersPanel, DISCIPLINE_CLASSES } from './DisciplinePowersPanel';
 import { ArcaneImplementMasteryPanel } from './ArcaneImplementMasteryPanel';
 import { EldritchPactPanel } from './EldritchPactPanel';
@@ -45,7 +47,15 @@ export function CharacterSheet({ character }: Props) {
     { key: 'proficiencies',     label: 'Proficiencies'        },
   ];
 
-  const hasChannelDivinity = (CHANNEL_DIVINITY_CLASSES as readonly string[]).includes(character.classId);
+  const hasClassCd = (CHANNEL_DIVINITY_CLASSES as readonly string[]).includes(character.classId);
+  const hasFeatCd = character.selectedFeatIds.some((fid) => {
+    const feat = getFeatById(fid);
+    return feat?.grantedPowerIds?.some((pid) => {
+      const power = getPowerById(pid);
+      return power?.keywords.includes('Channel Divinity');
+    });
+  });
+  const hasChannelDivinity = hasClassCd || hasFeatCd;
   const hasDisciplinePowers = (DISCIPLINE_CLASSES as readonly string[]).includes(character.classId);
   const hasArcaneImplementMastery = character.classId === 'wizard';
   const hasEldritchPact = character.classId === 'warlock';

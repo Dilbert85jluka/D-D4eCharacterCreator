@@ -3,6 +3,7 @@ import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
 import { getPowersByClass, getPowerById } from '../../data/powers';
 import { getParagonPathById } from '../../data/paragonPaths';
+import { getFeatById } from '../../data/feats';
 import type { Character } from '../../types/character';
 import type { PowerData } from '../../types/gameData';
 import { useCharacterDerived } from '../../hooks/useCharacterDerived';
@@ -242,6 +243,23 @@ export function ChannelDivinityPanel({ character }: Props) {
       const power = getPowerById(id);
       if (power && power.keywords.includes('Channel Divinity') && !baseLevel0Powers.some((p) => p.id === id)) {
         grantedCdPowers.push(power);
+      }
+    }
+  }
+
+  // Add CD powers granted by feats (e.g. deity Channel Divinity feats)
+  const seenIds = new Set(baseLevel0Powers.map((p) => p.id));
+  for (const id of grantedCdPowers.map((p) => p.id)) seenIds.add(id);
+  for (const featId of character.selectedFeatIds) {
+    const feat = getFeatById(featId);
+    if (feat?.grantedPowerIds) {
+      for (const powerId of feat.grantedPowerIds) {
+        if (seenIds.has(powerId)) continue;
+        const power = getPowerById(powerId);
+        if (power && power.keywords.includes('Channel Divinity')) {
+          grantedCdPowers.push(power);
+          seenIds.add(powerId);
+        }
       }
     }
   }

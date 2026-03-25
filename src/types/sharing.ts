@@ -10,6 +10,23 @@ export interface Profile {
 
 export type CampaignRole = 'dm' | 'player';
 
+/** Player-visible session summary (excludes DM-only plannedSummary) */
+export interface PublicSession {
+  id: string;
+  sessionNumber: number;
+  name: string;
+  date: string;
+  importantEvents: string;
+  additionalNotes: string;
+}
+
+/** Public-facing campaign content synced by DM to Supabase */
+export interface CampaignContent {
+  description: string;
+  publicNotes: string;
+  sessions: PublicSession[];
+}
+
 export interface SharedCampaign {
   id: string;
   name: string;
@@ -19,6 +36,7 @@ export interface SharedCampaign {
   created_by: string;   // user id (DM)
   created_at: string;
   updated_at: string;
+  campaign_content: CampaignContent | null;
 }
 
 export interface CampaignMember {

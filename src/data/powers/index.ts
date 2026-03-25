@@ -22,6 +22,7 @@ import { psionPowers } from './psionPowers';
 import { runepriestPowers } from './runepriestPowers';
 import { seekerPowers } from './seekerPowers';
 import { RACIAL_POWERS } from './racial';
+import { featPowers } from './featPowers';
 import type { PowerData, PowerUsage } from '../../types/gameData';
 
 export const ALL_POWERS: PowerData[] = [
@@ -49,6 +50,7 @@ export const ALL_POWERS: PowerData[] = [
   ...runepriestPowers,
   ...seekerPowers,
   ...RACIAL_POWERS,
+  ...featPowers,
 ];
 
 export function getPowerById(id: string): PowerData | undefined {

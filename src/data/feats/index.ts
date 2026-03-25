@@ -66,9 +66,10 @@ export const FEATS: FeatData[] = [
     id: 'armor-of-bahamut',
     name: "Armor of Bahamut",
     tier: 'Heroic',
-    prerequisites: {},
+    prerequisites: { deity: 'bahamut' },
     benefit: `You gain the armor of Bahamut power. Armor of Bahamut Feat Utility Encounter ✦ Channel Divinity , Divine Immediate Interrupt Ranged 5 Trigger : An enemy scores a critical hit against you or an ally within 5 squares of you. Effect : The critical hit becomes a normal hit. Special : You can use only one channel divinity power per encounter.`,
     special: "Channel Divinity, must worship Bahamut",
+    grantedPowerIds: ['feat-armor-of-bahamut'],
   },
   {
     id: 'armor-proficiency-chainmail',
@@ -121,9 +122,10 @@ export const FEATS: FeatData[] = [
     id: 'avandras-rescue',
     name: "Avandra's Rescue",
     tier: 'Heroic',
-    prerequisites: {},
+    prerequisites: { deity: 'avandra' },
     benefit: `You gain the Avandra's rescue power. Avandra's Rescue Feat Utility Encounter ✦ Channel Divinity , Divine Move Action Melee 1 Target : One ally who is the same size as you Effect : You and the target each shift 1 square as a free action, swapping positions. Special : You can use only one channel divinity power per encounter`,
     special: "Channel Divinity, must worship Avandra",
+    grantedPowerIds: ['feat-avandras-rescue'],
   },
   {
     id: 'backstabber',
@@ -161,9 +163,10 @@ export const FEATS: FeatData[] = [
     id: 'corellons-grace',
     name: "Corellon's Grace",
     tier: 'Heroic',
-    prerequisites: {},
+    prerequisites: { deity: 'corellon' },
     benefit: `You gain the Corellon's grace power. Corellon's Grace Feat Utility Encounter ✦ Channel Divinity , Divine Immediate Interrupt Personal Trigger : A creature within 10 squares of you spends an action point to take an extra action. Effect : You take a move action. Special : You can use only one channel divinity power per encounter.`,
     special: "Channel Divinity, must worship Corellon",
+    grantedPowerIds: ['feat-corellons-grace'],
   },
   {
     id: 'dark-fury',
@@ -328,9 +331,10 @@ export const FEATS: FeatData[] = [
     id: 'harmony-of-erathis',
     name: "Harmony of Erathis",
     tier: 'Heroic',
-    prerequisites: {},
+    prerequisites: { deity: 'erathis' },
     benefit: `You gain the harmony of Erathis power. Harmony of Erathis Feat Utility Encounter ✦ Channel Divinity , Divine Minor Action Ranged 10 Target : One ally Effect : The target gains a +2 power bonus to the first attack roll he or she makes before the start of your next turn. Special : You can use only one channel divinity power per encounter.`,
     special: "Channel Divinity, must worship Erathis",
+    grantedPowerIds: ['feat-harmony-of-erathis'],
   },
   {
     id: 'healing-hands',
@@ -411,9 +415,10 @@ export const FEATS: FeatData[] = [
     id: 'iouns-poise',
     name: "Ioun's Poise",
     tier: 'Heroic',
-    prerequisites: {},
+    prerequisites: { deity: 'ioun' },
     benefit: `You gain the Ioun's poise power. Ioun's Poise Feat Utility Encounter ✦ Channel Divinity , Divine Minor Action Ranged 5 Target : You or one ally Effect : The target gains a +5 power bonus to Will until the start of your next turn. Special : You can use only one channel divinity power per encounter.`,
     special: "Channel Divinity, must worship Ioun",
+    grantedPowerIds: ['feat-iouns-poise'],
   },
   {
     id: 'iron-will',
@@ -435,9 +440,10 @@ export const FEATS: FeatData[] = [
     id: 'kords-favor',
     name: "Kord's Favor",
     tier: 'Heroic',
-    prerequisites: {},
+    prerequisites: { deity: 'kord' },
     benefit: `You gain the Kord's favor power. Kord's Favor Feat Utility Encounter ✦ Channel Divinity , Divine , Healing Free Action Ranged 5 Trigger : You or an ally within 5 squares of you scores a critical hit with a melee attack. Target : The triggering character Effect : The target can spend a healing surge. Special : You can use only one channel divinity power per encounter.`,
     special: "Channel Divinity, must worship Kord",
+    grantedPowerIds: ['feat-kords-favor'],
   },
   {
     id: 'lethal-hunter',
@@ -491,17 +497,19 @@ export const FEATS: FeatData[] = [
     id: 'meloras-tide',
     name: "Melora's Tide",
     tier: 'Heroic',
-    prerequisites: {},
+    prerequisites: { deity: 'melora' },
     benefit: `You gain the Melora's tide power. Melora's Tide Feat Utility Encounter ✦ Channel Divinity , Divine , Healing Minor Action Ranged 5 Target : You or one ally (the target must be bloodied) Effect : The target gains regeneration 2 until the end of the encounter or until he or she is no longer bloodied. Level 11: Regeneration 4. Level 21: Regeneration 6. Special : You can use only one channel divinity power per encounter`,
     special: "Channel Divinity, must worship Melora",
+    grantedPowerIds: ['feat-meloras-tide'],
   },
   {
     id: 'moradins-resolve',
     name: "Moradin's Resolve",
     tier: 'Heroic',
-    prerequisites: {},
+    prerequisites: { deity: 'moradin' },
     benefit: `You gain the Moradin's resolve power. Moradin's Resolve Feat Utility Encounter ✦ Channel Divinity , Divine Minor Action Personal Effect : Until the end of your next turn, you gain a +2 bonus to attack rolls against Large or larger creatures. Special : You can use only one channel divinity power per encounter.`,
     special: "Channel Divinity, must worship Moradin",
+    grantedPowerIds: ['feat-moradins-resolve'],
   },
   {
     id: 'mounted-combat',
@@ -544,9 +552,10 @@ export const FEATS: FeatData[] = [
     id: 'pelors-radiance',
     name: "Pelor's Radiance",
     tier: 'Heroic',
-    prerequisites: {},
+    prerequisites: { deity: 'pelor' },
     benefit: `You gain the Pelor's radiance power. Pelor's Radiance Feat Attack Encounter ✦ Channel Divinity , Divine , Implement , Radiant Standard Action Close burst 1 (3 at 11th level, 5 at 21st level) Target : Each undead creature in the burst Attack : Wisdom vs. Will Hit : 1d10 + Wisdom modifier radiant damage, and the target is dazed until the end of your next turn. Level 11: 2d10 + Wisdom modifier radiant damage. Level 21: 3d10 + Wisdom modifier radiant damage. Special : You can use only one channel divinity power per encounter.`,
     special: "Channel Divinity, must worship Pelor",
+    grantedPowerIds: ['feat-pelors-radiance'],
   },
   {
     id: 'potent-challenge',
@@ -608,9 +617,10 @@ export const FEATS: FeatData[] = [
     id: 'raven-queens-blessing',
     name: "Raven Queen's Blessing",
     tier: 'Heroic',
-    prerequisites: {},
+    prerequisites: { deity: 'raven-queen' },
     benefit: `You gain the Raven Queen's blessing power. Raven Queen's Blessing Feat Utility Encounter ✦ Channel Divinity , Divine , Healing Free Action Ranged 10 Trigger : Your attack reduces an enemy within 10 squares of you to 0 hit points. Target : You or an ally within 5 squares of the enemy Effect : The target can spend a healing surge. Special : You can use only one channel divinity power per encounter.`,
     special: "Channel Divinity, must worship the Raven Queen",
+    grantedPowerIds: ['feat-raven-queens-blessing'],
   },
   {
     id: 'ritual-caster',
@@ -624,9 +634,10 @@ export const FEATS: FeatData[] = [
     id: 'sehanines-reversal',
     name: "Sehanine's Reversal",
     tier: 'Heroic',
-    prerequisites: {},
+    prerequisites: { deity: 'sehanine' },
     benefit: `You gain the Sehanine's reversal power. Sehanine's Reversal Feat Utility Encounter ✦ Channel Divinity , Divine No Action Ranged 5 Trigger : You roll a natural 20 on a saving throw against an effect that a save can end. Target : One enemy Effect : The target suffers the effect (save ends). Special : You can use only one channel divinity power per encounter.`,
     special: "Channel Divinity, must worship Sehanine",
+    grantedPowerIds: ['feat-sehanines-reversal'],
   },
   {
     id: 'shield-proficiency-heavy',
@@ -3744,6 +3755,7 @@ export function featMeetsPrerequisites(
   selectedFeatIds: string[],
   level: number,
   abilityScores?: Record<string, number>,
+  deity?: string,
 ): boolean {
   const p = feat.prerequisites;
   if (p.minLevel && level < p.minLevel) return false;
@@ -3762,5 +3774,6 @@ export function featMeetsPrerequisites(
     if (!hasMC) return false;
   }
   if (p.otherFeat && !selectedFeatIds.includes(p.otherFeat)) return false;
+  if (p.deity && p.deity !== deity) return false;
   return true;
 }

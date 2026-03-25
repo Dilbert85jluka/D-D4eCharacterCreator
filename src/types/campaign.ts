@@ -15,4 +15,7 @@ export interface Campaign {
 
   /** IDs of Character objects that belong to this campaign */
   characterIds: string[];
+
+  /** ID of the shared_campaigns row in Supabase (set when DM shares online) */
+  sharedCampaignId?: string;
 }

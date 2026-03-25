@@ -21,6 +21,10 @@ import { useSharingStore } from '../store/useSharingStore';
 import { SharedCampaignView } from '../components/sharing/SharedCampaignView';
 import { JoinCampaignModal } from '../components/sharing/JoinCampaignModal';
 import { ShareCampaignModal } from '../components/sharing/ShareCampaignModal';
+import { MemberCard } from '../components/sharing/PartyRosterCards';
+import { useRealtimeCampaign } from '../hooks/useRealtimeCampaign';
+import { useCampaignContentSync } from '../hooks/useCampaignContentSync';
+import { extractPublicContent, pushCampaignContent } from '../lib/campaignContentSync';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -94,12 +98,33 @@ export function CampaignManagementPage() {
   // ── Sharing state ──────────────────────────────────────────────────────────
   const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
-  const { sharedCampaigns, loadSharedCampaigns, createCampaign: createSharedCampaign } = useSharingStore();
+  const {
+    sharedCampaigns, loadSharedCampaigns, createCampaign: createSharedCampaign,
+    activeCampaignMembers, activeCampaignSummaries, loadCampaignDetail,
+  } = useSharingStore();
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareInviteCode, setShareInviteCode] = useState("");
   const [shareCampaignName, setShareCampaignName] = useState("");
   useEffect(() => { if (user) loadSharedCampaigns(user.id); }, [user, loadSharedCampaigns]);
+  useCampaignContentSync();
+
+  // One-time migration: link existing local campaigns to shared campaigns by name
+  const [migrationDone, setMigrationDone] = useState(false);
+  useEffect(() => {
+    if (!user || migrationDone || sharedCampaigns.length === 0 || campaigns.length === 0) return;
+    setMigrationDone(true);
+    (async () => {
+      for (const c of campaigns) {
+        if (c.sharedCampaignId) continue;
+        const match = sharedCampaigns.find((sc) => sc.name === c.name && sc.created_by === user.id);
+        if (match) {
+          await campaignRepository.patch(c.id, { sharedCampaignId: match.id });
+          updateCampaign({ ...c, sharedCampaignId: match.id });
+        }
+      }
+    })();
+  }, [user, campaigns, sharedCampaigns, migrationDone]);
 
 
   const {
@@ -344,21 +369,48 @@ export function CampaignManagementPage() {
     mode.type === 'new-session' ? campaigns.find((c) => c.id === mode.campaignId) :
     mode.type === 'session' ? campaigns.find((c) => c.id === mode.campaignId) : undefined;
 
+  // Inline party roster: subscribe to realtime updates for the active campaign's shared ID
+  const activeSharedId = activeCampaign?.sharedCampaignId ?? null;
+  useRealtimeCampaign(activeSharedId);
+  useEffect(() => {
+    if (activeSharedId) loadCampaignDetail(activeSharedId);
+  }, [activeSharedId, loadCampaignDetail]);
+
   const handleShareOnline = async () => {
     if (!user || !activeCampaign) return;
     try {
-      // Check if this campaign is already shared (match by name + creator)
-      const existing = sharedCampaigns.find(
+      // Check if already linked via sharedCampaignId
+      if (activeCampaign.sharedCampaignId) {
+        const existing = sharedCampaigns.find((sc) => sc.id === activeCampaign.sharedCampaignId);
+        if (existing) {
+          setShareInviteCode(existing.invite_code);
+          setShareCampaignName(existing.name);
+          setShowShareModal(true);
+          return;
+        }
+      }
+      // Fallback: check by name + creator (for campaigns shared before sharedCampaignId was added)
+      const existingByName = sharedCampaigns.find(
         (sc) => sc.name === activeCampaign.name && sc.created_by === user.id
       );
-      if (existing) {
-        // Already shared — just show the existing invite code
-        setShareInviteCode(existing.invite_code);
-        setShareCampaignName(existing.name);
+      if (existingByName) {
+        // Link it now
+        await campaignRepository.patch(activeCampaign.id, { sharedCampaignId: existingByName.id });
+        updateCampaign({ ...activeCampaign, sharedCampaignId: existingByName.id });
+        setShareInviteCode(existingByName.invite_code);
+        setShareCampaignName(existingByName.name);
         setShowShareModal(true);
         return;
       }
+      // Create new shared campaign
       const shared = await createSharedCampaign(activeCampaign.name, activeCampaign.description, user.id);
+      // Store the link
+      await campaignRepository.patch(activeCampaign.id, { sharedCampaignId: shared.id });
+      updateCampaign({ ...activeCampaign, sharedCampaignId: shared.id });
+      // Push initial content
+      const sessions = getSessionsForCampaign(activeCampaign.id);
+      const content = extractPublicContent(activeCampaign, sessions);
+      pushCampaignContent(shared.id, content).catch(() => {});
       setShareInviteCode(shared.invite_code);
       setShareCampaignName(shared.name);
       setShowShareModal(true);
@@ -995,7 +1047,11 @@ export function CampaignManagementPage() {
                             🏰 {c.name}
                           </span>
                           <span className="text-xs text-stone-400 mt-0.5">
-                            {sessions.length} session{sessions.length !== 1 ? 's' : ''} · {c.characterIds.length} char{c.characterIds.length !== 1 ? 's' : ''}
+                            {sessions.length} session{sessions.length !== 1 ? 's' : ''}
+                            {c.sharedCampaignId
+                              ? ' · 🌐 shared'
+                              : ` · ${c.characterIds.length} char${c.characterIds.length !== 1 ? 's' : ''}`
+                            }
                           </span>
                         </button>
                       </div>
@@ -1069,13 +1125,16 @@ export function CampaignManagementPage() {
                 </button>
               </div>
               <div className="overflow-y-auto max-h-48">
-                {sharedCampaigns.length === 0 ? (
+                {(() => {
+                  // Only show campaigns where user is a player (not the DM) — DM campaigns show in the local list
+                  const playerCampaigns = sharedCampaigns.filter((sc) => sc.created_by !== user?.id);
+                  return playerCampaigns.length === 0 ? (
                   <div className="px-4 py-4 text-center">
-                    <p className="text-stone-400 text-xs">No shared campaigns yet</p>
+                    <p className="text-stone-400 text-xs">No shared campaigns joined yet</p>
                   </div>
                 ) : (
                   <ul>
-                    {sharedCampaigns.map((sc) => (
+                    {playerCampaigns.map((sc) => (
                       <li key={sc.id}>
                         <button
                           onClick={() => { setMode({ type: 'shared-campaign', sharedCampaignId: sc.id }); setShowEditor(true); }}
@@ -1091,7 +1150,8 @@ export function CampaignManagementPage() {
                       </li>
                     ))}
                   </ul>
-                )}
+                );
+                })()}
               </div>
             </div>
           )}
@@ -1276,6 +1336,50 @@ export function CampaignManagementPage() {
                       </div>
                     )}
                   </section>
+
+                  {/* Party Roster (Online) — only visible when campaign is shared */}
+                  {activeCampaign?.sharedCampaignId && (
+                    <section>
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <p className={labelCls}>Party Roster (Online)</p>
+                          <p className={hintCls}>
+                            {activeCampaignMembers.length} member{activeCampaignMembers.length !== 1 ? 's' : ''} connected via invite code
+                          </p>
+                        </div>
+                        {(() => {
+                          const sc = sharedCampaigns.find((s) => s.id === activeCampaign.sharedCampaignId);
+                          return sc ? (
+                            <span className="text-xs font-mono text-amber-700 bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-200">
+                              Code: {sc.invite_code}
+                            </span>
+                          ) : null;
+                        })()}
+                      </div>
+
+                      {activeCampaignMembers.length === 0 ? (
+                        <div className="border-2 border-dashed border-indigo-200 rounded-xl py-6 text-center">
+                          <p className="text-stone-400 text-sm">No players have joined yet</p>
+                          <p className="text-stone-300 text-xs mt-1">Share the invite code with your players</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {activeCampaignMembers.map((member) => {
+                            const summary = activeCampaignSummaries.find((s) => s.user_id === member.user_id);
+                            return (
+                              <MemberCard
+                                key={member.id}
+                                member={member}
+                                summary={summary || null}
+                                isDm={member.role === 'dm'}
+                                isCurrentUser={member.user_id === user?.id}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+                    </section>
+                  )}
 
                   <div className="h-6" />
                 </div>

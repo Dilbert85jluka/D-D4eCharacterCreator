@@ -337,6 +337,7 @@ export function FeatsPanel({ character }: Props) {
                   allFeatIds,
                   character.level,
                   finalAbilityScores,
+                  character.deity,
                 );
                 const prereqText = Object.keys(feat.prerequisites).length > 0 ? [
                   feat.prerequisites.race?.join(' or '),

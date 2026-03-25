@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { SharedCampaign, CampaignMember, CharacterSummary, Profile } from '../types/sharing';
+// SharedCampaign is used in state + updateSharedCampaign action
 import * as sharing from '../lib/sharingService';
 
 interface SharingState {
@@ -26,6 +27,7 @@ interface SharingState {
   removeMember: (memberId: string) => void;
   upsertSummary: (summary: CharacterSummary) => void;
   removeSummary: (summaryId: string) => void;
+  updateSharedCampaign: (campaign: SharedCampaign) => void;
 }
 
 export const useSharingStore = create<SharingState>((set, get) => ({
@@ -151,6 +153,14 @@ export const useSharingStore = create<SharingState>((set, get) => ({
   removeSummary: (summaryId: string) => {
     set((state) => ({
       activeCampaignSummaries: state.activeCampaignSummaries.filter((s) => s.id !== summaryId),
+    }));
+  },
+
+  updateSharedCampaign: (campaign: SharedCampaign) => {
+    set((state) => ({
+      sharedCampaigns: state.sharedCampaigns.map((sc) =>
+        sc.id === campaign.id ? campaign : sc
+      ),
     }));
   },
 }));

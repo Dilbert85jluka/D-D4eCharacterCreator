@@ -3,6 +3,7 @@ import { useCharacterDerived } from '../../hooks/useCharacterDerived';
 import type { Character, PowerUsage } from '../../types/character';
 import type { PowerData } from '../../types/gameData';
 import { getPowerById, getPowersByClass } from '../../data/powers';
+import { getFeatById } from '../../data/feats';
 import { PowerCard } from '../wizard/shared/PowerCard';
 import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
@@ -54,6 +55,17 @@ function collectAllPowers(character: Character): PowerData[] {
   if (character.dilettantePowerId) {
     const dp = getPowerById(character.dilettantePowerId);
     if (dp) add(dp);
+  }
+
+  // 4. Feat-granted powers (e.g. deity Channel Divinity feats)
+  for (const featId of character.selectedFeatIds) {
+    const feat = getFeatById(featId);
+    if (feat?.grantedPowerIds) {
+      for (const powerId of feat.grantedPowerIds) {
+        const p = getPowerById(powerId);
+        if (p) add(p);
+      }
+    }
   }
 
   return result;

@@ -13,6 +13,7 @@ export function Step7_Feats() {
     mcFeatSkillChoices, mcFeatProficiencyChoices,
     setMcFeatSkillChoice, setMcFeatProficiencyChoice, clearMcFeatChoices,
     baseAbilityScores, humanAbilityBonus, racialAbilityBonusChoice,
+    deity,
   } = useWizardStore();
 
   const [search, setSearch]               = useState('');
@@ -54,7 +55,7 @@ export function Step7_Feats() {
   const allFeatIds = [...selectedFeatIds, ...autoGrantedIds];
 
   const meetsPrereqs = (feat: FeatData) =>
-    featMeetsPrerequisites(feat, raceId, classId, trainedSkills, allFeatIds, 1, finalAbilityScores);
+    featMeetsPrerequisites(feat, raceId, classId, trainedSkills, allFeatIds, 1, finalAbilityScores, deity);
 
   const filtered = FEATS.filter((feat) => {
     if (feat.tier !== 'Heroic') return false;
