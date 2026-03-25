@@ -2,10 +2,13 @@ import { create } from 'zustand';
 import { campaignRepository } from '../db/campaignRepository';
 import { useAuthStore } from './useAuthStore';
 import { deleteCloudCampaign } from '../lib/campaignCloudService';
+import type { CampaignBundle } from '../lib/campaignCloudService';
 import { sessionRepository } from '../db/sessionRepository';
 import { encounterRepository } from '../db/encounterRepository';
 import { useEncountersStore } from './useEncountersStore';
+import { useSessionsStore } from './useSessionsStore';
 import type { Campaign } from '../types/campaign';
+import { db } from '../db/database';
 
 interface CampaignsState {
   campaigns: Campaign[];
@@ -18,7 +21,7 @@ interface CampaignsState {
   updateCampaign: (campaign: Campaign) => void;
   deleteCampaign: (id: string) => Promise<void>;
   getCampaignById: (id: string) => Campaign | undefined;
-  mergeCloudCampaigns: (cloudCampaigns: Campaign[]) => Promise<void>;
+  mergeCloudCampaigns: (cloudBundles: CampaignBundle[]) => Promise<void>;
 }
 
 export const useCampaignsStore = create<CampaignsState>((set, get) => ({
@@ -60,20 +63,39 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
 
   getCampaignById: (id) => get().campaigns.find((c) => c.id === id),
 
-  mergeCloudCampaigns: async (cloudCampaigns) => {
+  mergeCloudCampaigns: async (cloudBundles) => {
     const localCampaigns = await campaignRepository.getAll();
     const localMap = new Map(localCampaigns.map((c) => [c.id, c]));
 
-    for (const cloudCampaign of cloudCampaigns) {
+    for (const bundle of cloudBundles) {
+      const { campaign: cloudCampaign, sessions, encounters } = bundle;
       const local = localMap.get(cloudCampaign.id);
-      if (!local) {
+      const shouldMerge = !local || cloudCampaign.updatedAt > local.updatedAt;
+
+      if (shouldMerge) {
+        // Merge campaign
         await campaignRepository.upsertFromCloud(cloudCampaign);
-      } else if (cloudCampaign.updatedAt > local.updatedAt) {
-        await campaignRepository.upsertFromCloud(cloudCampaign);
+
+        // Merge sessions (upsert each — put replaces if exists)
+        for (const session of sessions) {
+          await db.sessions.put(session);
+        }
+
+        // Merge encounters (upsert each)
+        for (const encounter of encounters) {
+          await db.encounters.put(encounter);
+        }
       }
     }
 
+    // Reload all stores to pick up merged data
     const updated = await campaignRepository.getAll();
     set({ campaigns: updated });
+
+    // Force-reload sessions and encounters stores to pick up merged data
+    // Sessions store has no guard, encounters store does — reset it
+    await useSessionsStore.getState().loadAllSessions();
+    useEncountersStore.setState({ hasLoaded: false });
+    await useEncountersStore.getState().loadAllEncounters();
   },
 }));

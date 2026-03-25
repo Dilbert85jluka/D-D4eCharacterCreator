@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useCampaignsStore } from '../store/useCampaignsStore';
 import { pushCampaignToCloud, pullAllCampaignsFromCloud } from '../lib/campaignCloudService';
+import type { CampaignBundle } from '../lib/campaignCloudService';
 import { createSyncDebouncer } from '../lib/summarySync';
 
 /**
