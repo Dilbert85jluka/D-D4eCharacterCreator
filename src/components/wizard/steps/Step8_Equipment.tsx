@@ -255,6 +255,7 @@ export function Step8_Equipment() {
                 <div className="text-xs text-stone-500 mt-0.5">
                   AC +{a.acBonus} · Type: {a.type}
                   {a.checkPenalty < 0 && ` · Check ${a.checkPenalty}`}
+                  {a.speedPenalty < 0 && ` · Speed ${a.speedPenalty}`}
                   {a.minStrength && ` · Min STR ${a.minStrength}`}
                 </div>
               </div>

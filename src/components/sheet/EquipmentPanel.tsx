@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import type { Character, DerivedStats, EquipmentItem } from '../../types/character';
-import type { WeaponData, ArmorData, GearData, MagicItemData, ConsumableData } from '../../types/gameData';
+import type { WeaponData, ArmorData, GearData, MagicItemData, ConsumableData, MasterworkArmorData, MagicArmorData, ArmorType } from '../../types/gameData';
 import { WEAPONS } from '../../data/equipment/weapons';
 import { ARMOR } from '../../data/equipment/armor';
+import { MASTERWORK_ARMOR } from '../../data/equipment/masterworkArmor';
+import { MAGIC_ARMOR } from '../../data/equipment/magicArmor';
 import { GEAR } from '../../data/equipment/gear';
 import { MAGIC_ITEMS } from '../../data/equipment/magicItems';
 import { CONSUMABLES } from '../../data/equipment/consumables';
@@ -96,6 +98,25 @@ export function EquipmentPanel({ character, derived }: Props) {
     patch({ equipment: [...character.equipment, newItem] });
   };
 
+  /** Get compatible base armor types for a magic armor entry */
+  const getCompatibleBaseArmors = (ma: MagicArmorData): ArmorData[] => {
+    if (ma.armorTypes === 'Any') return ARMOR.filter(a => a.type !== 'Shield');
+    if (ma.armorTypes === 'Any shield') return ARMOR.filter(a => a.type === 'Shield');
+    return ARMOR.filter(a => (ma.armorTypes as ArmorType[]).includes(a.type));
+  };
+
+  const addMagicArmorItem = (baseArmor: ArmorData, maId: string, tierLevel: number) => {
+    const slot = baseArmor.type === 'Shield' ? 'off-hand' : 'body';
+    const newItem: EquipmentItem = {
+      instanceId: crypto.randomUUID(),
+      itemId: baseArmor.id, name: baseArmor.name, quantity: 1, equipped: false, slot,
+      magicArmorId: maId,
+      magicArmorTier: tierLevel,
+    };
+    patch({ equipment: [...character.equipment, newItem] });
+    setPendingMagicArmor(null);
+  };
+
   const addMagicItem = (m: MagicItemData) => {
     const newItem: EquipmentItem = {
       instanceId: crypto.randomUUID(),
@@ -144,6 +165,50 @@ export function EquipmentPanel({ character, derived }: Props) {
       });
     }
   };
+
+  // ── Masterwork & Magic Armor ─────────────────────────────────────────────
+  const [expandedArmor, setExpandedArmor] = useState<string | null>(null);
+  // Picker: when user clicks Add on a magic armor tier, show base armor type selector
+  const [pendingMagicArmor, setPendingMagicArmor] = useState<{ maId: string; tierLevel: number } | null>(null);
+
+  const setMasterwork = (key: string, masterworkId: string | undefined) => {
+    patch({
+      equipment: character.equipment.map((e) =>
+        itemKey(e) === key ? { ...e, masterworkId } : e,
+      ),
+    });
+  };
+
+  const setMagicArmorTier = (key: string, tier: number) => {
+    // When changing tier, also validate masterwork minEnhancement
+    const item = character.equipment.find(e => itemKey(e) === key);
+    const ma = item?.magicArmorId ? MAGIC_ARMOR.find(m => m.id === item.magicArmorId) : undefined;
+    const newTier = ma?.tiers.find(t => t.level === tier);
+    const newEnhancement = newTier?.enhancement ?? 0;
+    const mw = item?.masterworkId ? MASTERWORK_ARMOR.find(m => m.id === item.masterworkId) : undefined;
+    // Clear masterwork if new enhancement is below its minimum
+    const clearMasterwork = mw && newEnhancement < mw.minEnhancement;
+    patch({
+      equipment: character.equipment.map((e) =>
+        itemKey(e) === key ? { ...e, magicArmorTier: tier, ...(clearMasterwork ? { masterworkId: undefined } : {}) } : e,
+      ),
+    });
+  };
+
+  const setBaseArmorType = (key: string, newBaseId: string) => {
+    const newBase = ARMOR.find(a => a.id === newBaseId);
+    if (!newBase) return;
+    const newSlot = newBase.type === 'Shield' ? 'off-hand' : 'body';
+    patch({
+      equipment: character.equipment.map((e) =>
+        itemKey(e) === key ? { ...e, itemId: newBaseId, name: newBase.name, slot: newSlot, masterworkId: undefined } : e,
+      ),
+    });
+  };
+
+  /** Get masterwork options compatible with a base armor type */
+  const getMasterworkOptions = (baseType: ArmorType): MasterworkArmorData[] =>
+    MASTERWORK_ARMOR.filter(m => m.baseType === baseType);
 
   const openPicker = (tab: SectionTab) => {
     setPickerTab(tab);
@@ -275,6 +340,16 @@ export function EquipmentPanel({ character, derived }: Props) {
   const q = search.trim().toLowerCase();
   const filteredWeapons     = WEAPONS.filter((w) => !q || w.name.toLowerCase().includes(q) || w.category.toLowerCase().includes(q));
   const filteredArmor       = ARMOR.filter((a) => !q || a.name.toLowerCase().includes(q) || a.type.toLowerCase().includes(q));
+
+  // Build flat list of magic armor × tier entries, filtered by character level
+  const magicArmorTierEntries = MAGIC_ARMOR.flatMap((ma) =>
+    ma.tiers
+      .filter(t => t.level <= character.level)
+      .map(t => ({ ma, tier: t }))
+  );
+  const filteredMagicArmorTiers = magicArmorTierEntries.filter(({ ma }) =>
+    !q || ma.name.toLowerCase().includes(q) || ma.rarity.toLowerCase().includes(q) || (ma.property ?? '').toLowerCase().includes(q) || (ma.description ?? '').toLowerCase().includes(q)
+  );
   const filteredMagic       = MAGIC_ITEMS.filter((m) => !q || m.name.toLowerCase().includes(q) || m.slot.toLowerCase().includes(q) || m.properties.toLowerCase().includes(q));
   const filteredConsumables = CONSUMABLES.filter((c) => !q || c.name.toLowerCase().includes(q) || c.category.toLowerCase().includes(q) || c.effect.toLowerCase().includes(q));
   const filteredGear        = GEAR.filter((g) => !q || g.name.toLowerCase().includes(q) || g.description.toLowerCase().includes(q));
@@ -434,35 +509,227 @@ export function EquipmentPanel({ character, derived }: Props) {
                   if (!a) return null;
                   const isShield = a.type === 'Shield';
                   const key = itemKey(item);
+                  const mw = item.masterworkId ? MASTERWORK_ARMOR.find(m => m.id === item.masterworkId) : undefined;
+                  const ma = item.magicArmorId ? MAGIC_ARMOR.find(m => m.id === item.magicArmorId) : undefined;
+                  const maTier = ma?.tiers.find(t => t.level === item.magicArmorTier);
+                  const effectiveAc = mw ? mw.acBonus : a.acBonus;
+                  const effectiveCheck = mw ? mw.checkPenalty : a.checkPenalty;
+                  const effectiveSpeed = mw ? mw.speedPenalty : a.speedPenalty;
+                  // Primary name: magic armor name if present, otherwise masterwork, otherwise base
+                  const displayName = ma && maTier
+                    ? `${ma.name} +${maTier.enhancement}`
+                    : mw ? mw.name : a.name;
+                  const isExpanded = expandedArmor === key;
+
                   return (
-                    <div key={key} className={`px-4 py-3 flex items-center gap-2 ${item.equipped ? 'bg-white' : 'bg-stone-50'}`}>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`font-semibold text-sm ${item.equipped ? 'text-stone-800' : 'text-stone-500'}`}>{a.name}</span>
-                          {item.equipped && <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-semibold">Equipped</span>}
+                    <div key={key} className={item.equipped ? 'bg-white' : 'bg-stone-50'}>
+                      <div className="px-4 py-3 flex items-center gap-2">
+                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedArmor(isExpanded ? null : key)}>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`font-semibold text-sm ${item.equipped ? 'text-stone-800' : 'text-stone-500'}`}>{displayName}</span>
+                            {ma && <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ma.rarity === 'Rare' ? 'bg-amber-100 text-amber-700' : ma.rarity === 'Uncommon' ? 'bg-teal-100 text-teal-700' : 'bg-stone-100 text-stone-500'}`}>{ma.rarity}</span>}
+                            {mw && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">{mw.name}</span>}
+                            {item.equipped && <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-semibold">Equipped</span>}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className="text-xs text-stone-400">{isShield ? 'Shield' : `${a.type} Armor`} (base: {a.name})</span>
+                            <span className="text-xs text-stone-500 font-medium">AC +{effectiveAc}{maTier ? ` (+${maTier.enhancement} enh)` : ''}</span>
+                            {effectiveCheck < 0 && <span className="text-xs text-red-500">Check {effectiveCheck}</span>}
+                            {effectiveSpeed < 0 && <span className="text-xs text-red-500">Speed {effectiveSpeed}</span>}
+                          </div>
+                          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                            {maTier && <span className="text-xs text-stone-500">Lvl {maTier.level}</span>}
+                            <span className="text-xs text-stone-400">{maTier ? `${maTier.cost.toLocaleString()} gp` : `${a.cost} gp`}</span>
+                            <span className="text-xs text-stone-400">{mw ? mw.weight : a.weight} lb</span>
+                            {a.minStrength && <span className="text-xs text-stone-400">Min Str {a.minStrength}</span>}
+                            {mw && <span className="text-xs text-stone-400">Min Enh +{mw.minEnhancement}</span>}
+                          </div>
+                          {ma?.description && (
+                            <p className="text-xs text-stone-400 mt-0.5 line-clamp-1 italic">{ma.description}</p>
+                          )}
+                          {ma?.property && (
+                            <p className="text-xs text-blue-600 mt-0.5 line-clamp-1">{ma.property}</p>
+                          )}
+                          {ma?.power && (
+                            <p className="text-xs text-violet-600 mt-0.5 line-clamp-1">Power: {ma.power.substring(0, 80)}...</p>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          <span className="text-xs text-stone-400">{isShield ? 'Shield' : `${a.type} Armor`}</span>
-                          <span className="text-xs text-stone-500 font-medium">AC +{a.acBonus}</span>
-                          {a.checkPenalty < 0 && <span className="text-xs text-red-500">Check {a.checkPenalty}</span>}
-                          {a.speedPenalty < 0 && <span className="text-xs text-red-500">Speed {a.speedPenalty}</span>}
-                        </div>
+                        {pendingRemove !== key && (() => {
+                          const check = canEquip(key);
+                          const blocked = !item.equipped && !check.allowed;
+                          return (
+                            <button
+                              onClick={() => !blocked && toggleEquip(key)}
+                              disabled={blocked}
+                              className={blocked ? blockedBtnCls : equipBtnCls(item.equipped)}
+                              title={blocked ? check.reason : undefined}
+                            >
+                              {item.equipped ? 'Unequip' : 'Equip'}
+                            </button>
+                          );
+                        })()}
+                        <RemoveConfirm itemK={key} name={displayName} />
                       </div>
-                      {pendingRemove !== key && (() => {
-                        const check = canEquip(key);
-                        const blocked = !item.equipped && !check.allowed;
-                        return (
-                          <button
-                            onClick={() => !blocked && toggleEquip(key)}
-                            disabled={blocked}
-                            className={blocked ? blockedBtnCls : equipBtnCls(item.equipped)}
-                            title={blocked ? check.reason : undefined}
-                          >
-                            {item.equipped ? 'Unequip' : 'Equip'}
-                          </button>
-                        );
-                      })()}
-                      <RemoveConfirm itemK={key} name={a.name} />
+
+                      {/* Expandable: full details + selectors */}
+                      {isExpanded && (
+                        <div className="px-4 pb-3 space-y-3 border-t border-stone-100 pt-3">
+                          {/* Base armor stats summary */}
+                          <div className="bg-stone-50 rounded-lg p-2 text-xs text-stone-600 space-y-0.5">
+                            <div className="font-semibold text-stone-700 mb-1">Base: {a.name}</div>
+                            <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+                              <span>Type: {a.type}</span>
+                              <span>AC Bonus: +{a.acBonus}</span>
+                              <span>Check: {a.checkPenalty}</span>
+                              <span>Speed: {a.speedPenalty}</span>
+                              <span>Cost: {a.cost} gp</span>
+                              <span>Weight: {a.weight} lb</span>
+                              {a.minStrength && <span>Min Str: {a.minStrength}</span>}
+                            </div>
+                          </div>
+                          {mw && (
+                            <div className="bg-amber-50 rounded-lg p-2 text-xs text-amber-700 space-y-0.5">
+                              <div className="font-semibold">Masterwork: {mw.name}</div>
+                              <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+                                <span>AC Bonus: +{mw.acBonus}</span>
+                                <span>Check: {mw.checkPenalty}</span>
+                                <span>Speed: {mw.speedPenalty}</span>
+                                <span>Min Enh: +{mw.minEnhancement}</span>
+                                <span>Weight: {mw.weight} lb</span>
+                              </div>
+                              {mw.description && <p className="text-amber-600 mt-1 italic">{mw.description}</p>}
+                              <p className="text-amber-500 text-[10px]">Source: {mw.source}</p>
+                            </div>
+                          )}
+                          {ma && maTier && (
+                            <div className="bg-violet-50 rounded-lg p-2 text-xs text-violet-700 space-y-0.5">
+                              <div className="font-semibold">{ma.name} +{maTier.enhancement}</div>
+                              <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+                                <span>Enhancement: +{maTier.enhancement} {ma.enhancementType}</span>
+                                <span>Level: {maTier.level}</span>
+                                <span>Cost: {maTier.cost.toLocaleString()} gp</span>
+                                <span>Rarity: {ma.rarity}</span>
+                              </div>
+                              {ma.description && <p className="text-violet-600 mt-1 italic">{ma.description}</p>}
+                              <p className="text-violet-500 text-[10px]">Source: {ma.source}</p>
+                            </div>
+                          )}
+
+                          {/* Base Armor Type (only for magic armor — allows changing the underlying base) */}
+                          {ma && (() => {
+                            const compatBases = getCompatibleBaseArmors(ma);
+                            return compatBases.length > 1 ? (
+                              <div>
+                                <label className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Base Armor Type</label>
+                                <select
+                                  value={item.itemId}
+                                  onChange={(e) => setBaseArmorType(key, e.target.value)}
+                                  className="mt-1 w-full text-sm border border-stone-200 rounded-lg px-3 py-2 bg-white"
+                                >
+                                  {compatBases.map(base => (
+                                    <option key={base.id} value={base.id}>
+                                      {base.name} (AC +{base.acBonus}{base.checkPenalty < 0 ? `, Check ${base.checkPenalty}` : ''}{base.speedPenalty < 0 ? `, Speed ${base.speedPenalty}` : ''})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            ) : null;
+                          })()}
+
+                          {/* Masterwork Upgrade */}
+                          {!isShield && (() => {
+                            const currentEnhancement = maTier?.enhancement ?? 0;
+                            const mwOptions = getMasterworkOptions(a.type);
+                            return (
+                              <div>
+                                <label className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Masterwork Upgrade</label>
+                                <select
+                                  value={item.masterworkId ?? ''}
+                                  onChange={(e) => setMasterwork(key, e.target.value || undefined)}
+                                  className="mt-1 w-full text-sm border border-stone-200 rounded-lg px-3 py-2 bg-white"
+                                >
+                                  <option value="">None (base {a.name})</option>
+                                  {mwOptions.map(mwOpt => {
+                                    const eligible = currentEnhancement >= mwOpt.minEnhancement;
+                                    return (
+                                      <option key={mwOpt.id} value={mwOpt.id} disabled={!eligible}>
+                                        {mwOpt.name} (AC +{mwOpt.acBonus}, min +{mwOpt.minEnhancement}){!eligible ? ' — requires higher enhancement' : ''}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                                {mw && <p className="text-xs text-stone-400 mt-1">{mw.description}</p>}
+                              </div>
+                            );
+                          })()}
+
+                          {/* Item Level / Tier selector (when magic armor is set) */}
+                          {ma && (
+                            <div>
+                              <label className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Item Level</label>
+                              <select
+                                value={item.magicArmorTier ?? ''}
+                                onChange={(e) => setMagicArmorTier(key, parseInt(e.target.value))}
+                                className="mt-1 w-full text-sm border border-stone-200 rounded-lg px-3 py-2 bg-white"
+                              >
+                                {ma.tiers.map(t => {
+                                  const available = t.level <= character.level;
+                                  return (
+                                    <option key={t.level} value={t.level} disabled={!available}>
+                                      Lvl {t.level} — +{t.enhancement} Enhancement ({t.cost.toLocaleString()} gp){!available ? ' — not yet available' : ''}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            </div>
+                          )}
+
+                          {/* Property & Power display */}
+                          {ma?.property && (
+                            <div className="bg-blue-50 rounded-lg p-2">
+                              <p className="text-xs font-semibold text-blue-700">Property</p>
+                              <p className="text-xs text-blue-600 mt-0.5">{ma.property}</p>
+                              {ma.bonuses && maTier && (() => {
+                                const parts: string[] = [];
+                                if (ma.bonuses.skills) {
+                                  for (const [sk, val] of Object.entries(ma.bonuses.skills)) {
+                                    parts.push(`${sk.charAt(0).toUpperCase() + sk.slice(1)} +${val}`);
+                                  }
+                                }
+                                if (ma.bonuses.skillsFromEnhancement) {
+                                  for (const sk of ma.bonuses.skillsFromEnhancement) {
+                                    parts.push(`${sk.charAt(0).toUpperCase() + sk.slice(1)} +${maTier.enhancement}`);
+                                  }
+                                }
+                                if (ma.bonuses.skillsByLevel) {
+                                  for (const [sk, tiers] of Object.entries(ma.bonuses.skillsByLevel)) {
+                                    let best = 0;
+                                    for (const [minLvl, val] of tiers) {
+                                      if (maTier.level >= minLvl && val > best) best = val;
+                                    }
+                                    if (best > 0) parts.push(`${sk.charAt(0).toUpperCase() + sk.slice(1)} +${best}`);
+                                  }
+                                }
+                                if (ma.bonuses.initiative) parts.push(`Initiative +${ma.bonuses.initiative}`);
+                                if (ma.bonuses.speed) parts.push(`Speed +${ma.bonuses.speed}`);
+                                if (ma.bonuses.ac) parts.push(`AC +${ma.bonuses.ac}`);
+                                if (ma.bonuses.fortitude) parts.push(`Fortitude +${ma.bonuses.fortitude}`);
+                                if (ma.bonuses.reflex) parts.push(`Reflex +${ma.bonuses.reflex}`);
+                                if (ma.bonuses.will) parts.push(`Will +${ma.bonuses.will}`);
+                                return parts.length > 0 ? (
+                                  <p className="text-xs text-emerald-600 font-semibold mt-1">Applied: {parts.join(', ')}</p>
+                                ) : null;
+                              })()}
+                            </div>
+                          )}
+                          {ma?.power && (
+                            <div className="bg-violet-50 rounded-lg p-2">
+                              <p className="text-xs font-semibold text-violet-700">Power</p>
+                              <p className="text-xs text-violet-600 mt-0.5">{ma.power}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -707,6 +974,77 @@ export function EquipmentPanel({ character, derived }: Props) {
                       </div>
                     );
                   })
+              )}
+
+              {/* Magic Armor (in armor tab) — each tier as a separate entry */}
+              {pickerTab === 'armor' && filteredMagicArmorTiers.length > 0 && (
+                <>
+                  <div className="px-3 py-2 bg-violet-50 border-y border-violet-200">
+                    <p className="text-xs font-semibold text-violet-700 uppercase tracking-wide">Magic Armor</p>
+                  </div>
+                  {filteredMagicArmorTiers.map(({ ma, tier }) => {
+                    const entryKey = `${ma.id}-${tier.level}`;
+                    const isPending = pendingMagicArmor?.maId === ma.id && pendingMagicArmor?.tierLevel === tier.level;
+                    const compatBases = getCompatibleBaseArmors(ma);
+                    const compatLabel = ma.armorTypes === 'Any' ? 'Any armor'
+                      : ma.armorTypes === 'Any shield' ? 'Any shield'
+                      : (ma.armorTypes as string[]).join(', ');
+                    return (
+                      <div key={entryKey} className="p-3 bg-stone-50 rounded-lg border border-stone-200 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-semibold text-stone-800">{ma.name} +{tier.enhancement}</p>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ma.rarity === 'Rare' ? 'bg-amber-100 text-amber-700' : ma.rarity === 'Uncommon' ? 'bg-teal-100 text-teal-700' : 'bg-stone-100 text-stone-500'}`}>{ma.rarity}</span>
+                            </div>
+                            <p className="text-xs text-stone-500 mt-0.5">
+                              Lvl {tier.level} · +{tier.enhancement} {ma.enhancementType} · {tier.cost.toLocaleString()} gp · {compatLabel}
+                            </p>
+                            {ma.description && <p className="text-xs text-stone-400 mt-0.5 line-clamp-1 italic">{ma.description}</p>}
+                            {ma.property && <p className="text-xs text-blue-500 mt-0.5 line-clamp-1">{ma.property}</p>}
+                          </div>
+                          {!isPending && (
+                            <button
+                              onClick={() => {
+                                // If only 1 compatible base, add directly
+                                if (compatBases.length === 1) {
+                                  addMagicArmorItem(compatBases[0], ma.id, tier.level);
+                                } else {
+                                  setPendingMagicArmor({ maId: ma.id, tierLevel: tier.level });
+                                }
+                              }}
+                              className={addPickerBtnCls}
+                            >
+                              Add
+                            </button>
+                          )}
+                          {isPending && (
+                            <button onClick={() => setPendingMagicArmor(null)} className="text-xs text-stone-400 hover:text-stone-600 px-2 py-1">
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                        {/* Base armor type selector (shown when multiple options) */}
+                        {isPending && (
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 space-y-1.5">
+                            <p className="text-xs font-semibold text-amber-700">Choose base armor type:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {compatBases.map(base => (
+                                <button
+                                  key={base.id}
+                                  onClick={() => addMagicArmorItem(base, ma.id, tier.level)}
+                                  className="text-xs px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-700 hover:bg-amber-100 font-medium min-h-[32px]"
+                                >
+                                  {base.name} (AC +{base.acBonus})
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
               )}
 
               {/* Magic Items */}

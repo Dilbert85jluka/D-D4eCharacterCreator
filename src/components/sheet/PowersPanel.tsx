@@ -11,6 +11,9 @@ import type { PowerData } from '../../types/gameData';
 import { getMulticlassId, getFeatById } from '../../data/feats';
 import { isPsionicClass, getMaxPowerPoints, parseAugments, getNonAugmentSpecialText } from '../../utils/psionics';
 import { useCharacterDerived } from '../../hooks/useCharacterDerived';
+import { ARMOR } from '../../data/equipment/armor';
+import { MAGIC_ARMOR } from '../../data/equipment/magicArmor';
+import { parseMagicArmorPower } from '../../utils/magicArmorPowers';
 
 interface Props {
   character: Character;
@@ -165,6 +168,20 @@ export function PowersPanel({ character }: Props) {
         if (p) featGrantedPowers.push(p);
       }
     }
+  }
+
+  // ── Magic armor powers (from equipped armor/shield with power text) ─────
+  const magicArmorPowers: PowerData[] = [];
+  for (const item of character.equipment) {
+    if (!item.equipped || !item.magicArmorId) continue;
+    const baseArmor = ARMOR.find(a => a.id === item.itemId);
+    if (!baseArmor) continue;
+    const ma = MAGIC_ARMOR.find(m => m.id === item.magicArmorId);
+    if (!ma?.power) continue;
+    const tier = ma.tiers.find(t => t.level === item.magicArmorTier);
+    if (!tier) continue;
+    const p = parseMagicArmorPower(ma, tier);
+    if (p) magicArmorPowers.push(p);
   }
 
   // ── Power categorisation ──────────────────────────────────────────────────
@@ -755,6 +772,38 @@ export function PowersPanel({ character }: Props) {
             );
           })}
 
+          {/* Magic armor encounter powers — auto-granted while equipped, no remove */}
+          {tab === 'encounter' && magicArmorPowers.filter((p) => p.usage === 'encounter').map((power) => {
+            const isUsed = character.usedEncounterPowers.includes(power.id);
+            return (
+              <div key={power.id}>
+                <div className="flex items-center justify-between mb-0.5 px-1">
+                  <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Armor</span>
+                  <div className="flex items-center gap-1">
+                    {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                      <span
+                        className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300"
+                        title="In quick tray"
+                      >✓</span>
+                    ) : (
+                      <button
+                        onClick={() => addToQuickTray(power.id)}
+                        className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200"
+                        title="Pin to quick tray"
+                      >⚡</button>
+                    )}
+                  </div>
+                </div>
+                <PowerCard
+                  power={power}
+                  used={isUsed}
+                  onToggleUsed={() => toggleUsed(power.id, power.usage)}
+                  abilityModifiers={abilityMods}
+                />
+              </div>
+            );
+          })}
+
           {/* MC daily slot */}
           {tab === 'daily' && mcDailySlots.map((mcSlot) => {
             const filled = mcDailyPowers[0];
@@ -766,6 +815,38 @@ export function PowersPanel({ character }: Props) {
               );
             }
             return renderMcEmptySlot(mcSlot);
+          })}
+
+          {/* Magic armor daily powers — auto-granted while equipped, no remove */}
+          {tab === 'daily' && magicArmorPowers.filter((p) => p.usage === 'daily').map((power) => {
+            const isUsed = character.usedDailyPowers.includes(power.id);
+            return (
+              <div key={power.id}>
+                <div className="flex items-center justify-between mb-0.5 px-1">
+                  <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Armor</span>
+                  <div className="flex items-center gap-1">
+                    {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                      <span
+                        className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300"
+                        title="In quick tray"
+                      >✓</span>
+                    ) : (
+                      <button
+                        onClick={() => addToQuickTray(power.id)}
+                        className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200"
+                        title="Pin to quick tray"
+                      >⚡</button>
+                    )}
+                  </div>
+                </div>
+                <PowerCard
+                  power={power}
+                  used={isUsed}
+                  onToggleUsed={() => toggleUsed(power.id, power.usage)}
+                  abilityModifiers={abilityMods}
+                />
+              </div>
+            );
           })}
 
           {/* Wizard: known daily powers that are not currently prepared */}

@@ -1,5 +1,7 @@
 export { WEAPONS } from './weapons';
 export { ARMOR } from './armor';
+export { MASTERWORK_ARMOR } from './masterworkArmor';
+export { MAGIC_ARMOR } from './magicArmor';
 export { GEAR } from './gear';
 export { CONSUMABLES } from './consumables';
 export { MAGIC_ITEMS } from './magicItems';

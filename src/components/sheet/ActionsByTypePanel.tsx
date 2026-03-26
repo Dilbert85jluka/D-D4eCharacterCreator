@@ -4,6 +4,9 @@ import type { Character, PowerUsage } from '../../types/character';
 import type { PowerData } from '../../types/gameData';
 import { getPowerById, getPowersByClass } from '../../data/powers';
 import { getFeatById } from '../../data/feats';
+import { ARMOR } from '../../data/equipment/armor';
+import { MAGIC_ARMOR } from '../../data/equipment/magicArmor';
+import { parseMagicArmorPower } from '../../utils/magicArmorPowers';
 import { PowerCard } from '../wizard/shared/PowerCard';
 import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
@@ -66,6 +69,19 @@ function collectAllPowers(character: Character): PowerData[] {
         if (p) add(p);
       }
     }
+  }
+
+  // 5. Magic armor powers (from equipped armor/shield with power text)
+  for (const item of character.equipment) {
+    if (!item.equipped || !item.magicArmorId) continue;
+    const isArmor = ARMOR.find(a => a.id === item.itemId);
+    if (!isArmor) continue;
+    const ma = MAGIC_ARMOR.find(m => m.id === item.magicArmorId);
+    if (!ma?.power) continue;
+    const tier = ma.tiers.find(t => t.level === item.magicArmorTier);
+    if (!tier) continue;
+    const p = parseMagicArmorPower(ma, tier);
+    if (p) add(p);
   }
 
   return result;

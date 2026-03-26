@@ -41,6 +41,9 @@ export interface SkillBreakdown {
   /** Itemised breakdown of feat bonuses for tooltip display */
   featBonusDetails: { label: string; bonus: number }[];
   armorPenalty: number;   // positive number (applied as subtraction in total)
+  /** Item bonus from equipped magic armor properties */
+  itemBonus: number;
+  itemBonusSource?: string;
   total: number;
 }
 
@@ -95,6 +98,12 @@ export interface EquipmentItem {
   equipped: boolean;
   slot?: string;
   notes?: string;
+  /** For armor: ID of the masterwork upgrade applied */
+  masterworkId?: string;
+  /** For armor: ID of the magic armor enchantment applied */
+  magicArmorId?: string;
+  /** For armor: selected tier level of the magic armor enchantment */
+  magicArmorTier?: number;
 }
 
 export interface Character {

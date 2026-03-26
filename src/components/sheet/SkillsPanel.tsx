@@ -30,6 +30,7 @@ function buildTooltip(skill: SkillData, breakdown: SkillBreakdown): string {
     }
   }
   if (breakdown.armorPenalty > 0) lines.push(`Armor Penalty: \u2212${breakdown.armorPenalty}`);
+  if (breakdown.itemBonus > 0) lines.push(`${breakdown.itemBonusSource ?? 'Magic Armor'}: +${breakdown.itemBonus}`);
   lines.push(`Total: ${formatModifier(breakdown.total)}`);
   return lines.join('\n');
 }

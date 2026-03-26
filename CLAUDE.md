@@ -49,7 +49,7 @@ src/
 │   ├── monsters/              # MonsterModal
 │   ├── settings/              # ImportExportModal
 │   ├── auth/                  # LoginPage.tsx — magic link email sign-in
-│   ├── sharing/               # ShareCampaignModal, JoinCampaignModal, LinkCharacterModal, SharedCampaignView
+│   ├── sharing/               # ShareCampaignModal, JoinCampaignModal, LinkCharacterModal, SharedCampaignView, PartyRosterCards
 │   ├── dice/                  # DiceRollerModal.tsx — floating dice roller (d2–d20 + d%)
 │   ├── sheet/                 # Character sheet panels (20 files — see below)
 │   ├── ui/                    # Button, Card, Badge, Modal (primitive components)
@@ -58,16 +58,16 @@ src/
 │   ├── advancement.ts         # FEAT_LEVELS array + featsEarnedByLevel() — shared source of truth
 │   ├── classes/               # 22 class definitions (8 PHB1 + 8 PHB2 + 6 PHB3) + index.ts (getClassById)
 │   ├── races/                 # 17 race definitions (8 PHB1 + 5 PHB2 + 4 PHB3) + index.ts (getRaceById)
-│   ├── powers/                # 22 class power files (8 PHB1 + 8 PHB2 + 6 PHB3) + index.ts (query functions)
+│   ├── powers/                # 22 class power files (8 PHB1 + 8 PHB2 + 6 PHB3) + featPowers.ts + index.ts (query functions)
 │   ├── feats/                 # index.ts — 465 feats (161 PHB1 + 132 PHB2 + 172 PHB3)
-│   ├── equipment/             # weapons, armor, magicItems, consumables, gear + index.ts
+│   ├── equipment/             # weapons, armor, masterworkArmor, magicArmor, magicItems, consumables, gear + index.ts
 │   ├── magicItems/            # potions, scrolls, rings, rods, staves, wands, miscA/G/O, armor, weapons + index.ts
 │   ├── monsters/              # mm1.ts, mm2.ts, mm3.ts, dmg.ts, dmg2.ts, mv.ts, mvttnv.ts + index.ts
 │   ├── skills.ts
 │   ├── deities.ts
 │   └── languages.ts
 ├── db/
-│   ├── database.ts            # Dexie schema (5 versions)
+│   ├── database.ts            # Dexie schema (6 versions)
 │   ├── characterRepository.ts # Character CRUD: getAll, getById, create, update, patch, delete
 │   ├── campaignRepository.ts
 │   ├── sessionRepository.ts
@@ -77,13 +77,15 @@ src/
 │   ├── sharingService.ts      # Supabase CRUD: campaigns, members, character summaries
 │   ├── summarySync.ts         # extractSummary() + createSyncDebouncer()
 │   ├── characterCloudService.ts # Cloud backup: pushCharacterToCloud, pullAllCharactersFromCloud, deleteCloudCharacter
-│   └── campaignCloudService.ts  # Cloud backup: pushCampaignToCloud, pullAllCampaignsFromCloud, deleteCloudCampaign
+│   ├── campaignCloudService.ts  # Cloud backup: pushCampaignToCloud, pullAllCampaignsFromCloud, deleteCloudCampaign
+│   └── campaignContentSync.ts   # extractPublicContent() + pushCampaignContent() — DM content sync to Supabase
 ├── hooks/
 │   ├── useCharacterDerived.ts # Memoized derived stats (modifiers, defenses, HP, skills, feat bonuses)
 │   ├── useCharacterSync.ts    # Auto-sync character summary to Supabase (debounced 2s)
 │   ├── useRealtimeCampaign.ts # Supabase Realtime subscriptions for campaign updates
 │   ├── useCharacterCloudSync.ts # Cloud backup: pull on startup + debounced push on character changes
-│   └── useCampaignCloudSync.ts  # Cloud backup: pull on startup + debounced push on campaign changes
+│   ├── useCampaignCloudSync.ts  # Cloud backup: pull on startup + debounced push on campaign changes
+│   └── useCampaignContentSync.ts # Auto-sync public campaign content (desc, notes, sessions) to Supabase
 ├── pages/
 │   ├── HomePage.tsx
 │   ├── WizardPage.tsx
@@ -110,7 +112,7 @@ src/
 │   ├── magicItem.ts
 │   ├── monster.ts
 │   ├── wizard.ts
-│   ├── sharing.ts             # Profile, SharedCampaign, CampaignMember, CharacterSummary
+│   ├── sharing.ts             # Profile, SharedCampaign, CampaignMember, CharacterSummary, PublicSession, CampaignContent
 │   └── supabase.ts            # Database type definitions for Supabase client
 └── utils/
     ├── abilityScores.ts       # Point-buy, modifier calculations
@@ -120,7 +122,8 @@ src/
     ├── skillUtils.ts          # Skill bonus calculations
     ├── psionics.ts            # Psionic augmentation: isPsionicClass, getMaxPowerPoints, parseAugments
     ├── spellbook.ts           # Wizard spellbook helpers: page counts, ID aggregation, best-book finder
-    └── powerText.ts           # substituteMods() — replaces "Dexterity modifier" with "3 (Dexterity modifier)" in power text
+    ├── powerText.ts           # substituteMods() — replaces "Dexterity modifier" with "3 (Dexterity modifier)" in power text
+    └── magicArmorPowers.ts    # parseMagicArmorPower() — converts magic armor power text to PowerData for display in Powers/Actions tabs
 ```
 
 ---
@@ -143,6 +146,9 @@ interface EquipmentItem {
   equipped: boolean;
   slot?: string;
   notes?: string;
+  masterworkId?: string;     // Masterwork upgrade ID (overrides base armor stats)
+  magicArmorId?: string;     // Magic armor enchantment ID (adds enhancement bonus)
+  magicArmorTier?: number;   // Selected tier level (determines +N and cost)
 }
 
 interface Character {
@@ -340,11 +346,12 @@ featMeetsPrerequisites(
   trainedSkills: string[],
   selectedFeatIds: string[],
   level: number,
-  abilityScores?: Record<string, number>
+  abilityScores?: Record<string, number>,
+  deity?: string
 ): boolean
 ```
 
-The `special` field on FeatData stores the raw prerequisite string from iws.mx. Structured `prerequisites` object is parsed from it (abilities, race, class, trainedSkill, minLevel, anyMulticlassFeat).
+The `special` field on FeatData stores the raw prerequisite string from iws.mx. Structured `prerequisites` object is parsed from it (abilities, race, class, trainedSkill, minLevel, anyMulticlassFeat, deity).
 
 ### FeatBonuses — Passive Mechanical Bonuses (src/types/gameData.ts)
 
@@ -384,12 +391,37 @@ interface FeatBonuses {
 
 **Note on Skill Focus:** The feat requires choosing a trained skill per instance and can be taken multiple times. No structured `bonuses` field is assigned — it is not yet automatically applied. Future work would require `featChoices: Record<string, string>` on Character to track the per-instance skill choice.
 
+### Feat-Granted Powers (FeatData.grantedPowerIds)
+
+Some feats grant structured powers that appear as PowerCards on the character sheet. These feats carry a `grantedPowerIds?: string[]` field pointing to `PowerData` entries in `src/data/powers/featPowers.ts`.
+
+Currently implemented: **11 deity Channel Divinity feats** (PHB1). Each grants an encounter power with `keywords: ['Channel Divinity', 'Divine']`, `classId: 'feat'`, `level: 0`. These share the per-encounter CD resource with class CD powers.
+
+| Feat | Deity | Power ID | Action Type |
+|---|---|---|---|
+| Armor of Bahamut | bahamut | `feat-armor-of-bahamut` | Immediate Interrupt |
+| Avandra's Rescue | avandra | `feat-avandras-rescue` | Move |
+| Corellon's Grace | corellon | `feat-corellons-grace` | Immediate Interrupt |
+| Harmony of Erathis | erathis | `feat-harmony-of-erathis` | Minor |
+| Ioun's Poise | ioun | `feat-iouns-poise` | Minor |
+| Kord's Favor | kord | `feat-kords-favor` | Free |
+| Melora's Tide | melora | `feat-meloras-tide` | Minor |
+| Moradin's Resolve | moradin | `feat-moradins-resolve` | Minor |
+| Pelor's Radiance | pelor | `feat-pelors-radiance` | Standard |
+| Raven Queen's Blessing | raven-queen | `feat-raven-queens-blessing` | Free |
+| Sehanine's Reversal | sehanine | `feat-sehanines-reversal` | Free |
+
+Feat-granted powers are collected in:
+- **ActionsByTypePanel** `collectAllPowers()` — grouped by action type with ⚡ pin + usage toggle
+- **PowersPanel** Encounter tab — shown with "Feat" badge, ⚡ pin button, usage toggle (no remove button)
+- **ChannelDivinityPanel** — merged into CD pool, shares per-encounter use
+
 ### Ability Scores
 Point-buy with 22-point budget. Standard array or custom allocation.
 Racial bonuses applied on top of base scores.
 
 ### Defenses
-- **AC** = 10 + armor bonus + shield + enhancement + level/2 + magic item bonus + paragon bonus + feat bonus
+- **AC** = 10 + armor bonus (base or masterwork) + shield + armor enhancement bonus + shield enhancement bonus + level/2 + magic item bonus + paragon bonus + feat bonus
 - **Fortitude/Reflex/Will** = 10 + class bonus + ability mod + half level + magic item bonus + paragon bonus + feat bonus
 - Defense breakdowns in `useCharacterDerived.ts` include a "Feats" row when feat bonus > 0
 
@@ -452,7 +484,7 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 | File | Purpose |
 |---|---|
 | CharacterSheet.tsx | Main tab container — 6 top-level tabs with sub-tab routing |
-| SheetHeader.tsx | Character header bar — portrait, name, level/rest buttons, initiative & saving throw rolls, and left-justified info rows (race/class/tier, player identity, alignment/deity/leveling, role badge/speed/initiative) |
+| SheetHeader.tsx | Character header bar — portrait, name, speed+level badges, rest buttons, initiative & saving throw rolls, and left-justified info rows (race/class/tier, player identity, alignment/deity/leveling, role badge/initiative) |
 | AbilityBlock.tsx | Six ability scores with +/- adjusters, hover breakdown panel, click-to-roll |
 | DefensesBlock.tsx | AC, Fort, Ref, Will in 2×2 grid |
 | HitPointsBlock.tsx | HP/bloodied/surge tracker with rest buttons; Power Points row for psionic classes |
@@ -560,8 +592,8 @@ const patch = async (changes: Partial<Character>) => {
 
 **Supabase URL:** configured in `.env.local` (`VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`)
 **Auth:** Magic link (email, no passwords). `useAuthStore` manages session + profile. Login is mandatory — `App.tsx` gates all views behind auth check. Supabase Redirect URLs must include both production (`https://dnd4ebuilder.com`) and dev (`http://localhost:5173`) URLs.
-**Database:** 6 tables — `profiles`, `shared_campaigns`, `campaign_members`, `character_summaries`, `user_characters`, `user_campaigns`
-**Realtime:** Subscriptions on `character_summaries` and `campaign_members` for live updates.
+**Database:** 6 tables — `profiles`, `shared_campaigns` (has `campaign_content JSONB` column for synced DM content), `campaign_members`, `character_summaries`, `user_characters`, `user_campaigns`
+**Realtime:** Subscriptions on `character_summaries`, `campaign_members`, and `shared_campaigns` (content updates) for live updates.
 
 ### Key Files
 
@@ -572,17 +604,20 @@ const patch = async (changes: Partial<Character>) => {
 | `src/lib/summarySync.ts` | `extractSummary()` builds payload from Character + maxHp; `createSyncDebouncer()` |
 | `src/lib/characterCloudService.ts` | Cloud backup: `pushCharacterToCloud()`, `pullAllCharactersFromCloud()`, `deleteCloudCharacter()` |
 | `src/lib/campaignCloudService.ts` | Cloud backup: `pushCampaignToCloud()`, `pullAllCampaignsFromCloud()`, `deleteCloudCampaign()` |
+| `src/lib/campaignContentSync.ts` | DM content sync: `extractPublicContent()` + `pushCampaignContent()` — pushes desc/notes/sessions to Supabase |
 | `src/store/useAuthStore.ts` | Auth state: `user`, `profile`, `login(email)`, `logout()`, `updateDisplayName()` |
 | `src/store/useSharingStore.ts` | Shared campaigns, members, summaries; actions + realtime mutation handlers |
 | `src/hooks/useCharacterSync.ts` | Auto-syncs character summary to Supabase on field changes (debounced 2s) |
 | `src/hooks/useCharacterCloudSync.ts` | Cloud backup: pull on startup, debounced push on character changes |
 | `src/hooks/useCampaignCloudSync.ts` | Cloud backup: pull on startup, debounced push on campaign changes |
-| `src/hooks/useRealtimeCampaign.ts` | Subscribes to Realtime for campaign updates; wired into SharedCampaignView |
+| `src/hooks/useRealtimeCampaign.ts` | Subscribes to Realtime for campaign updates (summaries, members, campaign content); wired into SharedCampaignView + CampaignManagementPage |
+| `src/hooks/useCampaignContentSync.ts` | Auto-syncs public campaign content (desc, notes, sessions) for DM-owned shared campaigns (debounced 3s) |
 | `src/components/auth/LoginPage.tsx` | Magic link email sign-in page |
 | `src/components/sharing/ShareCampaignModal.tsx` | Copy invite code/link for DM sharing |
 | `src/components/sharing/JoinCampaignModal.tsx` | Enter invite code → preview → join campaign |
 | `src/components/sharing/LinkCharacterModal.tsx` | Pick local character to link to campaign |
-| `src/components/sharing/SharedCampaignView.tsx` | Campaign roster with member cards, HP bars, DM/player actions |
+| `src/components/sharing/SharedCampaignView.tsx` | Player view: campaign description, public notes, session list, party roster, leave/unlink actions |
+| `src/components/sharing/PartyRosterCards.tsx` | Extracted `MemberCard` + `CharacterCard` — reused in both SharedCampaignView and CampaignManagementPage |
 
 ### Campaign Sharing Flow
 
@@ -667,7 +702,7 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Paragon path bonuses applied to defenses, initiative, proficiencies, saving throws, and cross-class power grants
 - [x] Saving Throw button with full math breakdown, success/fail card, dismiss button
 - [x] Initiative Roll button (d20 + initiative bonus) with math breakdown card, dismiss button
-- [x] SheetHeader sticky banner (`sticky top-0 z-10`) with info rows: race/class/tier, role/speed/initiative/vision, player identity, alignment/deity/leveling
+- [x] SheetHeader sticky banner (`sticky top-0 z-10`) with speed+level badges, info rows: race/class/tier, role/initiative/vision, player identity, alignment/deity/leveling
 - [x] Ritual system: 72 rituals (49 PHB1 + 23 PHB2) in `src/data/rituals.ts`; `RitualData` type with `skillCheckTable` + `prerequisite`; RitualsPanel with scroll shop, ritual book, BuyScrollModal, AddToBookModal, and skill check table display
 - [x] Warlock Eldritch Pact system: infernal/fey/star pact selection in wizard Step 3; pact boon auto-granted (not counted against slots); EldritchPactPanel showing all 3 pacts with chosen highlighted; pact boon shown in PowersPanel
 - [x] Wizard Arcane Implement Mastery: orb/staff/wand selection in wizard Step 3; cantrip auto-granted; ArcaneImplementMasteryPanel showing all 3 implements
@@ -723,6 +758,12 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Ability modifier substitution in power text: `substituteMods()` in `src/utils/powerText.ts` replaces "Dexterity modifier" → "3 (Dexterity modifier)" using character's computed ability modifiers. Applied via optional `abilityModifiers` prop on PowerCard. Wired into all 5 sheet panels (PowersPanel, ActionsByTypePanel, QuickTrayPanel, ChannelDivinityPanel, DisciplinePowersPanel) via `useCharacterDerived()`. Wizard pickers show raw text (no character yet). Works for all 6 abilities across all power text fields (attack, hit, miss, effect, special, augment descriptions).
 - [x] Cloud character backup + cross-device sync: `user_characters` Supabase table stores full Character JSON (JSONB) per user. `characterCloudService.ts` provides `pushCharacterToCloud()`, `pullAllCharactersFromCloud()`, `deleteCloudCharacter()`. `useCharacterCloudSync` hook in App.tsx: one-time pull on startup (after auth + Dexie load) merges cloud characters into local Dexie (newer wins via `updatedAt`); debounced 3s push on every character change. `mergeCloudCharacters()` action in useCharactersStore. `upsertFromCloud()` in characterRepository preserves cloud timestamps. Character delete soft-deletes in cloud (`deleted: true`). Works across browsers and devices — log in anywhere to see all characters.
 - [x] Cloud campaign backup + cross-device sync (with sessions + encounters): `user_campaigns` Supabase table stores `CampaignBundle` JSONB per user — includes Campaign + all CampaignSessions + all SessionEncounters in a single payload. `campaignCloudService.ts` provides `pushCampaignToCloud()` (bundles sessions/encounters from Dexie), `pullAllCampaignsFromCloud()` (returns `CampaignBundle[]`), `deleteCloudCampaign()`. `useCampaignCloudSync` hook in App.tsx: one-time pull on startup merges cloud campaigns + sessions + encounters into local Dexie (newer wins via `updatedAt`); debounced 3s push on every campaign change. `mergeCloudCampaigns()` in useCampaignsStore upserts sessions/encounters via `db.sessions.put()` / `db.encounters.put()` then force-reloads stores. Campaign delete soft-deletes in cloud. Backward compatible with legacy format (pre-bundle cloud data returns empty sessions/encounters). Works across browsers and devices.
+- [x] Unified local + shared campaign views: DM sees party roster inline in campaign editor alongside sessions/encounters/notes. Players see campaign description, public notes, session list, and party roster in SharedCampaignView. DM's content auto-syncs to Supabase via `useCampaignContentSync` hook (debounced 3s). `campaign_content` JSONB column on `shared_campaigns` stores `CampaignContent` (description, publicNotes, sessions — deliberately excludes `plannedSummary` which is DM-only). `sharedCampaignId` on local `Campaign` provides stable link to shared counterpart. One-time client-side migration links pre-existing campaigns by name. `useRealtimeCampaign` subscribes to `shared_campaigns` UPDATE events for live content updates. `PartyRosterCards.tsx` extracted for reuse in both views. DM-owned campaigns filtered from "Shared Campaigns" sidebar section. `SharedCampaignView` loading bug fixed (local `useState` replaces shared `isLoading` race condition).
+- [x] Feat-granted powers system: Feats that grant powers (e.g. deity Channel Divinity feats) now produce actual PowerCard entries in the correct panels. `FeatData.grantedPowerIds?: string[]` links feats to structured `PowerData` entries in `src/data/powers/featPowers.ts` (11 deity CD powers: Bahamut, Avandra, Corellon, Erathis, Ioun, Kord, Melora, Moradin, Pelor, Raven Queen, Sehanine). `FeatPrerequisites.deity?: string` enforces deity worship requirement — checked in `featMeetsPrerequisites()` across all 3 call sites (Step7_Feats, LevelUpModal, FeatsPanel). Feat-granted powers appear in: PowersPanel Encounter tab (with "Feat" badge, ⚡ pin button, usage toggle), ActionsByTypePanel (grouped by action type with pin + usage toggle), ChannelDivinityPanel (shares per-encounter CD resource with class CD powers). CD tab in CharacterSheet now shows for ANY class with a feat-granted CD power (not just the 4 CD classes). All feat powers use `classId: 'feat'`, `level: 0`.
+- [x] Armor system overhaul: Full magic armor + masterwork armor from PHB/PHB2/PHB3 (100 entries: 8 mundane, 12 masterwork, 80 magic). New types `MasterworkArmorData` and `MagicArmorData` in `gameData.ts`; shared `ArmorType` union. Data in `src/data/equipment/masterworkArmor.ts` (12 PHB masterwork armors: Feyweave, Feyleather, Darkhide, Forgemail, Wyrmscale, Warplate, etc.) and `src/data/equipment/magicArmor.ts` (80 magic enchantments with level tiers, properties, powers). `EquipmentItem` extended with `masterworkId`, `magicArmorId`, `magicArmorTier` fields. EquipmentPanel armor items expand on click to show masterwork upgrade dropdown + tier selector + property/power display. Enhancement bonus from magic armor/shield applied to AC in `useCharacterDerived.ts` with breakdown row. Armor speed penalties fixed (heavy armor -1 per PHB p.214). Shield check penalties now stack with armor. Scale armor check penalty corrected from -2 to 0. Generator scripts at `C:\Claude\generate_armor.js` and `C:\Claude\generate_armor_ts.js`.
+- [x] Magic armor in equipment picker: Magic armor enchantments (80 items) browsable and searchable in the Armor tab of the equipment picker, below base armor. Each entry shows name, rarity badge (Common/Uncommon/Rare), compatible armor types, enhancement type, first tier level/bonus/cost, description, and property. Clicking "Add" creates a base armor item with the enchantment pre-applied (first compatible base type, lowest tier). User can change base type and tier in the expanded inventory view. `filteredMagicArmor` search covers name, rarity, property, and description. `addMagicArmorItem()` function handles creation.
+- [x] Magic armor powers in Powers & Actions tabs: `parseMagicArmorPower()` in `src/utils/magicArmorPowers.ts` converts raw power text from `MagicArmorData.power` into structured `PowerData` objects by parsing usage (Daily/Encounter), action type (Standard/Move/Minor/Free/Immediate), keywords, trigger, and effect. Magic armor powers from equipped armor appear in: PowersPanel Encounter tab (teal "Armor" badge, ⚡ pin, usage toggle), PowersPanel Daily tab (teal "Armor" badge, ⚡ pin, usage toggle), ActionsByTypePanel (grouped by action type with pin + toggle). Powers auto-appear when armor is equipped, auto-disappear when unequipped. Power IDs are `magic-armor-${ma.id}-${tier.level}`. Usage toggle syncs to `usedEncounterPowers`/`usedDailyPowers`; cleared on rest.
+- [x] Speed badge in SheetHeader: Speed moved from Row 2 info text to a styled badge (sky-blue `bg-sky-700`) positioned to the left of the Level badge in the top-right controls row. Shows 🏃 icon + "Speed N" + colored bonus indicator (green for positive, red for negative) when speed differs from base race speed. Layout: `[🏃 Speed 5 (-1)] [Level 10] [Level Up ↑]`.
 
 ---
 
@@ -960,9 +1001,10 @@ const preparedDailyIds = new Set(
 
 ## Channel Divinity (src/components/sheet/ChannelDivinityPanel.tsx)
 
-Available for classes with Channel Divinity: **cleric** and **paladin** (defined in `CHANNEL_DIVINITY_CLASSES` const in `ChannelDivinityPanel.tsx`).
+Available for classes with Channel Divinity: **avenger, cleric, invoker, paladin** (defined in `CHANNEL_DIVINITY_CLASSES` const in `ChannelDivinityPanel.tsx`), **or any class that has a feat-granted CD power** (e.g. a Fighter who takes Armor of Bahamut).
 
-- Appears as a sub-tab in the **Powers** tab (between Powers and Feats), only for those classes
+- Appears as a sub-tab in the **Powers** tab (between Powers and Feats)
+- Tab visibility: `CharacterSheet.tsx` checks both `CHANNEL_DIVINITY_CLASSES.includes(classId)` and whether any selected feat grants a CD power
 - Has internal **Encounter** / **At-Will** sub-tabs (At-Will tab only shown when `hasAtWill` is true)
 - Encounter powers tracked in `usedEncounterPowers[]` — reset on Short/Extended Rest (no manual reset button)
 - At-will powers (e.g. Lay on Hands, Divine Challenge for Paladin) are unlimited
@@ -971,7 +1013,9 @@ Available for classes with Channel Divinity: **cleric** and **paladin** (defined
   // Any paragonPath.bonuses.grantedPowerIds entries that resolve to channel-divinity powers
   // are merged into the character's CD pool (de-duped against base class powers)
   ```
+- **Feat-granted CD powers:** `ChannelDivinityPanel` also merges CD powers from selected feats (e.g. deity Channel Divinity feats). These share the same per-encounter CD resource as class CD powers.
 - Example: Warpriest Cleric gains `paladin-divine-challenge` via paragon path at L11
+- Example: Any class worshipping Bahamut with the Armor of Bahamut feat gains `feat-armor-of-bahamut` CD power
 
 ### Level 0 Power Architecture — CRITICAL
 
@@ -1000,20 +1044,21 @@ const cfEncounterPowers = encounterPowers.filter(p => !p.keywords.includes('Chan
 
 ### Top row (portrait + name + right-side controls)
 ```
-[Portrait]  Character Name                    [Level 11] [Level Up ↑]
+[Portrait]  Character Name                    [🏃 Speed 5 (-1)] [Level 11] [Level Up ↑]
                                               [Short Rest] [Extended Rest]
                                               [⚡ Initiative (+8)]  [🎲 Saving Throw]
 ```
 - Portrait (64×64) is a button that navigates to the portrait management page
 - Name is click-to-edit inline
-- Right column: level badge, rest buttons, roll buttons — all `items-end` (right-aligned)
+- Right column: speed + level badges, rest buttons, roll buttons — all `items-end` (right-aligned)
+- Speed badge (sky-blue `bg-sky-700`) shows 🏃 icon + speed value + bonus/penalty indicator (green/red) when speed differs from base race speed
 - Initiative and Saving Throw buttons share a `flex justify-between min-w-[24rem]` row
   so their absolutely-positioned result cards can't overlap
 
 ### Info rows (full-width, left-justified below the top row)
 ```
 Row 1: Elf · Cleric · Paragon Tier · ⭐ Warpriest
-Row 2: [Leader badge]  Size: Medium  Speed 7  Initiative +8  Vision: Low-light
+Row 2: [Leader badge]  Size: Medium  Initiative +8  Vision: Low-light
 Row 3: Player: dilbery  Male  Age 35
 Row 4: Alignment: Good  Deity: Ioun  Milestone leveling
 ```

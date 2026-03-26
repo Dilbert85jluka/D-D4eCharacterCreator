@@ -213,16 +213,80 @@ export interface WeaponData {
   weight: number;
 }
 
+export type ArmorType = 'Cloth' | 'Leather' | 'Hide' | 'Chainmail' | 'Scale' | 'Plate' | 'Shield';
+
 export interface ArmorData {
   id: string;
   name: string;
-  type: 'Cloth' | 'Leather' | 'Hide' | 'Chainmail' | 'Scale' | 'Plate' | 'Shield';
+  type: ArmorType;
   acBonus: number;
   checkPenalty: number;
   speedPenalty: number;
   minStrength?: number;
   cost: number;
   weight: number;
+}
+
+/** Masterwork armor — upgraded base armor with better stats, requires min enhancement */
+export interface MasterworkArmorData {
+  id: string;
+  name: string;
+  /** Which base armor category this upgrades */
+  baseType: ArmorType;
+  acBonus: number;
+  checkPenalty: number;
+  speedPenalty: number;
+  minEnhancement: number;
+  weight: number;
+  source: string;
+  description: string;
+}
+
+/** A level tier for magic armor — enhancement bonus + cost at that level */
+export interface MagicArmorTier {
+  level: number;
+  enhancement: number;
+  cost: number;
+}
+
+/** Magic armor enchantment — layers on top of base armor, providing enhancement bonus + properties/powers */
+/** Structured bonuses from magic armor properties — only unconditional bonuses that always apply when equipped */
+export interface MagicArmorBonuses {
+  /** Flat bonus to skills: key = skill id (e.g. 'endurance'), value = bonus amount */
+  skills?: Record<string, number>;
+  /** Skill bonus that scales with enhancement: key = skill id, value is always 'enhancement' */
+  skillsFromEnhancement?: string[];
+  /** Flat bonus to defenses */
+  fortitude?: number;
+  reflex?: number;
+  will?: number;
+  ac?: number;
+  /** Bonus to initiative */
+  initiative?: number;
+  /** Bonus to speed */
+  speed?: number;
+  /** Level-scaled skill bonuses: key = skill id, value = array of [minLevel, bonus] tuples */
+  skillsByLevel?: Record<string, [number, number][]>;
+}
+
+export interface MagicArmorData {
+  id: string;
+  name: string;
+  description: string;
+  /** Which base armor types this enchantment can be applied to (e.g. ['Chain', 'Scale', 'Plate']) */
+  armorTypes: ArmorType[] | 'Any' | 'Any shield';
+  /** Enhancement bonus target — 'AC' for armor, 'AC and Reflex' for shields */
+  enhancementType: string;
+  /** Level/enhancement/cost tiers */
+  tiers: MagicArmorTier[];
+  rarity: 'Common' | 'Uncommon' | 'Rare';
+  source: string;
+  /** Property text (passive bonuses when worn) */
+  property?: string;
+  /** Power text (activatable abilities) */
+  power?: string;
+  /** Structured unconditional bonuses — applied automatically when equipped */
+  bonuses?: MagicArmorBonuses;
 }
 
 export interface GearData {

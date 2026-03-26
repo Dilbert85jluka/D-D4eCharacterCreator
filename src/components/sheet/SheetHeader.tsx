@@ -205,8 +205,22 @@ export function SheetHeader({ character, derived }: Props) {
 
               {/* Right column: level badge, rest buttons, initiative + saving throw */}
               <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                {/* Level badge + Level Up */}
+                {/* Speed badge + Level badge + Level Up */}
                 <div className="flex items-center gap-2">
+                  <div className="bg-sky-700 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5">
+                    <span className="text-sky-200 text-xs">🏃</span>
+                    <span>Speed {derived.speed}</span>
+                    {(() => {
+                      const baseSpeed = race?.speed ?? 6;
+                      const bonus = derived.speed - baseSpeed;
+                      if (bonus !== 0) return (
+                        <span className={`text-xs font-semibold ${bonus > 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                          ({bonus > 0 ? '+' : ''}{bonus})
+                        </span>
+                      );
+                      return null;
+                    })()}
+                  </div>
                   <div className="bg-amber-600 px-3 py-1.5 rounded-lg text-sm font-bold">
                     Level {character.level}
                   </div>
@@ -343,11 +357,10 @@ export function SheetHeader({ character, derived }: Props) {
             )}
           </p>
 
-          {/* Row 2 — Role badge, speed, initiative, vision */}
+          {/* Row 2 — Role badge, size, initiative, vision */}
           <div className="flex flex-wrap items-center gap-3 mt-1">
             {cls && <RoleBadge role={cls.role} />}
             {race && <span className="text-xs text-amber-300">Size: {race.size}</span>}
-            <span className="text-xs text-amber-300">Speed {derived.speed}</span>
             <span className="text-xs text-amber-300">
               Initiative {derived.initiative >= 0 ? `+${derived.initiative}` : derived.initiative}
             </span>

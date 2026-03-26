@@ -6,6 +6,8 @@ import { getParagonPathById } from '../data/paragonPaths';
 import { getFeatById } from '../data/feats';
 import { SKILLS } from '../data/skills';
 import { ARMOR } from '../data/equipment/armor';
+import { MASTERWORK_ARMOR } from '../data/equipment/masterworkArmor';
+import { MAGIC_ARMOR } from '../data/equipment/magicArmor';
 import { MAGIC_ITEMS } from '../data/equipment/magicItems';
 import { abilityModifier, ABILITIES, formatModifier } from '../utils/abilityScores';
 import { calculateAC, calculateFortitude, calculateReflex, calculateWill } from '../utils/defenses';
@@ -74,11 +76,116 @@ export function useCharacterDerived(character: Character): DerivedStats {
       ? ARMOR.find((a) => a.id === equippedShieldItem.itemId)
       : undefined;
 
-    const armorAcBonus = equippedArmorData?.acBonus ?? 0;
-    const shieldAcBonus = equippedShieldData?.acBonus ?? 0;
-    const armorCheckPenalty = equippedArmorData?.checkPenalty ?? 0;
-    const armorName = equippedArmorData?.name ?? 'Cloth (unarmored)';
-    const shieldName = equippedShieldData?.name ?? 'Shield';
+    // Resolve masterwork upgrades (overrides base armor stats)
+    const masterworkData = equippedArmorItem?.masterworkId
+      ? MASTERWORK_ARMOR.find(m => m.id === equippedArmorItem.masterworkId)
+      : undefined;
+    const shieldMasterworkData = equippedShieldItem?.masterworkId
+      ? MASTERWORK_ARMOR.find(m => m.id === equippedShieldItem.masterworkId)
+      : undefined;
+
+    // Masterwork overrides base armor AC/check/speed; fall back to base
+    const armorAcBonus = masterworkData?.acBonus ?? equippedArmorData?.acBonus ?? 0;
+    const shieldAcBonus = shieldMasterworkData?.acBonus ?? equippedShieldData?.acBonus ?? 0;
+    const armorCheckPenalty =
+      (masterworkData?.checkPenalty ?? equippedArmorData?.checkPenalty ?? 0) +
+      (shieldMasterworkData?.checkPenalty ?? equippedShieldData?.checkPenalty ?? 0);
+    const armorSpeedPenalty =
+      (masterworkData?.speedPenalty ?? equippedArmorData?.speedPenalty ?? 0) +
+      (shieldMasterworkData?.speedPenalty ?? equippedShieldData?.speedPenalty ?? 0);
+    const armorName = masterworkData?.name ?? equippedArmorData?.name ?? 'Cloth (unarmored)';
+    const shieldName = shieldMasterworkData?.name ?? equippedShieldData?.name ?? 'Shield';
+
+    // Resolve magic armor enchantment (enhancement bonus to AC)
+    const magicArmorEnchant = equippedArmorItem?.magicArmorId
+      ? MAGIC_ARMOR.find(m => m.id === equippedArmorItem.magicArmorId)
+      : undefined;
+    const magicArmorTier = magicArmorEnchant?.tiers.find(
+      t => t.level === equippedArmorItem?.magicArmorTier
+    );
+    const armorEnhancementBonus = magicArmorTier?.enhancement ?? 0;
+
+    // Resolve magic shield enchantment
+    const magicShieldEnchant = equippedShieldItem?.magicArmorId
+      ? MAGIC_ARMOR.find(m => m.id === equippedShieldItem.magicArmorId)
+      : undefined;
+    const magicShieldTier = magicShieldEnchant?.tiers.find(
+      t => t.level === equippedShieldItem?.magicArmorTier
+    );
+    const shieldEnhancementBonus = magicShieldTier?.enhancement ?? 0;
+
+    // ── Magic armor property bonuses (unconditional) ─────────────────────────
+    const magicArmorSkillBonuses: Record<string, { bonus: number; source: string }> = {};
+    let magicArmorInitiativeBonus = 0;
+    let magicArmorInitiativeSource = '';
+    let magicArmorSpeedBonus = 0;
+    let magicArmorDefBonuses = { ac: 0, fortitude: 0, reflex: 0, will: 0 };
+    const magicArmorDefSources: string[] = [];
+
+    // Collect bonuses from both equipped armor and equipped shield magic armor
+    for (const { enchant, tier } of [
+      { enchant: magicArmorEnchant, tier: magicArmorTier },
+      { enchant: magicShieldEnchant, tier: magicShieldTier },
+    ]) {
+      if (!enchant?.bonuses || !tier) continue;
+      const b = enchant.bonuses;
+      const enh = tier.enhancement;
+      const itemLevel = tier.level;
+
+      // Flat skill bonuses
+      if (b.skills) {
+        for (const [skillId, bonus] of Object.entries(b.skills)) {
+          if (bonus) {
+            const existing = magicArmorSkillBonuses[skillId]?.bonus ?? 0;
+            if (bonus > existing) {
+              magicArmorSkillBonuses[skillId] = { bonus, source: enchant.name };
+            }
+          }
+        }
+      }
+
+      // Enhancement-scaling skill bonuses
+      if (b.skillsFromEnhancement) {
+        for (const skillId of b.skillsFromEnhancement) {
+          const existing = magicArmorSkillBonuses[skillId]?.bonus ?? 0;
+          if (enh > existing) {
+            magicArmorSkillBonuses[skillId] = { bonus: enh, source: `${enchant.name} (+${enh})` };
+          }
+        }
+      }
+
+      // Level-scaled skill bonuses
+      if (b.skillsByLevel) {
+        for (const [skillId, tiers] of Object.entries(b.skillsByLevel)) {
+          // Find the highest tier that applies at the item's level
+          let best = 0;
+          for (const [minLvl, val] of tiers) {
+            if (itemLevel >= minLvl && val > best) best = val;
+          }
+          if (best > 0) {
+            const existing = magicArmorSkillBonuses[skillId]?.bonus ?? 0;
+            if (best > existing) {
+              magicArmorSkillBonuses[skillId] = { bonus: best, source: `${enchant.name} (+${best})` };
+            }
+          }
+        }
+      }
+
+      // Initiative
+      if (b.initiative) {
+        magicArmorInitiativeBonus += b.initiative;
+        magicArmorInitiativeSource = enchant.name;
+      }
+
+      // Speed
+      if (b.speed) magicArmorSpeedBonus += b.speed;
+
+      // Defense bonuses
+      if (b.ac) { magicArmorDefBonuses.ac += b.ac; magicArmorDefSources.push(enchant.name); }
+      if (b.fortitude) { magicArmorDefBonuses.fortitude += b.fortitude; magicArmorDefSources.push(enchant.name); }
+      if (b.reflex) { magicArmorDefBonuses.reflex += b.reflex; magicArmorDefSources.push(enchant.name); }
+      if (b.will) { magicArmorDefBonuses.will += b.will; magicArmorDefSources.push(enchant.name); }
+    }
 
     // Determine AC ability modifier (some classes use INT or DEX to unarmored AC)
     let acAbilityMod = 0;
@@ -221,10 +328,10 @@ export function useCharacterDerived(character: Character): DerivedStats {
       },
     );
 
-    const armorClass = calculateAC(armorAcBonus, acAbilityMod, halfLevel, shieldAcBonus) + classAcBonus + magicBonuses.ac + (pb.ac ?? 0) + featBonuses.ac;
-    const fortitude = calculateFortitude(mods.str, mods.con, halfLevel, cls?.fortitudeBonus ?? 0, humanDefBonus) + magicBonuses.fortitude + (pb.fortitude ?? 0) + featBonuses.fortitude;
-    const reflex = calculateReflex(mods.dex, mods.int, halfLevel, cls?.reflexBonus ?? 0, shieldAcBonus, humanDefBonus) + classReflexBonus + magicBonuses.reflex + (pb.reflex ?? 0) + featBonuses.reflex;
-    const will = calculateWill(mods.wis, mods.cha, halfLevel, cls?.willBonus ?? 0, humanDefBonus + racialWillBonus) + magicBonuses.will + (pb.will ?? 0) + featBonuses.will;
+    const armorClass = calculateAC(armorAcBonus, acAbilityMod, halfLevel, shieldAcBonus) + classAcBonus + magicBonuses.ac + (pb.ac ?? 0) + featBonuses.ac + armorEnhancementBonus + shieldEnhancementBonus + magicArmorDefBonuses.ac;
+    const fortitude = calculateFortitude(mods.str, mods.con, halfLevel, cls?.fortitudeBonus ?? 0, humanDefBonus) + magicBonuses.fortitude + (pb.fortitude ?? 0) + featBonuses.fortitude + magicArmorDefBonuses.fortitude;
+    const reflex = calculateReflex(mods.dex, mods.int, halfLevel, cls?.reflexBonus ?? 0, shieldAcBonus, humanDefBonus) + classReflexBonus + magicBonuses.reflex + (pb.reflex ?? 0) + featBonuses.reflex + magicArmorDefBonuses.reflex;
+    const will = calculateWill(mods.wis, mods.cha, halfLevel, cls?.willBonus ?? 0, humanDefBonus + racialWillBonus) + magicBonuses.will + (pb.will ?? 0) + featBonuses.will + magicArmorDefBonuses.will;
 
     // ── Defense breakdowns ─────────────────────────────────────────────────────
     const totalRacialWillBonus = humanDefBonus + racialWillBonus;
@@ -241,13 +348,16 @@ export function useCharacterDerived(character: Character): DerivedStats {
       ac: [
         { label: 'Base',                   value: 10          },
         { label: `Armor (${armorName})`,   value: armorAcBonus },
+        ...rowIf(armorEnhancementBonus > 0, `Enhancement (${magicArmorEnchant?.name ?? 'Armor'})`, armorEnhancementBonus),
         ...rowIf(acAbilityMod !== 0, acAbilityLabel, acAbilityMod),
         ...rowIf(shieldAcBonus > 0, `Shield (${shieldName})`, shieldAcBonus),
+        ...rowIf(shieldEnhancementBonus > 0, `Enhancement (${magicShieldEnchant?.name ?? 'Shield'})`, shieldEnhancementBonus),
         ...rowIf(classAcBonus > 0, classAcLabel, classAcBonus),
         { label: '½ Level',                value: halfLevel   },
         ...rowIf(magicBonuses.ac > 0, 'Magic items', magicBonuses.ac),
         ...rowIf((pb.ac ?? 0) > 0, paragonLabel, pb.ac!),
         ...rowIf(featBonuses.ac > 0, 'Feats', featBonuses.ac),
+        ...rowIf(magicArmorDefBonuses.ac > 0, `Armor property (${magicArmorDefSources.join(', ')})`, magicArmorDefBonuses.ac),
       ],
       fort: [
         { label: 'Base', value: 10 },
@@ -258,6 +368,7 @@ export function useCharacterDerived(character: Character): DerivedStats {
         ...rowIf(magicBonuses.fortitude > 0, 'Magic items', magicBonuses.fortitude),
         ...rowIf((pb.fortitude ?? 0) > 0, paragonLabel, pb.fortitude!),
         ...rowIf(featBonuses.fortitude > 0, 'Feats', featBonuses.fortitude),
+        ...rowIf(magicArmorDefBonuses.fortitude > 0, `Armor property (${magicArmorDefSources.join(', ')})`, magicArmorDefBonuses.fortitude),
       ],
       ref: [
         { label: 'Base', value: 10 },
@@ -270,6 +381,7 @@ export function useCharacterDerived(character: Character): DerivedStats {
         ...rowIf(magicBonuses.reflex > 0, 'Magic items', magicBonuses.reflex),
         ...rowIf((pb.reflex ?? 0) > 0, paragonLabel, pb.reflex!),
         ...rowIf(featBonuses.reflex > 0, 'Feats', featBonuses.reflex),
+        ...rowIf(magicArmorDefBonuses.reflex > 0, `Armor property (${magicArmorDefSources.join(', ')})`, magicArmorDefBonuses.reflex),
       ],
       will: [
         { label: 'Base', value: 10 },
@@ -280,6 +392,7 @@ export function useCharacterDerived(character: Character): DerivedStats {
         ...rowIf(magicBonuses.will > 0, 'Magic items', magicBonuses.will),
         ...rowIf((pb.will ?? 0) > 0, paragonLabel, pb.will!),
         ...rowIf(featBonuses.will > 0, 'Feats', featBonuses.will),
+        ...rowIf(magicArmorDefBonuses.will > 0, `Armor property (${magicArmorDefSources.join(', ')})`, magicArmorDefBonuses.will),
       ],
     };
 
@@ -296,8 +409,8 @@ export function useCharacterDerived(character: Character): DerivedStats {
     const surgesPerDay = calculateSurgesPerDay(cls?.healingSurgesPerDay ?? 6, mods.con) + magicBonuses.surgesPerDay + featBonuses.surgesPerDay;
 
     // Initiative and speed
-    const initiative = mods.dex + halfLevel + magicBonuses.initiative + (pb.initiative ?? 0) + featBonuses.initiative;
-    const speed = (race?.speed ?? 6) + magicBonuses.speed + featBonuses.speed;
+    const initiative = mods.dex + halfLevel + magicBonuses.initiative + (pb.initiative ?? 0) + featBonuses.initiative + magicArmorInitiativeBonus;
+    const speed = (race?.speed ?? 6) + magicBonuses.speed + featBonuses.speed + armorSpeedPenalty + magicArmorSpeedBonus;
 
     // Saving throw bonus (half-level is NOT added here — 4e saving throws are flat d20, 10+ succeeds;
     // only explicit bonuses from feats, paragon paths, etc. modify the roll)
@@ -328,9 +441,13 @@ export function useCharacterDerived(character: Character): DerivedStats {
         }
       }
       const trainedBonus = isTrained ? 5 : 0;
-      const total = calculateSkillBonus(isTrained, abilityMod, halfLevel, racialBonus, featBonus, armorPenalty);
+      // Magic armor property bonus for this skill
+      const maSkill = magicArmorSkillBonuses[skill.id];
+      const itemBonus = maSkill?.bonus ?? 0;
+      const itemBonusSource = maSkill?.source;
+      const total = calculateSkillBonus(isTrained, abilityMod, halfLevel, racialBonus, featBonus, armorPenalty, itemBonus);
       acc[skill.id] = total;
-      skillBreakdowns[skill.id] = { abilityMod, halfLevel, trainedBonus, racialBonus, featBonus, featBonusDetails, armorPenalty, total };
+      skillBreakdowns[skill.id] = { abilityMod, halfLevel, trainedBonus, racialBonus, featBonus, featBonusDetails, armorPenalty, itemBonus, itemBonusSource, total };
       return acc;
     }, {});
 
