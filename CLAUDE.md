@@ -15,6 +15,7 @@ Designed for tablet use (touch targets ≥44px, responsive layouts).
 **Dev server:** `npm run dev` → http://localhost:5173 (hot-reload)
 **Build:** `npm run build` → outputs to `dist/`
 **Preview build:** `npm run preview` → serves `dist/` on http://localhost:4173
+**App version:** Sourced from `package.json` `version` field, injected at build time via Vite `define` as `__APP_VERSION__` global constant (declared in `src/vite-env.d.ts`). Displayed at the bottom of the sidebar menu. To bump the version, update `package.json` `version` — no other changes needed.
 
 ---
 
@@ -764,6 +765,7 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Magic armor in equipment picker: Magic armor enchantments (80 items) browsable and searchable in the Armor tab of the equipment picker, below base armor. Each entry shows name, rarity badge (Common/Uncommon/Rare), compatible armor types, enhancement type, first tier level/bonus/cost, description, and property. Clicking "Add" creates a base armor item with the enchantment pre-applied (first compatible base type, lowest tier). User can change base type and tier in the expanded inventory view. `filteredMagicArmor` search covers name, rarity, property, and description. `addMagicArmorItem()` function handles creation.
 - [x] Magic armor powers in Powers & Actions tabs: `parseMagicArmorPower()` in `src/utils/magicArmorPowers.ts` converts raw power text from `MagicArmorData.power` into structured `PowerData` objects by parsing usage (Daily/Encounter), action type (Standard/Move/Minor/Free/Immediate), keywords, trigger, and effect. Magic armor powers from equipped armor appear in: PowersPanel Encounter tab (teal "Armor" badge, ⚡ pin, usage toggle), PowersPanel Daily tab (teal "Armor" badge, ⚡ pin, usage toggle), ActionsByTypePanel (grouped by action type with pin + toggle). Powers auto-appear when armor is equipped, auto-disappear when unequipped. Power IDs are `magic-armor-${ma.id}-${tier.level}`. Usage toggle syncs to `usedEncounterPowers`/`usedDailyPowers`; cleared on rest.
 - [x] Speed badge in SheetHeader: Speed moved from Row 2 info text to a styled badge (sky-blue `bg-sky-700`) positioned to the left of the Level badge in the top-right controls row. Shows 🏃 icon + "Speed N" + colored bonus indicator (green for positive, red for negative) when speed differs from base race speed. Layout: `[🏃 Speed 5 (-1)] [Level 10] [Level Up ↑]`.
+- [x] App version display: Version sourced from `package.json` `version` field, injected at build time via Vite `define` (`__APP_VERSION__`), declared in `src/vite-env.d.ts`. Displayed at bottom of Sidebar menu (`Sidebar.tsx`) in faded amber text. Bump version by editing `package.json` only.
 
 ---
 

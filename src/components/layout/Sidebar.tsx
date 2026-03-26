@@ -147,6 +147,11 @@ export function Sidebar() {
               <span className="font-medium text-base leading-tight">Sign In</span>
             </button>
           )}
+
+          {/* Version */}
+          <div className="mt-auto border-t border-amber-800 mx-1 pt-2 pb-3 px-4">
+            <span className="text-xs text-amber-500/60">v{__APP_VERSION__}</span>
+          </div>
         </nav>
       </aside>
 
