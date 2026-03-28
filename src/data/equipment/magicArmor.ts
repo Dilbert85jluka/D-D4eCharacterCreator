@@ -981,6 +981,21 @@ export const MAGIC_ARMOR: MagicArmorData[] = [
     power: '(Healing) ✦ Daily (Immediate Reaction) You can use this power when a critical hit is scored on you. You can spend a healing surge. Level 18: Regain an additional 2d6 hit points. Level 28: Regain an additional 4d6 hit points.',
   },
   {
+    id: 'armor2474',
+    name: 'Shield of Deflection',
+    description: '',
+    armorTypes: 'Any shield',
+    enhancementType: 'AC',
+    tiers: [
+      { level: 2, enhancement: 1, cost: 520 },
+      { level: 12, enhancement: 3, cost: 13000 },
+      { level: 22, enhancement: 5, cost: 325000 },
+    ],
+    rarity: 'Common',
+    source: 'PHB, HotFL',
+    property: 'You gain resist 2 to all damage from ranged attacks and area attacks. Level 12: Resist 5. Level 22: Resist 10.',
+  },
+  {
     id: 'armor1401',
     name: 'Ghostphase Armor',
     description: '',

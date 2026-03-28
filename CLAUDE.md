@@ -15,7 +15,7 @@ Designed for tablet use (touch targets ≥44px, responsive layouts).
 **Dev server:** `npm run dev` → http://localhost:5173 (hot-reload)
 **Build:** `npm run build` → outputs to `dist/`
 **Preview build:** `npm run preview` → serves `dist/` on http://localhost:4173
-**App version:** Sourced from `package.json` `version` field, injected at build time via Vite `define` as `__APP_VERSION__` global constant (declared in `src/vite-env.d.ts`). Displayed at the bottom of the sidebar menu. To bump the version, update `package.json` `version` — no other changes needed.
+**App version:** `1.1.0` — Sourced from `package.json` `version` field, injected at build time via Vite `define` as `__APP_VERSION__` global constant (declared in `src/vite-env.d.ts`). Displayed at the bottom of the sidebar menu. To bump the version, update `package.json` `version` — no other changes needed.
 
 ---
 
@@ -61,7 +61,7 @@ src/
 │   ├── races/                 # 17 race definitions (8 PHB1 + 5 PHB2 + 4 PHB3) + index.ts (getRaceById)
 │   ├── powers/                # 22 class power files (8 PHB1 + 8 PHB2 + 6 PHB3) + featPowers.ts + index.ts (query functions)
 │   ├── feats/                 # index.ts — 465 feats (161 PHB1 + 132 PHB2 + 172 PHB3)
-│   ├── equipment/             # weapons, armor, masterworkArmor, magicArmor, magicWeapons, magicItems, consumables, gear + index.ts
+│   ├── equipment/             # weapons, armor, masterworkArmor, magicArmor, magicWeapons, implements, superiorImplements, magicImplements, magicItems, consumables, gear + index.ts
 │   ├── magicItems/            # potions, scrolls, rings, rods, staves, wands, miscA/G/O, armor, weapons + index.ts
 │   ├── monsters/              # mm1.ts, mm2.ts, mm3.ts, dmg.ts, dmg2.ts, mv.ts, mvttnv.ts + index.ts
 │   ├── skills.ts
@@ -126,6 +126,7 @@ src/
     ├── powerText.ts           # substituteMods() — replaces "Dexterity modifier" with "3 (Dexterity modifier)" in power text
     ├── magicArmorPowers.ts    # parseMagicArmorPower() — converts magic armor power text to PowerData for display in Powers/Actions tabs
     ├── magicWeaponPowers.ts   # parseMagicWeaponPower() — converts magic weapon power text to PowerData for display in Powers/Actions tabs
+    ├── magicImplementPowers.ts # parseMagicImplementPower() — converts magic implement power text to PowerData for display in Powers/Actions tabs
     └── fullDiscipline.ts      # isFullDisciplinePower() + extractMovementTechnique() — splits monk Full Discipline powers into Attack + Movement technique PowerData
 ```
 
@@ -154,6 +155,8 @@ interface EquipmentItem {
   magicArmorTier?: number;   // Selected tier level (determines +N and cost)
   magicWeaponId?: string;    // Magic weapon ID (adds enhancement bonus to attack/damage)
   magicWeaponTier?: number;  // Selected tier level (determines +N and cost)
+  magicImplementId?: string; // Magic implement enchantment ID
+  magicImplementTier?: number; // Selected tier level (determines +N and cost)
 }
 
 interface Character {
@@ -198,6 +201,7 @@ interface Character {
   selectedFeatIds: string[];
   mcFeatSkillChoices: Record<string, string>;        // featId → chosen skill ID
   mcFeatProficiencyChoices: Record<string, string>;  // featId → chosen proficiency string
+  superiorImplementChoices?: Record<number, string>;  // SIT feat index → equipment instanceId
   selectedPowers: SelectedPower[];
   equipment: EquipmentItem[];
   goldPieces, silverPieces, copperPieces: number;
@@ -341,7 +345,7 @@ All 465 feats have accurate benefit text sourced from the iws.mx raw database (`
 PHB2 feats include 8 multiclass feats (one per PHB2 class) with `multiclassFor` field, plus class-specific, race-specific, and general feats.
 PHB3 feats include 6 multiclass feats (one per PHB3 class) with `multiclassFor` field.
 
-**Exports:** `FEATS`, `getFeatById`, `getMulticlassId`, `featMeetsPrerequisites`
+**Exports:** `FEATS`, `getFeatById`, `getMulticlassId`, `featMeetsPrerequisites`, `isFeatRepeatable`
 
 ```typescript
 featMeetsPrerequisites(
@@ -395,6 +399,10 @@ interface FeatBonuses {
 | Armor Specialization (Chainmail/Hide/Plate/Scale) | `{ ac: 1, acArmorCondition: 'Type' }` |
 
 **Note on Skill Focus:** The feat requires choosing a trained skill per instance and can be taken multiple times. No structured `bonuses` field is assigned — it is not yet automatically applied. Future work would require `featChoices: Record<string, string>` on Character to track the per-instance skill choice.
+
+**Repeatable Feats:** Some feats (Superior Implement Training, Skill Focus, Weapon Focus, etc.) can be taken multiple times. Detected by `isFeatRepeatable(feat)` which checks for "more than once" in the feat's special/benefit text. `selectedFeatIds` can contain duplicate entries for repeatable feats. `FeatsPanel`, `Step7_Feats`, and `LevelUpModal` all allow re-selecting repeatable feats. Removal uses `indexOf` + splice (removes one instance, not all).
+
+**Superior Implement Training:** Each instance of this feat is associated with a specific superior implement from the character's inventory via `superiorImplementChoices: Record<number, string>` on Character (maps SIT feat index → equipment instanceId). Constraints: one implement per feat instance, one feat per implement, no two instances can share the same base implement type (e.g., can't have two instances both linked to Holy Symbol).
 
 ### Feat-Granted Powers (FeatData.grantedPowerIds)
 
@@ -506,7 +514,7 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 | ClassFeaturesPanel.tsx | All class features for chosen class; enhanced detail for wizard implement + warlock pact choices |
 | FeatsPanel.tsx | Feats list with picker modal — uses `featsEarnedByLevel()` for correct budget |
 | ParagonPanel.tsx | Paragon Path tab: locked state (< L11), selected path details, alternate paths |
-| EquipmentPanel.tsx | Multi-tab equipment (weapons/armor/magic/consumables/gear) |
+| EquipmentPanel.tsx | Multi-tab equipment (weapons/implements/armor/magic/consumables/gear) with collapsible sub-groups in picker |
 | CurrencyPanel.tsx | Gold/silver/copper |
 | RitualsPanel.tsx | Ritual scroll shop + ritual book; BuyScrollModal; AddToBookModal; skill check table display |
 | SpellbookPanel.tsx | Wizard multi-spellbook UI (Inventory → Spellbooks tab). Per-book cards with page bar, rename, delete. Prepare/unprepare daily and utility powers. Mastered ritual management. Buy additional books (50 gp). Auto-migrates legacy flat data to `spellbooks[]` on first open. |
@@ -538,7 +546,7 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 
 - `getPowerGains(classId, newLevel, selectedIds)` returns a `PowerGain[]`:
   - Checks if newLevel is in ENCOUNTER_LEVELS, DAILY_LEVELS, UTILITY_LEVELS
-  - Returns options at exactly that level filtered to available (not already selected)
+  - Returns options at or below the gain level (e.g., at L3 encounter gain, shows L1 + L3 encounter powers) filtered to available (not already selected)
 - `picks` state: `Record<string, string>` maps gain label → selected powerId
 - On confirm: appends new powers to `selectedPowers`, then patches DB
 - Shows "Skip for now" hint if no power picked
@@ -774,6 +782,12 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Monk Monastic Tradition defensive bonuses: Centered Breath grants Mental Equilibrium (+1/+2/+3 Fortitude at heroic/L11/L21); Stone Fist grants Mental Bastion (+1/+2/+3 Will at heroic/L11/L21). Applied in `useCharacterDerived.ts` based on `character.monkTradition`; shown in defense breakdown panel with feature name label.
 - [x] Monk Flurry of Blows in Powers tab: Tradition-specific Flurry of Blows (level 0 at-will, free action) now appears in PowersPanel At-Will tab as auto-granted class feature (no remove button). Only the chosen tradition's flurry shows (Centered Flurry of Blows or Stone Fist Flurry of Blows). ActionsByTypePanel also filtered to only show the matching tradition's flurry.
 - [x] Monk Full Discipline dual-technique powers: 32 Full Discipline monk powers now render as two linked power cards. `extractMovementTechnique()` in `src/utils/fullDiscipline.ts` generates a virtual Movement Technique PowerData (ID = `{parentId}-mt`, actionType = 'move') from the parent power's `special` field. Attack Technique card shows Movement Technique as teal sub-section; Movement Technique card shows Attack Technique as amber sub-section. Both cards appear in: PowersPanel (at-will/encounter/daily/utility tabs), ActionsByTypePanel (under respective action type sub-tabs), and QuickTrayPanel (resolves `-mt` IDs via `resolvePower()` fallback). Both techniques share the same encounter/daily used state. ⚡ pin button on movement technique cards. Removing a power from Powers tab also removes both technique IDs from Quick Access tray.
+- [x] Implement system: Full implement equipment (96 entries: 8 basic, 27 superior, 61 magic) from PHB/PHB2/PHB3. 8 implement types: Holy Symbol, Orb, Rod, Staff, Wand, Totem, Ki Focus, Tome. New types `ImplementData`, `SuperiorImplementData`, `MagicImplementData` in `gameData.ts`. Data in `src/data/equipment/implements.ts`, `superiorImplements.ts`, `magicImplements.ts`. Implements tab in EquipmentPanel between Weapons and Armor. Basic implements free/cheap with description. Superior implements require Superior Implement Training feat and have special properties (Accurate, Energized, Empowered Crit, etc.). Magic implements have enhancement tiers with critical/property/power text. Two-step add flow for magic implements (pick base implement type). `parseMagicImplementPower()` in `src/utils/magicImplementPowers.ts` converts power text to PowerData. Magic implement powers appear in PowersPanel (indigo "Implement" badge, ⚡ pin, usage toggle) and ActionsByTypePanel. Generator scripts at `C:\Claude\generate_implements.js` and `C:\Claude\generate_implements_ts.js`.
+- [x] Repeatable feats: Feats like Superior Implement Training, Skill Focus, Weapon Focus can be taken multiple times. `isFeatRepeatable(feat)` in `src/data/feats/index.ts` detects via "more than once" in special/benefit text. `selectedFeatIds` supports duplicate entries. FeatsPanel, Step7_Feats, LevelUpModal all updated to allow re-selection of repeatable feats. Removal uses indexOf + splice (one instance at a time).
+- [x] Superior Implement Training feat-implement association: `superiorImplementChoices: Record<number, string>` on Character maps SIT feat instance index to equipment instanceId. Dropdown UI in FeatsPanel for each SIT card. Constraints: one implement per feat, one feat per implement, no duplicate base types across instances.
+- [x] Weapon enhancement prefix: Weapon enhancement type text in expanded inventory view now prefixed with "Enhancement:" (matching "Critical:" pattern).
+- [x] Collapsible sub-groups in equipment picker: All section headers (Base Weapons, Magic Weapons, Basic Implements, Superior Implements, Magic Implements, Base Armor, Magic Armor) are clickable toggle buttons. Collapsed state shows item count; expanded shows full list. State resets when switching tabs.
+- [x] Level-up power picker shows all unlocked levels: When gaining a new power slot (encounter/daily/utility), the picker shows powers from all unlocked levels of that type, not just the exact gain level. E.g., at L3 encounter gain, player can choose L1 or L3 encounter powers.
 
 ---
 
@@ -1488,7 +1502,7 @@ All three generation functions (`gen4eDesc`, `gen4ePower`, `gen5eDesc`) follow t
 
 ## Known Limitations / Future Work
 
-- LevelUpModal currently only handles powers gained at EXACTLY the new level. "Power swap" mechanic (replacing old encounter/daily at certain levels per 4e rules) not implemented for non-psionic classes. Psionic at-will swap is implemented for all psionic classes (Ardent, Battlemind, Psion).
+- LevelUpModal now shows all powers at or below the gain level for each slot type. "Power swap" mechanic (replacing old encounter/daily at certain levels per 4e rules) not implemented for non-psionic classes. Psionic at-will swap is implemented for all psionic classes (Ardent, Battlemind, Psion).
 - No Epic Destiny selection (level 21 milestone message shown but no picker).
 - Campaign encounter tracker is basic.
 - Paragon/Epic class-specific feats only cover some PHB1 classes (Fighter, Rogue, Warlord, Cleric). Other PHB1 classes and PHB2 classes may have gaps in class-specific paragon/epic feats.

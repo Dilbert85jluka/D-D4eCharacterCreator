@@ -373,6 +373,8 @@ export interface GearData {
   cost: number;
   weight: number;
   description: string;
+  costLabel?: string;      // Display override for sub-gp costs (e.g. "1 sp", "1 cp")
+  category?: string;       // Sub-category: Gear, Component, Musical Instrument, Food & Drink, Lodging, Mount & Transport
 }
 
 export interface ConsumableData {

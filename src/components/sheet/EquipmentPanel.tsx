@@ -53,6 +53,15 @@ export function EquipmentPanel({ character, derived }: Props) {
     });
   };
 
+  // Expandable picker items — click to see full details
+  const [expandedPickerItem, setExpandedPickerItem] = useState<string | null>(null);
+  const togglePickerExpand = (itemId: string) => {
+    setExpandedPickerItem((prev) => prev === itemId ? null : itemId);
+  };
+  /** Returns 'line-clamp-1' or 'line-clamp-2' when item is collapsed, '' when expanded */
+  const clamp = (itemId: string, lines: 1 | 2 = 1) =>
+    expandedPickerItem === itemId ? '' : `line-clamp-${lines}`;
+
   const patch = async (changes: Partial<Character>) => {
     await characterRepository.patch(character.id, changes);
     updateCharacter({ ...character, ...changes });
@@ -482,7 +491,7 @@ export function EquipmentPanel({ character, derived }: Props) {
   );
   const filteredMagic       = MAGIC_ITEMS.filter((m) => !q || m.name.toLowerCase().includes(q) || m.slot.toLowerCase().includes(q) || m.properties.toLowerCase().includes(q));
   const filteredConsumables = CONSUMABLES.filter((c) => !q || c.name.toLowerCase().includes(q) || c.category.toLowerCase().includes(q) || c.effect.toLowerCase().includes(q));
-  const filteredGear        = GEAR.filter((g) => !q || g.name.toLowerCase().includes(q) || g.description.toLowerCase().includes(q));
+  const filteredGear        = GEAR.filter((g) => !q || g.name.toLowerCase().includes(q) || g.description.toLowerCase().includes(q) || (g.category && g.category.toLowerCase().includes(q)));
 
   // ── Shared UI helpers ─────────────────────────────────────────────────────
   const equipBtnCls = (equipped: boolean) =>
@@ -1222,7 +1231,7 @@ export function EquipmentPanel({ character, derived }: Props) {
               {(['weapons', 'implements', 'armor', 'magic', 'consumables', 'gear'] as SectionTab[]).map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => { setPickerTab(tab); setSearch(''); setCollapsedGroups(new Set()); }}
+                  onClick={() => { setPickerTab(tab); setSearch(''); setCollapsedGroups(new Set()); setExpandedPickerItem(null); }}
                   className={[
                     'flex-shrink-0 px-4 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap',
                     pickerTab === tab
@@ -1303,7 +1312,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                     return (
                       <div key={`${mw.id}-${tier.level}`} className="p-3 bg-stone-50 rounded-lg border border-stone-200">
                         <div className="flex items-center gap-3">
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => togglePickerExpand(`mw-${mw.id}-${tier.level}`)}>
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="text-sm font-semibold text-stone-800">{mw.name} +{tier.enhancement}</p>
                               <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${mw.rarity === 'Rare' ? 'bg-amber-100 text-amber-700' : mw.rarity === 'Uncommon' ? 'bg-teal-100 text-teal-700' : 'bg-stone-100 text-stone-500'}`}>{mw.rarity}</span>
@@ -1311,9 +1320,9 @@ export function EquipmentPanel({ character, derived }: Props) {
                             <p className="text-xs text-stone-500 mt-0.5">
                               {compatTypes} · Lvl {tier.level} · {tier.cost.toLocaleString()} gp
                             </p>
-                            {mw.critical && <p className="text-xs text-red-500 mt-0.5">Critical: {mw.critical}</p>}
-                            {mw.property && <p className="text-xs text-blue-500 mt-0.5 line-clamp-1">{mw.property}</p>}
-                            {mw.power && <p className="text-xs text-violet-500 mt-0.5 line-clamp-1">{mw.power}</p>}
+                            {mw.critical && <p className={`text-xs text-red-500 mt-0.5 ${clamp(`mw-${mw.id}-${tier.level}`)}`}>Critical: {mw.critical}</p>}
+                            {mw.property && <p className={`text-xs text-blue-500 mt-0.5 ${clamp(`mw-${mw.id}-${tier.level}`)}`}>{mw.property}</p>}
+                            {mw.power && <p className={`text-xs text-violet-500 mt-0.5 ${clamp(`mw-${mw.id}-${tier.level}`)}`}>{mw.power}</p>}
                           </div>
                           <button
                             onClick={() => setPendingMagicWeapon(isPending ? null : { mwId: mw.id, tierLevel: tier.level })}
@@ -1359,7 +1368,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                             const n = character.equipment.filter(e => e.itemId === impl.id && e.slot === 'implement').length;
                             return (
                               <div key={impl.id} className="flex items-center gap-3 p-3 bg-stone-50 rounded-lg border border-stone-200">
-                                <div className="flex-1 min-w-0">
+                                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => togglePickerExpand(`impl-${impl.id}`)}>
                                   <p className="text-sm font-semibold text-stone-800">
                                     {impl.name}
                                     {n > 0 && <span className="text-xs text-stone-400 font-normal ml-1.5">x{n} owned</span>}
@@ -1367,7 +1376,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                                   <p className="text-xs text-stone-500 mt-0.5">
                                     {impl.type} · {impl.cost > 0 ? `${impl.cost} gp` : 'Free'} · {impl.weight} lb
                                   </p>
-                                  {impl.description && <p className="text-xs text-stone-400 mt-0.5 line-clamp-2">{impl.description}</p>}
+                                  {impl.description && <p className={`text-xs text-stone-400 mt-0.5 ${clamp(`impl-${impl.id}`, 2)}`}>{impl.description}</p>}
                                 </div>
                                 <button onClick={() => addImplement(impl)} className={addPickerBtnCls}>
                                   {n > 0 ? `+${n + 1}` : 'Add'}
@@ -1393,7 +1402,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                             return (
                               <div key={si.id} className="p-3 bg-stone-50 rounded-lg border border-stone-200">
                                 <div className="flex items-center gap-3">
-                                  <div className="flex-1 min-w-0">
+                                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => togglePickerExpand(`si-${si.id}`)}>
                                     <p className="text-sm font-semibold text-stone-800">
                                       {si.name}
                                       {n > 0 && <span className="text-xs text-stone-400 font-normal ml-1.5">x{n} owned</span>}
@@ -1402,11 +1411,11 @@ export function EquipmentPanel({ character, derived }: Props) {
                                       {si.type} · {si.cost} gp · {si.weight} lb
                                     </p>
                                     {si.properties.map((p, idx) => (
-                                      <p key={idx} className="text-xs text-indigo-500 mt-0.5">
+                                      <p key={idx} className={`text-xs text-indigo-500 mt-0.5 ${clamp(`si-${si.id}`)}`}>
                                         <span className="font-semibold">{p.name}:</span> {p.description}
                                       </p>
                                     ))}
-                                    {si.description && <p className="text-xs text-stone-400 mt-0.5 line-clamp-2">{si.description}</p>}
+                                    {si.description && <p className={`text-xs text-stone-400 mt-0.5 ${clamp(`si-${si.id}`, 2)}`}>{si.description}</p>}
                                   </div>
                                   <button onClick={() => addSuperiorImplement(si)} className={addPickerBtnCls}>
                                     {n > 0 ? `+${n + 1}` : 'Add'}
@@ -1431,7 +1440,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                             return (
                               <div key={`${mi.id}-${tier.level}`} className="p-3 bg-stone-50 rounded-lg border border-stone-200">
                                 <div className="flex items-center gap-3">
-                                  <div className="flex-1 min-w-0">
+                                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => togglePickerExpand(`mi-${mi.id}-${tier.level}`)}>
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <p className="text-sm font-semibold text-stone-800">{mi.name} +{tier.enhancement}</p>
                                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${mi.rarity === 'Rare' ? 'bg-amber-100 text-amber-700' : mi.rarity === 'Uncommon' ? 'bg-teal-100 text-teal-700' : 'bg-stone-100 text-stone-500'}`}>{mi.rarity}</span>
@@ -1440,9 +1449,9 @@ export function EquipmentPanel({ character, derived }: Props) {
                                       {mi.type} · Lvl {tier.level} · {tier.cost.toLocaleString()} gp
                                     </p>
                                     <p className="text-xs text-stone-500 mt-0.5">Enhancement: +{tier.enhancement} {mi.enhancementType}</p>
-                                    {mi.critical && <p className="text-xs text-red-500 mt-0.5">Critical: {mi.critical}</p>}
-                                    {mi.property && <p className="text-xs text-blue-500 mt-0.5 line-clamp-1">{mi.property}</p>}
-                                    {mi.power && <p className="text-xs text-violet-500 mt-0.5 line-clamp-1">{mi.power}</p>}
+                                    {mi.critical && <p className={`text-xs text-red-500 mt-0.5 ${clamp(`mi-${mi.id}-${tier.level}`)}`}>Critical: {mi.critical}</p>}
+                                    {mi.property && <p className={`text-xs text-blue-500 mt-0.5 ${clamp(`mi-${mi.id}-${tier.level}`)}`}>{mi.property}</p>}
+                                    {mi.power && <p className={`text-xs text-violet-500 mt-0.5 ${clamp(`mi-${mi.id}-${tier.level}`)}`}>{mi.power}</p>}
                                   </div>
                                   <button
                                     onClick={() => setPendingMagicImplement(isPending ? null : { miId: mi.id, tierLevel: tier.level })}
@@ -1529,7 +1538,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                     return (
                       <div key={entryKey} className="p-3 bg-stone-50 rounded-lg border border-stone-200 space-y-2">
                         <div className="flex items-center gap-3">
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => togglePickerExpand(`ma-${entryKey}`)}>
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="text-sm font-semibold text-stone-800">{ma.name} +{tier.enhancement}</p>
                               <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ma.rarity === 'Rare' ? 'bg-amber-100 text-amber-700' : ma.rarity === 'Uncommon' ? 'bg-teal-100 text-teal-700' : 'bg-stone-100 text-stone-500'}`}>{ma.rarity}</span>
@@ -1537,8 +1546,8 @@ export function EquipmentPanel({ character, derived }: Props) {
                             <p className="text-xs text-stone-500 mt-0.5">
                               Lvl {tier.level} · +{tier.enhancement} {ma.enhancementType} · {tier.cost.toLocaleString()} gp · {compatLabel}
                             </p>
-                            {ma.description && <p className="text-xs text-stone-400 mt-0.5 line-clamp-1 italic">{ma.description}</p>}
-                            {ma.property && <p className="text-xs text-blue-500 mt-0.5 line-clamp-1">{ma.property}</p>}
+                            {ma.description && <p className={`text-xs text-stone-400 mt-0.5 italic ${clamp(`ma-${entryKey}`)}`}>{ma.description}</p>}
+                            {ma.property && <p className={`text-xs text-blue-500 mt-0.5 ${clamp(`ma-${entryKey}`)}`}>{ma.property}</p>}
                           </div>
                           {!isPending && (
                             <button
@@ -1593,7 +1602,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                     const bonusSummary = magicBonusSummary(m);
                     return (
                       <div key={m.id} className="flex items-center gap-3 p-3 bg-stone-50 rounded-lg border border-stone-200">
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => togglePickerExpand(`mag-${m.id}`)}>
                           <p className="text-sm font-semibold text-stone-800">
                             {m.name}
                             {n > 0 && <span className="text-xs text-stone-400 font-normal ml-1.5">×{n} owned</span>}
@@ -1602,7 +1611,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                             {SLOT_LABELS[m.slot] ?? m.slot} · Lv {m.level} · {m.cost} gp
                           </p>
                           {bonusSummary && <p className="text-xs text-emerald-600 mt-0.5">{bonusSummary}</p>}
-                          <p className="text-xs text-stone-400 mt-0.5 line-clamp-2">{m.properties}</p>
+                          <p className={`text-xs text-stone-400 mt-0.5 ${clamp(`mag-${m.id}`, 2)}`}>{m.properties}</p>
                         </div>
                         <button onClick={() => addMagicItem(m)} className={addPickerBtnCls}>
                           {n > 0 ? `+${n + 1}` : 'Add'}
@@ -1620,13 +1629,13 @@ export function EquipmentPanel({ character, derived }: Props) {
                     const owned = character.equipment.find((e) => e.itemId === c.id);
                     return (
                       <div key={c.id} className="flex items-center gap-3 p-3 bg-stone-50 rounded-lg border border-stone-200">
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => togglePickerExpand(`con-${c.id}`)}>
                           <p className="text-sm font-semibold text-stone-800">
                             {c.name}
                             {owned && <span className="text-xs text-amber-600 font-semibold ml-1.5">×{owned.quantity} owned</span>}
                           </p>
                           <p className="text-xs text-stone-500 mt-0.5">{c.category} · Lv {c.level} · {c.cost} gp</p>
-                          <p className="text-xs text-stone-400 mt-0.5 line-clamp-2">{c.effect}</p>
+                          <p className={`text-xs text-stone-400 mt-0.5 ${clamp(`con-${c.id}`, 2)}`}>{c.effect}</p>
                         </div>
                         <button onClick={() => addConsumable(c)} className={addPickerBtnCls}>
                           {owned ? `+${owned.quantity + 1}` : 'Add'}
@@ -1640,23 +1649,52 @@ export function EquipmentPanel({ character, derived }: Props) {
               {pickerTab === 'gear' && (
                 filteredGear.length === 0
                   ? <p className="text-stone-400 text-sm text-center py-8">No gear found.</p>
-                  : filteredGear.map((g) => {
-                    const owned = character.equipment.find((e) => e.itemId === g.id);
-                    return (
-                      <div key={g.id} className="flex items-center gap-3 p-3 bg-stone-50 rounded-lg border border-stone-200">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-stone-800">
-                            {g.name}
-                            {owned && <span className="text-xs text-stone-400 font-normal ml-1">×{owned.quantity} owned</span>}
-                          </p>
-                          <p className="text-xs text-stone-500 mt-0.5 line-clamp-2">{g.description}</p>
-                        </div>
-                        <button onClick={() => addGear(g)} className={addPickerBtnCls}>
-                          {owned ? `+${owned.quantity + 1}` : 'Add'}
-                        </button>
-                      </div>
-                    );
-                  })
+                  : (() => {
+                    // Group gear by category
+                    const gearCategories = ['Gear', 'Component', 'Musical Instrument', 'Food & Drink', 'Lodging', 'Mount', 'Transport'] as const;
+                    const grouped = new Map<string, typeof filteredGear>();
+                    for (const g of filteredGear) {
+                      const cat = g.category ?? 'Gear';
+                      if (!grouped.has(cat)) grouped.set(cat, []);
+                      grouped.get(cat)!.push(g);
+                    }
+                    return <>
+                      {gearCategories.map((cat) => {
+                        const items = grouped.get(cat);
+                        if (!items || items.length === 0) return null;
+                        const groupKey = `gear-${cat}`;
+                        return (
+                          <div key={cat}>
+                            <button onClick={() => toggleGroup(groupKey)} className="w-full px-3 py-2 bg-stone-100 border-y border-stone-200 flex items-center justify-between">
+                              <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide">{cat}</p>
+                              <span className="text-stone-400 text-xs">{collapsedGroups.has(groupKey) ? `▸ ${items.length} items` : '▾'}</span>
+                            </button>
+                            {!collapsedGroups.has(groupKey) && items.map((g) => {
+                              const owned = character.equipment.find((e) => e.itemId === g.id);
+                              return (
+                                <div key={g.id} className="flex items-center gap-3 p-3 bg-stone-50 rounded-lg border border-stone-200">
+                                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => togglePickerExpand(`gear-${g.id}`)}>
+                                    <p className="text-sm font-semibold text-stone-800">
+                                      {g.name}
+                                      {owned && <span className="text-xs text-stone-400 font-normal ml-1">×{owned.quantity} owned</span>}
+                                    </p>
+                                    <p className="text-xs text-stone-500 mt-0.5">
+                                      {g.costLabel ?? `${g.cost} gp`}
+                                      {g.weight > 0 ? ` · ${g.weight} lb` : ''}
+                                    </p>
+                                    {g.description && <p className={`text-xs text-stone-400 mt-0.5 ${clamp(`gear-${g.id}`, 2)}`}>{g.description}</p>}
+                                  </div>
+                                  <button onClick={() => addGear(g)} className={addPickerBtnCls}>
+                                    {owned ? `+${owned.quantity + 1}` : 'Add'}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </>;
+                  })()
               )}
 
             </div>
