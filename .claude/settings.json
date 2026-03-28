@@ -19,6 +19,7 @@
       "Bash(grep -oi *)",
       "Bash(node -e *)",
       "Bash(cd *)",
+	  "Bash(ls -lh *)",
       "Edit",
       "Write"
     ],
