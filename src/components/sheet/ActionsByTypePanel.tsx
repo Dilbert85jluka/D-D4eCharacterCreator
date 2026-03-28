@@ -5,8 +5,14 @@ import type { PowerData } from '../../types/gameData';
 import { getPowerById, getPowersByClass } from '../../data/powers';
 import { getFeatById } from '../../data/feats';
 import { ARMOR } from '../../data/equipment/armor';
+import { WEAPONS } from '../../data/equipment/weapons';
 import { MAGIC_ARMOR } from '../../data/equipment/magicArmor';
+import { MAGIC_WEAPONS } from '../../data/equipment/magicWeapons';
 import { parseMagicArmorPower } from '../../utils/magicArmorPowers';
+import { parseMagicWeaponPower } from '../../utils/magicWeaponPowers';
+import { MAGIC_IMPLEMENTS } from '../../data/equipment/magicImplements';
+import { parseMagicImplementPower } from '../../utils/magicImplementPowers';
+import { isFullDisciplinePower, extractMovementTechnique } from '../../utils/fullDiscipline';
 import { PowerCard } from '../wizard/shared/PowerCard';
 import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
@@ -39,7 +45,14 @@ function collectAllPowers(character: Character): PowerData[] {
   // 1. Selected powers (player-chosen at-wills, encounters, dailies, utilities)
   for (const sp of character.selectedPowers) {
     const p = getPowerById(sp.powerId);
-    if (p) add(p);
+    if (p) {
+      add(p);
+      // Full Discipline: also add the Movement Technique as a separate power under its action type
+      if (isFullDisciplinePower(p)) {
+        const mt = extractMovementTechnique(p);
+        if (mt) add(mt);
+      }
+    }
   }
 
   // 2. Auto-granted level 0 class powers (cantrips, pact boons, CD powers, class features)
@@ -49,6 +62,10 @@ function collectAllPowers(character: Character): PowerData[] {
       add(p);
     } else if (p.pactBoon) {
       if (p.pactBoon === character.warlockPact) add(p);
+    } else if (p.id === 'monk-centered-flurry-of-blows') {
+      if (character.monkTradition === 'centered-breath') add(p);
+    } else if (p.id === 'monk-stone-fist-flurry-of-blows') {
+      if (character.monkTradition === 'stone-fist') add(p);
     } else {
       add(p);
     }
@@ -81,6 +98,30 @@ function collectAllPowers(character: Character): PowerData[] {
     const tier = ma.tiers.find(t => t.level === item.magicArmorTier);
     if (!tier) continue;
     const p = parseMagicArmorPower(ma, tier);
+    if (p) add(p);
+  }
+
+  // 6. Magic weapon powers (from equipped weapons with power text)
+  for (const item of character.equipment) {
+    if (!item.equipped || !item.magicWeaponId) continue;
+    const isWeapon = WEAPONS.find(w => w.id === item.itemId);
+    if (!isWeapon) continue;
+    const mw = MAGIC_WEAPONS.find(m => m.id === item.magicWeaponId);
+    if (!mw?.power) continue;
+    const tier = mw.tiers.find(t => t.level === item.magicWeaponTier);
+    if (!tier) continue;
+    const p = parseMagicWeaponPower(mw, tier);
+    if (p) add(p);
+  }
+
+  // 7. Magic implement powers (from equipped implements with power text)
+  for (const item of character.equipment) {
+    if (!item.equipped || !item.magicImplementId) continue;
+    const mi = MAGIC_IMPLEMENTS.find(m => m.id === item.magicImplementId);
+    if (!mi?.power) continue;
+    const tier = mi.tiers.find(t => t.level === item.magicImplementTier);
+    if (!tier) continue;
+    const p = parseMagicImplementPower(mi, tier);
     if (p) add(p);
   }
 

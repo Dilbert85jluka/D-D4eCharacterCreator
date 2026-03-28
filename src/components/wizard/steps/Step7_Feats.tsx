@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FEATS, featMeetsPrerequisites, getFeatById } from '../../../data/feats';
+import { FEATS, featMeetsPrerequisites, getFeatById, isFeatRepeatable } from '../../../data/feats';
 import { getClassById } from '../../../data/classes';
 import { getSkillById } from '../../../data/skills';
 import { getRaceById } from '../../../data/races';

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Character, PowerUsage } from '../../types/character';
 import { useCharacterDerived } from '../../hooks/useCharacterDerived';
 import type { PowerData } from '../../types/gameData';
@@ -6,7 +6,16 @@ import { getPowerById } from '../../data/powers';
 import { PowerCard } from '../wizard/shared/PowerCard';
 import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
-import { isPsionicClass, getMaxPowerPoints, parseAugments, getNonAugmentSpecialText } from '../../utils/psionics';
+import { usesPowerPoints, getMaxPowerPoints, parseAugments, getNonAugmentSpecialText } from '../../utils/psionics';
+import { ARMOR } from '../../data/equipment/armor';
+import { WEAPONS } from '../../data/equipment/weapons';
+import { MAGIC_ARMOR } from '../../data/equipment/magicArmor';
+import { MAGIC_WEAPONS } from '../../data/equipment/magicWeapons';
+import { parseMagicArmorPower } from '../../utils/magicArmorPowers';
+import { parseMagicWeaponPower } from '../../utils/magicWeaponPowers';
+import { MAGIC_IMPLEMENTS } from '../../data/equipment/magicImplements';
+import { parseMagicImplementPower } from '../../utils/magicImplementPowers';
+import { isFullDisciplinePower, extractMovementTechnique } from '../../utils/fullDiscipline';
 
 const PAGE_SIZE = 9;
 
@@ -22,12 +31,68 @@ export function QuickTrayPanel({ character }: Props) {
   const derived = useCharacterDerived(character);
   const abilityMods = derived.abilityModifiers;
   const trayIds = character.quickTrayPowerIds ?? [];
+
+  // Build a map of dynamically-generated equipment powers from equipped items
+  const equipmentPowerMap = useMemo(() => {
+    const map = new Map<string, PowerData>();
+    for (const item of character.equipment) {
+      if (!item.equipped) continue;
+      // Magic armor powers
+      if (item.magicArmorId) {
+        const ma = MAGIC_ARMOR.find(m => m.id === item.magicArmorId);
+        if (ma?.power) {
+          const tier = ma.tiers.find(t => t.level === item.magicArmorTier);
+          if (tier) {
+            const p = parseMagicArmorPower(ma, tier);
+            if (p) map.set(p.id, p);
+          }
+        }
+      }
+      // Magic weapon powers
+      if (item.magicWeaponId) {
+        const mw = MAGIC_WEAPONS.find(m => m.id === item.magicWeaponId);
+        if (mw?.power) {
+          const tier = mw.tiers.find(t => t.level === item.magicWeaponTier);
+          if (tier) {
+            const p = parseMagicWeaponPower(mw, tier);
+            if (p) map.set(p.id, p);
+          }
+        }
+      }
+      // Magic implement powers
+      if (item.magicImplementId) {
+        const mi = MAGIC_IMPLEMENTS.find(m => m.id === item.magicImplementId);
+        if (mi?.power) {
+          const tier = mi.tiers.find(t => t.level === item.magicImplementTier);
+          if (tier) {
+            const p = parseMagicImplementPower(mi, tier);
+            if (p) map.set(p.id, p);
+          }
+        }
+      }
+    }
+    return map;
+  }, [character.equipment]);
+
+  // Resolve a power ID — standard DB → equipment map → Full Discipline movement technique
+  const resolvePower = (id: string): PowerData | undefined => {
+    const direct = getPowerById(id) ?? equipmentPowerMap.get(id);
+    if (direct) return direct;
+    // Full Discipline movement technique: ID ends with '-mt', parent is the base ID
+    if (id.endsWith('-mt')) {
+      const parentId = id.slice(0, -3);
+      const parent = getPowerById(parentId);
+      if (parent && isFullDisciplinePower(parent)) return extractMovementTechnique(parent) ?? undefined;
+    }
+    return undefined;
+  };
+
   const trayPowers = trayIds
-    .map((id) => ({ id, power: getPowerById(id) }))
+    .map((id) => ({ id, power: resolvePower(id) }))
     .filter((entry): entry is { id: string; power: PowerData } => !!entry.power);
 
   // Psionic support
-  const isPsionic = isPsionicClass(character.classId);
+  const isPsionic = usesPowerPoints(character.classId);
   const maxPP = isPsionic ? getMaxPowerPoints(character.level) : 0;
   const currentPP = isPsionic ? (character.currentPowerPoints ?? maxPP) : 0;
 

@@ -13,7 +13,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useCharactersStore } from '../../store/useCharactersStore';
 import { characterRepository } from '../../db/characterRepository';
 import { playDiceRollSound } from '../../utils/diceSound';
-import { isPsionicClass, getMaxPowerPoints } from '../../utils/psionics';
+import { usesPowerPoints, getMaxPowerPoints } from '../../utils/psionics';
 
 interface Props {
   character: Character;
@@ -122,7 +122,7 @@ export function SheetHeader({ character, derived }: Props) {
     }
   };
 
-  const isPsionic = isPsionicClass(character.classId);
+  const isPsionic = usesPowerPoints(character.classId);
   const maxPP     = isPsionic ? getMaxPowerPoints(character.level) : 0;
 
   const applyShortRest = async () => {

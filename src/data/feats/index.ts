@@ -3739,6 +3739,12 @@ export function getFeatById(id: string): FeatData | undefined {
   return FEATS.find((f) => f.id === id);
 }
 
+/** Returns true if a feat can be taken multiple times (has "more than once" in special or benefit text). */
+export function isFeatRepeatable(feat: FeatData): boolean {
+  const text = `${feat.special ?? ''} ${feat.benefit ?? ''}`.toLowerCase();
+  return text.includes('more than once');
+}
+
 export function getMulticlassId(featIds: string[]): string | undefined {
   for (const id of featIds) {
     const feat = getFeatById(id);

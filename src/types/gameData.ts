@@ -289,6 +289,84 @@ export interface MagicArmorData {
   bonuses?: MagicArmorBonuses;
 }
 
+export interface MagicWeaponTier {
+  level: number;
+  enhancement: number;
+  cost: number;
+}
+
+export interface MagicWeaponData {
+  id: string;
+  name: string;
+  description: string;
+  /** Which weapon types this can be applied to (e.g. ['Axe', 'heavy blade']) or 'Any' / 'Any melee' / 'Any ranged' */
+  weaponTypes: string[] | 'Any' | 'Any melee' | 'Any ranged';
+  /** Enhancement bonus target — typically 'attack rolls and damage rolls' */
+  enhancementType: string;
+  /** Critical hit extra damage text */
+  critical?: string;
+  /** Special rules (e.g. Holy Avenger can be used as holy symbol) */
+  special?: string;
+  /** Level/enhancement/cost tiers */
+  tiers: MagicWeaponTier[];
+  rarity: 'Common' | 'Uncommon' | 'Rare';
+  source: string;
+  /** Property text (passive bonuses when wielded) */
+  property?: string;
+  /** Power text (activatable abilities) */
+  power?: string;
+}
+
+// ── Implement types ─────────────────────────────────────────────────────────
+
+export type ImplementType = 'Holy Symbol' | 'Orb' | 'Rod' | 'Staff' | 'Wand' | 'Totem' | 'Ki Focus' | 'Tome';
+
+export interface ImplementData {
+  id: string;
+  name: string;
+  type: ImplementType;
+  cost: number;
+  weight: number;
+  source: string;
+  description: string;
+}
+
+export interface SuperiorImplementProperty {
+  name: string;
+  description: string;
+}
+
+export interface SuperiorImplementData {
+  id: string;
+  name: string;
+  type: ImplementType;
+  cost: number;
+  weight: number;
+  source: string;
+  description?: string;
+  properties: SuperiorImplementProperty[];
+}
+
+export interface MagicImplementTier {
+  level: number;
+  enhancement: number;
+  cost: number;
+}
+
+export interface MagicImplementData {
+  id: string;
+  name: string;
+  type: ImplementType;
+  enhancementType: string;
+  critical?: string;
+  property?: string;
+  power?: string;
+  description?: string;
+  rarity: 'Common' | 'Uncommon' | 'Rare';
+  source: string;
+  tiers: MagicImplementTier[];
+}
+
 export interface GearData {
   id: string;
   name: string;

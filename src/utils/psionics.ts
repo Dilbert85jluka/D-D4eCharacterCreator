@@ -7,9 +7,19 @@ import { getClassById } from '../data/classes';
  */
 const PP_LEVELS = [1, 3, 7, 13, 17, 23, 27] as const;
 
-/** Check whether a class uses psionic augmentation (Ardent, Battlemind, Psion). */
+/** Check whether a class has the Psionic power source (Ardent, Battlemind, Monk, Psion). */
 export function isPsionicClass(classId: string): boolean {
   return getClassById(classId)?.powerSource === 'Psionic';
+}
+
+/**
+ * Check whether a class uses psionic power points and augmentation.
+ * True for Ardent, Battlemind, Psion — NOT Monk (which is Psionic but uses
+ * normal encounter powers instead of augmentation).
+ */
+export function usesPowerPoints(classId: string): boolean {
+  const cls = getClassById(classId);
+  return cls?.powerSource === 'Psionic' && cls.encounterPowerCount === 0;
 }
 
 /** Maximum power points for a psionic character at the given level. */

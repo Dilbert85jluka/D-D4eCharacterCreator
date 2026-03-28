@@ -9,11 +9,17 @@ import { useCharactersStore } from '../../store/useCharactersStore';
 import type { PowerUsage } from '../../types/character';
 import type { PowerData } from '../../types/gameData';
 import { getMulticlassId, getFeatById } from '../../data/feats';
-import { isPsionicClass, getMaxPowerPoints, parseAugments, getNonAugmentSpecialText } from '../../utils/psionics';
+import { usesPowerPoints, getMaxPowerPoints, parseAugments, getNonAugmentSpecialText } from '../../utils/psionics';
 import { useCharacterDerived } from '../../hooks/useCharacterDerived';
 import { ARMOR } from '../../data/equipment/armor';
+import { WEAPONS } from '../../data/equipment/weapons';
 import { MAGIC_ARMOR } from '../../data/equipment/magicArmor';
+import { MAGIC_WEAPONS } from '../../data/equipment/magicWeapons';
 import { parseMagicArmorPower } from '../../utils/magicArmorPowers';
+import { parseMagicWeaponPower } from '../../utils/magicWeaponPowers';
+import { MAGIC_IMPLEMENTS } from '../../data/equipment/magicImplements';
+import { parseMagicImplementPower } from '../../utils/magicImplementPowers';
+import { isFullDisciplinePower, extractMovementTechnique } from '../../utils/fullDiscipline';
 
 interface Props {
   character: Character;
@@ -33,7 +39,7 @@ function maxPowersForLevel(
   switch (usage) {
     case 'at-will':
       // Psionic augmenters (Ardent, Battlemind, Psion) gain a 3rd at-will at level 3
-      if (classId && isPsionicClass(classId) && level >= 3) return baseCount + 1;
+      if (classId && usesPowerPoints(classId) && level >= 3) return baseCount + 1;
       return baseCount;
     case 'encounter':
       if (level >= 27) return 7;
@@ -92,7 +98,7 @@ export function PowersPanel({ character }: Props) {
   const isHalfElf = character.raceId === 'half-elf';
   const isHuman   = character.raceId === 'human';
   const isWizard  = character.classId === 'wizard';
-  const isPsionic = isPsionicClass(character.classId);
+  const isPsionic = usesPowerPoints(character.classId);
   const derived = useCharacterDerived(character);
   const abilityMods = derived.abilityModifiers;
   const maxPP     = isPsionic ? getMaxPowerPoints(character.level) : 0;
@@ -158,6 +164,15 @@ export function PowersPanel({ character }: Props) {
     ? getPowersByClass('warlock').find((p) => p.pactBoon === character.warlockPact) ?? null
     : null;
 
+  // ── Monk Flurry of Blows (auto-granted based on chosen monastic tradition) ──
+  const monkFlurryPower: PowerData | null = (() => {
+    if (character.classId !== 'monk' || !character.monkTradition) return null;
+    const flurryId = character.monkTradition === 'centered-breath'
+      ? 'monk-centered-flurry-of-blows'
+      : 'monk-stone-fist-flurry-of-blows';
+    return getPowerById(flurryId) ?? null;
+  })();
+
   // ── Feat-granted powers (e.g. deity Channel Divinity feats) ──────────────
   const featGrantedPowers: PowerData[] = [];
   for (const featId of character.selectedFeatIds) {
@@ -182,6 +197,32 @@ export function PowersPanel({ character }: Props) {
     if (!tier) continue;
     const p = parseMagicArmorPower(ma, tier);
     if (p) magicArmorPowers.push(p);
+  }
+
+  // ── Magic weapon powers (from equipped weapons with power text) ──────────
+  const magicWeaponPowers: PowerData[] = [];
+  for (const item of character.equipment) {
+    if (!item.equipped || !item.magicWeaponId) continue;
+    const baseWeapon = WEAPONS.find(w => w.id === item.itemId);
+    if (!baseWeapon) continue;
+    const mw = MAGIC_WEAPONS.find(m => m.id === item.magicWeaponId);
+    if (!mw?.power) continue;
+    const tier = mw.tiers.find(t => t.level === item.magicWeaponTier);
+    if (!tier) continue;
+    const p = parseMagicWeaponPower(mw, tier);
+    if (p) magicWeaponPowers.push(p);
+  }
+
+  // ── Magic implement powers (from equipped implements with power text) ─────
+  const magicImplementPowers: PowerData[] = [];
+  for (const item of character.equipment) {
+    if (!item.equipped || !item.magicImplementId) continue;
+    const mi = MAGIC_IMPLEMENTS.find(m => m.id === item.magicImplementId);
+    if (!mi?.power) continue;
+    const tier = mi.tiers.find(t => t.level === item.magicImplementTier);
+    if (!tier) continue;
+    const p = parseMagicImplementPower(mi, tier);
+    if (p) magicImplementPowers.push(p);
   }
 
   // ── Power categorisation ──────────────────────────────────────────────────
@@ -329,10 +370,15 @@ export function PowersPanel({ character }: Props) {
   };
 
   const removePower = (powerId: string) => {
+    // Also remove from quick tray — including the movement technique variant for Full Discipline powers
+    const tray = character.quickTrayPowerIds ?? [];
+    const mtId = `${powerId}-mt`;
+    const newTray = tray.filter((id) => id !== powerId && id !== mtId);
     patch({
       selectedPowers: character.selectedPowers.filter((p) => p.powerId !== powerId),
       usedEncounterPowers: character.usedEncounterPowers.filter((id) => id !== powerId),
       usedDailyPowers: character.usedDailyPowers.filter((id) => id !== powerId),
+      quickTrayPowerIds: newTray,
     });
   };
 
@@ -359,7 +405,7 @@ export function PowersPanel({ character }: Props) {
   const nonUtilityTab = (tab === 'at-will' || tab === 'encounter' || tab === 'daily') ? tab : null;
   const availablePowers = nonUtilityTab
     ? getPowersByClassUpToLevel(character.classId, character.level, nonUtilityTab)
-        .filter((p) => p.powerType !== 'utility' && !selectedIds.includes(p.id))
+        .filter((p) => p.level > 0 && p.powerType !== 'utility' && !p.cantrip && !p.pactBoon && !selectedIds.includes(p.id))
     : [];
 
   // ── Available utility powers (for utility tab picker) ─────────────────────
@@ -619,9 +665,28 @@ export function PowersPanel({ character }: Props) {
               ))}
               {/* Pact Boon — auto-granted warlock class feature, no remove button */}
               {pactBoonPower && <PowerCard power={pactBoonPower} />}
+              {/* Monk Flurry of Blows — auto-granted based on monastic tradition, no remove button */}
+              {monkFlurryPower && <PowerCard key={monkFlurryPower.id} power={monkFlurryPower} />}
               {powersForTab.map(({ sp, power }) => {
                 if (!power) return null;
-                return renderFilledCard(sp, power, `Lvl ${power.level}`);
+                const mt = isFullDisciplinePower(power) ? extractMovementTechnique(power) : null;
+                if (!mt) return renderFilledCard(sp, power, `Lvl ${power.level}`);
+                return (
+                  <div key={`fd-${power.id}`}>
+                    {renderFilledCard(sp, power, `Lvl ${power.level}`)}
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between mb-0.5 px-1">
+                        <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Lvl {power.level}</span>
+                        {(character.quickTrayPowerIds ?? []).includes(mt.id) ? (
+                          <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                        ) : (
+                          <button onClick={() => addToQuickTray(mt.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                        )}
+                      </div>
+                      <PowerCard power={mt} abilityModifiers={abilityMods} />
+                    </div>
+                  </div>
+                );
               })}
               {primaryCount('at-will') < primaryMax['at-will'] && availablePowers.length > 0 &&
                 Array.from({ length: primaryMax['at-will'] - primaryCount('at-will') }).map((_, i) => (
@@ -690,6 +755,23 @@ export function PowersPanel({ character }: Props) {
                   )}
                 </>
               )}
+
+              {/* Magic implement at-will powers */}
+              {magicImplementPowers.filter((p) => p.usage === 'at-will').map((power) => (
+                <div key={power.id}>
+                  <div className="flex items-center justify-between mb-0.5 px-1">
+                    <span className="text-[10px] font-bold bg-indigo-700 text-white px-1.5 py-0.5 rounded">Implement</span>
+                    <div className="flex items-center gap-1">
+                      {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      ) : (
+                        <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      )}
+                    </div>
+                  </div>
+                  <PowerCard power={power} abilityModifiers={abilityMods} />
+                </div>
+              ))}
             </>
           )}
 
@@ -697,7 +779,34 @@ export function PowersPanel({ character }: Props) {
           {(tab === 'encounter' || tab === 'daily') && slotLevels.map((slotLvl) => {
             const filled = slotAssignment.get(slotLvl);
             if (filled?.power) {
-              return renderFilledCard(filled.sp, filled.power, `Lvl ${filled.power.level}`);
+              const mt = isFullDisciplinePower(filled.power) ? extractMovementTechnique(filled.power) : null;
+              if (!mt) {
+                return renderFilledCard(filled.sp, filled.power, `Lvl ${filled.power.level}`);
+              }
+              const isUsed = filled.power.usage === 'encounter'
+                ? character.usedEncounterPowers.includes(filled.sp.powerId)
+                : character.usedDailyPowers.includes(filled.sp.powerId);
+              return (
+                <div key={`fd-${filled.power.id}`}>
+                  {renderFilledCard(filled.sp, filled.power, `Lvl ${filled.power.level}`)}
+                  <div className="mt-2">
+                    <div className="flex items-center justify-between mb-0.5 px-1">
+                      <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Lvl {filled.power.level}</span>
+                      {(character.quickTrayPowerIds ?? []).includes(mt.id) ? (
+                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      ) : (
+                        <button onClick={() => addToQuickTray(mt.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      )}
+                    </div>
+                    <PowerCard
+                      power={mt}
+                      used={isUsed}
+                      onToggleUsed={() => toggleUsed(filled.sp.powerId, filled.power!.usage)}
+                      abilityModifiers={abilityMods}
+                    />
+                  </div>
+                </div>
+              );
             }
             if (atLimit || availablePowers.length === 0) return null;
             return (
@@ -724,7 +833,27 @@ export function PowersPanel({ character }: Props) {
           {/* Overflow primary powers */}
           {(tab === 'encounter' || tab === 'daily') && unassignedPowers.map(({ sp, power }) => {
             if (!power) return null;
-            return renderFilledCard(sp, power, `Lvl ${power.level}`);
+            const mt = isFullDisciplinePower(power) ? extractMovementTechnique(power) : null;
+            if (!mt) return renderFilledCard(sp, power, `Lvl ${power.level}`);
+            const isUsed = power.usage === 'encounter'
+              ? character.usedEncounterPowers.includes(sp.powerId)
+              : character.usedDailyPowers.includes(sp.powerId);
+            return (
+              <div key={`fd-${power.id}`}>
+                {renderFilledCard(sp, power, `Lvl ${power.level}`)}
+                <div className="mt-2">
+                  <div className="flex items-center justify-between mb-0.5 px-1">
+                    <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Lvl {power.level}</span>
+                    {(character.quickTrayPowerIds ?? []).includes(mt.id) ? (
+                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                    ) : (
+                      <button onClick={() => addToQuickTray(mt.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                    )}
+                  </div>
+                  <PowerCard power={mt} used={isUsed} onToggleUsed={() => toggleUsed(sp.powerId, power.usage)} abilityModifiers={abilityMods} />
+                </div>
+              </div>
+            );
           })}
 
           {/* MC encounter slots */}
@@ -804,6 +933,46 @@ export function PowersPanel({ character }: Props) {
             );
           })}
 
+          {/* Magic weapon encounter powers — auto-granted while equipped */}
+          {tab === 'encounter' && magicWeaponPowers.filter((p) => p.usage === 'encounter').map((power) => {
+            const isUsed = character.usedEncounterPowers.includes(power.id);
+            return (
+              <div key={power.id}>
+                <div className="flex items-center justify-between mb-0.5 px-1">
+                  <span className="text-[10px] font-bold bg-orange-700 text-white px-1.5 py-0.5 rounded">Weapon</span>
+                  <div className="flex items-center gap-1">
+                    {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                    ) : (
+                      <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                    )}
+                  </div>
+                </div>
+                <PowerCard power={power} used={isUsed} onToggleUsed={() => toggleUsed(power.id, power.usage)} abilityModifiers={abilityMods} />
+              </div>
+            );
+          })}
+
+          {/* Magic implement encounter powers — auto-granted while equipped */}
+          {tab === 'encounter' && magicImplementPowers.filter((p) => p.usage === 'encounter').map((power) => {
+            const isUsed = character.usedEncounterPowers.includes(power.id);
+            return (
+              <div key={power.id}>
+                <div className="flex items-center justify-between mb-0.5 px-1">
+                  <span className="text-[10px] font-bold bg-indigo-700 text-white px-1.5 py-0.5 rounded">Implement</span>
+                  <div className="flex items-center gap-1">
+                    {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                    ) : (
+                      <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                    )}
+                  </div>
+                </div>
+                <PowerCard power={power} used={isUsed} onToggleUsed={() => toggleUsed(power.id, power.usage)} abilityModifiers={abilityMods} />
+              </div>
+            );
+          })}
+
           {/* MC daily slot */}
           {tab === 'daily' && mcDailySlots.map((mcSlot) => {
             const filled = mcDailyPowers[0];
@@ -845,6 +1014,46 @@ export function PowersPanel({ character }: Props) {
                   onToggleUsed={() => toggleUsed(power.id, power.usage)}
                   abilityModifiers={abilityMods}
                 />
+              </div>
+            );
+          })}
+
+          {/* Magic weapon daily powers — auto-granted while equipped */}
+          {tab === 'daily' && magicWeaponPowers.filter((p) => p.usage === 'daily').map((power) => {
+            const isUsed = character.usedDailyPowers.includes(power.id);
+            return (
+              <div key={power.id}>
+                <div className="flex items-center justify-between mb-0.5 px-1">
+                  <span className="text-[10px] font-bold bg-orange-700 text-white px-1.5 py-0.5 rounded">Weapon</span>
+                  <div className="flex items-center gap-1">
+                    {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                    ) : (
+                      <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                    )}
+                  </div>
+                </div>
+                <PowerCard power={power} used={isUsed} onToggleUsed={() => toggleUsed(power.id, power.usage)} abilityModifiers={abilityMods} />
+              </div>
+            );
+          })}
+
+          {/* Magic implement daily powers — auto-granted while equipped */}
+          {tab === 'daily' && magicImplementPowers.filter((p) => p.usage === 'daily').map((power) => {
+            const isUsed = character.usedDailyPowers.includes(power.id);
+            return (
+              <div key={power.id}>
+                <div className="flex items-center justify-between mb-0.5 px-1">
+                  <span className="text-[10px] font-bold bg-indigo-700 text-white px-1.5 py-0.5 rounded">Implement</span>
+                  <div className="flex items-center gap-1">
+                    {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                    ) : (
+                      <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                    )}
+                  </div>
+                </div>
+                <PowerCard power={power} used={isUsed} onToggleUsed={() => toggleUsed(power.id, power.usage)} abilityModifiers={abilityMods} />
               </div>
             );
           })}
@@ -895,7 +1104,24 @@ export function PowersPanel({ character }: Props) {
                 {utilitySlotLevels.map((slotLvl) => {
                   const filled = utilityAssignment.get(slotLvl);
                   if (filled?.power) {
-                    return renderFilledCard(filled.sp, filled.power, `Lv ${filled.power.level}`, 'bg-blue-700');
+                    const mt = isFullDisciplinePower(filled.power) ? extractMovementTechnique(filled.power) : null;
+                    if (!mt) return renderFilledCard(filled.sp, filled.power, `Lv ${filled.power.level}`, 'bg-blue-700');
+                    return (
+                      <div key={`fd-${filled.power.id}`}>
+                        {renderFilledCard(filled.sp, filled.power, `Lv ${filled.power.level}`, 'bg-blue-700')}
+                        <div className="mt-2">
+                          <div className="flex items-center justify-between mb-0.5 px-1">
+                            <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Lv {filled.power.level}</span>
+                            {(character.quickTrayPowerIds ?? []).includes(mt.id) ? (
+                              <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                            ) : (
+                              <button onClick={() => addToQuickTray(mt.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                            )}
+                          </div>
+                          <PowerCard power={mt} abilityModifiers={abilityMods} />
+                        </div>
+                      </div>
+                    );
                   }
                   if (atLimit || availableUtilityPowers.length === 0) return null;
                   return (

@@ -113,13 +113,33 @@ export function PowerCard({
           </div>
         )}
 
+        {/* Full Discipline — technique header */}
+        {power.keywords.includes('Full Discipline') && (
+          power.id.endsWith('-mt') ? (
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-teal-700 text-xs">Movement Technique</span>
+              <span className="text-[10px] bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded font-medium">{power.actionType === 'move' ? 'Move Action' : power.actionType === 'minor' ? 'Minor Action' : 'Free Action'}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-amber-700 text-xs">Attack Technique</span>
+              <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">{power.actionType === 'standard' ? 'Standard Action' : power.actionType.replace('-', ' ')}</span>
+            </div>
+          )
+        )}
+
+        {/* Trigger */}
+        {power.trigger && (
+          <p><span className="font-semibold text-orange-700">Trigger:</span> {sub(power.trigger)}</p>
+        )}
+
         {/* Attack line */}
         {power.attack && (
           <p><span className="font-semibold">Attack:</span> {sub(power.attack)}</p>
         )}
 
         {/* Target */}
-        <p><span className="font-semibold">Target:</span> {power.target}</p>
+        {power.target && <p><span className="font-semibold">Target:</span> {power.target}</p>}
 
         {/* Hit */}
         {power.hit && (
@@ -176,10 +196,44 @@ export function PowerCard({
             })}
           </div>
         ) : (
-          /* Standard special text (non-psionic) */
-          power.special && (
-            <p><span className="font-semibold text-amber-700">Special:</span> {sub(power.special)}</p>
-          )
+          /* Standard special text (non-psionic) — Full Discipline techniques get linked sub-sections */
+          power.special && (() => {
+            // Attack Technique card → show Movement Technique as sub-section
+            const isAttackTechnique = power.keywords.includes('Full Discipline') && power.special.startsWith('Movement Technique');
+            if (isAttackTechnique) {
+              const mtMatch = power.special.match(/^Movement Technique\s*\(([^)]+)\):\s*([\s\S]*)$/);
+              const mtAction = mtMatch?.[1] ?? 'Move Action';
+              const mtBody = mtMatch?.[2] ?? power.special;
+              return (
+                <div className="mt-2 border-t border-stone-200 pt-2 space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-teal-700 text-xs">Movement Technique</span>
+                    <span className="text-[10px] bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded font-medium">{mtAction}</span>
+                  </div>
+                  <p className="text-xs"><span className="font-semibold text-teal-700">Effect:</span> {sub(mtBody)}</p>
+                </div>
+              );
+            }
+            // Movement Technique card → show Attack Technique as sub-section
+            const isMovementTechnique = power.keywords.includes('Full Discipline') && power.special.startsWith('Attack Technique');
+            if (isMovementTechnique) {
+              const atMatch = power.special.match(/^Attack Technique\s*\(([^)]+)\):\s*([\s\S]*)$/);
+              const atAction = atMatch?.[1] ?? 'Standard Action';
+              const atBody = atMatch?.[2] ?? power.special;
+              return (
+                <div className="mt-2 border-t border-stone-200 pt-2 space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-amber-700 text-xs">Attack Technique</span>
+                    <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">{atAction}</span>
+                  </div>
+                  <p className="text-xs text-stone-600">{sub(atBody)}</p>
+                </div>
+              );
+            }
+            return (
+              <p><span className="font-semibold text-amber-700">Special:</span> {sub(power.special)}</p>
+            );
+          })()
         )}
 
         {/* Flavor */}

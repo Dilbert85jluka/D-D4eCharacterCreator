@@ -104,6 +104,14 @@ export interface EquipmentItem {
   magicArmorId?: string;
   /** For armor: selected tier level of the magic armor enchantment */
   magicArmorTier?: number;
+  /** For weapons: ID of the magic weapon applied */
+  magicWeaponId?: string;
+  /** For weapons: selected tier level of the magic weapon */
+  magicWeaponTier?: number;
+  /** For implements: ID of the magic implement applied */
+  magicImplementId?: string;
+  /** For implements: selected tier level of the magic implement */
+  magicImplementTier?: number;
 }
 
 export interface Character {
@@ -158,6 +166,8 @@ export interface Character {
   mcFeatSkillChoices: Record<string, string>;
   /** Maps featId → chosen proficiency string for MC feats granting a proficiency choice */
   mcFeatProficiencyChoices: Record<string, string>;
+  /** Maps index (among SIT feat instances in selectedFeatIds) → equipment instanceId for Superior Implement Training. */
+  superiorImplementChoices?: Record<number, string>;
 
   // Equipment
   equipment: EquipmentItem[];
@@ -282,6 +292,14 @@ export interface DerivedStats {
   skillBreakdowns: Record<string, SkillBreakdown>;
   meleeBasicAttack: number;
   rangedBasicAttack: number;
+  /** Magic weapon enhancement bonus (from equipped weapon) */
+  weaponEnhancementBonus: number;
+  /** Name of equipped weapon (for display) */
+  equippedWeaponName?: string;
+  /** Damage die of equipped weapon */
+  equippedWeaponDamage?: string;
+  /** Proficiency bonus of equipped weapon */
+  equippedWeaponProficiency: number;
   /** Flat bonus added to saving throw rolls (d20, needing 10+ to succeed) */
   savingThrowBonus: number;
 }

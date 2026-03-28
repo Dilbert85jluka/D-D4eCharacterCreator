@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Character } from '../../types/character';
-import { getFeatById, FEATS, featMeetsPrerequisites } from '../../data/feats';
+import { getFeatById, FEATS, featMeetsPrerequisites, isFeatRepeatable } from '../../data/feats';
 import { getClassById } from '../../data/classes';
 import { getSkillById } from '../../data/skills';
 import { getRaceById } from '../../data/races';
@@ -8,6 +8,7 @@ import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
 import { Badge } from '../ui/Badge';
 import { featsEarnedByLevel } from '../../data/advancement';
+import { SUPERIOR_IMPLEMENTS } from '../../data/equipment/superiorImplements';
 
 interface Props {
   character: Character;
@@ -53,8 +54,9 @@ export function FeatsPanel({ character }: Props) {
   };
 
   const addFeat = async (id: string) => {
-    if (character.selectedFeatIds.includes(id) || atLimit) return;
     const feat = getFeatById(id);
+    if (atLimit) return;
+    if (character.selectedFeatIds.includes(id) && !(feat && isFeatRepeatable(feat))) return;
     const changes: Partial<Character> = {
       selectedFeatIds: [...character.selectedFeatIds, id],
     };
@@ -79,21 +81,103 @@ export function FeatsPanel({ character }: Props) {
     }
   };
 
-  const removeFeat = async (id: string) => {
+  const removeFeat = async (id: string, instanceIdx?: number) => {
     const skillToRemove = mcFeatSkillChoices[id];
     const newSkillChoices = { ...mcFeatSkillChoices };
     const newProfChoices  = { ...mcFeatProficiencyChoices };
     delete newSkillChoices[id];
     delete newProfChoices[id];
+    const newFeatIds = (() => {
+      // For repeatable feats, only remove one instance
+      const idx = character.selectedFeatIds.indexOf(id);
+      if (idx === -1) return character.selectedFeatIds;
+      return [...character.selectedFeatIds.slice(0, idx), ...character.selectedFeatIds.slice(idx + 1)];
+    })();
     const changes: Partial<Character> = {
-      selectedFeatIds: character.selectedFeatIds.filter((f) => f !== id),
+      selectedFeatIds: newFeatIds,
       mcFeatSkillChoices: newSkillChoices,
       mcFeatProficiencyChoices: newProfChoices,
     };
     if (skillToRemove) {
       changes.trainedSkills = character.trainedSkills.filter((s) => s !== skillToRemove);
     }
+    // Clean up SIT choice if removing a Superior Implement Training feat
+    if (id === 'superior-implement-training' && instanceIdx !== undefined) {
+      const oldChoices = character.superiorImplementChoices ?? {};
+      const newChoices: Record<number, string> = {};
+      // Re-index: instance indices shift down when one is removed
+      let newIdx = 0;
+      for (let i = 0; i < character.selectedFeatIds.length; i++) {
+        if (character.selectedFeatIds[i] === 'superior-implement-training') {
+          const oldIdx = getSitInstanceIndex(i);
+          if (oldIdx === instanceIdx) continue; // skip the removed one
+          if (oldChoices[oldIdx] !== undefined) {
+            newChoices[newIdx] = oldChoices[oldIdx];
+          }
+          newIdx++;
+        }
+      }
+      changes.superiorImplementChoices = newChoices;
+    }
     await patch(changes);
+  };
+
+  // Helper: get the SIT instance index for a given position in selectedFeatIds
+  const getSitInstanceIndex = (posInFeatIds: number): number => {
+    let sitIdx = 0;
+    for (let i = 0; i < posInFeatIds; i++) {
+      if (character.selectedFeatIds[i] === 'superior-implement-training') sitIdx++;
+    }
+    return sitIdx;
+  };
+
+  // Get superior implements from character's inventory
+  const getSuperiorImplementsInInventory = () => {
+    return character.equipment.filter((item) =>
+      SUPERIOR_IMPLEMENTS.some((si) => si.id === item.itemId)
+    );
+  };
+
+  // Get available superior implements for a given SIT instance
+  const getAvailableSuperiorImplements = (sitInstanceIdx: number) => {
+    const allSuperiorItems = getSuperiorImplementsInInventory();
+    const choices = character.superiorImplementChoices ?? {};
+    const currentChoice = choices[sitInstanceIdx];
+
+    // Collect base types already claimed by other SIT instances
+    const usedBaseTypes = new Set<string>();
+    const usedInstanceIds = new Set<string>();
+    for (const [idx, instanceId] of Object.entries(choices)) {
+      if (Number(idx) === sitInstanceIdx) continue;
+      usedInstanceIds.add(instanceId);
+      const item = character.equipment.find((e) => (e.instanceId ?? e.itemId) === instanceId);
+      if (item) {
+        const si = SUPERIOR_IMPLEMENTS.find((s) => s.id === item.itemId);
+        if (si) usedBaseTypes.add(si.type);
+      }
+    }
+
+    return allSuperiorItems.filter((item) => {
+      const key = item.instanceId ?? item.itemId;
+      // Allow current selection
+      if (key === currentChoice) return true;
+      // Can't use an implement already associated with another SIT feat
+      if (usedInstanceIds.has(key)) return false;
+      // Can't use same base type as another SIT feat
+      const si = SUPERIOR_IMPLEMENTS.find((s) => s.id === item.itemId);
+      if (si && usedBaseTypes.has(si.type)) return false;
+      return true;
+    });
+  };
+
+  const setSuperiorImplementChoice = async (sitInstanceIdx: number, instanceId: string) => {
+    const newChoices = { ...(character.superiorImplementChoices ?? {}) };
+    if (instanceId === '') {
+      delete newChoices[sitInstanceIdx];
+    } else {
+      newChoices[sitInstanceIdx] = instanceId;
+    }
+    await patch({ superiorImplementChoices: newChoices });
   };
 
   const confirmSkillChoice = async (featId: string, skillId: string) => {
@@ -133,7 +217,7 @@ export function FeatsPanel({ character }: Props) {
   // All feats not yet selected (excluding auto-grants), filtered by search — eligibility checked per-card
   const pickerFeats = FEATS.filter(
     (f) =>
-      !character.selectedFeatIds.includes(f.id) &&
+      (!character.selectedFeatIds.includes(f.id) || isFeatRepeatable(f)) &&
       !autoGrantedIds.includes(f.id) &&
       (search.trim() === '' ||
         f.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -205,14 +289,23 @@ export function FeatsPanel({ character }: Props) {
           {feats.length === 0 && autoGrantedFeats.length === 0 && (
             <p className="text-stone-400 text-sm text-center py-4">No feats selected yet.</p>
           )}
-          {feats.map((feat) => {
+          {feats.map((feat, idx) => {
             if (!feat) return null;
             const chosenSkill = mcFeatSkillChoices[feat.id];
             const chosenProf  = mcFeatProficiencyChoices[feat.id];
             const needsSkill  = feat.multiclassFor && !feat.mcFixedSkill && !chosenSkill;
             const needsProf   = feat.mcProficiencyChoices?.length && !chosenProf;
+
+            // SIT feat: compute instance index and available implements
+            const isSit = feat.id === 'superior-implement-training';
+            const sitInstanceIdx = isSit
+              ? feats.slice(0, idx).filter((f) => f?.id === 'superior-implement-training').length
+              : -1;
+            const sitAvailable = isSit ? getAvailableSuperiorImplements(sitInstanceIdx) : [];
+            const sitCurrentChoice = isSit ? (character.superiorImplementChoices ?? {})[sitInstanceIdx] : undefined;
+
             return (
-              <div key={feat.id} className="p-3 bg-stone-50 rounded-lg border border-stone-200">
+              <div key={`${feat.id}-${idx}`} className="p-3 bg-stone-50 rounded-lg border border-stone-200">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 flex-wrap min-w-0">
                     <h4 className="font-semibold text-stone-800 text-sm">{feat.name}</h4>
@@ -223,7 +316,7 @@ export function FeatsPanel({ character }: Props) {
                     )}
                   </div>
                   <button
-                    onClick={() => removeFeat(feat.id)}
+                    onClick={() => removeFeat(feat.id, isSit ? sitInstanceIdx : undefined)}
                     className="text-stone-300 hover:text-red-500 transition-colors text-xl leading-none flex-shrink-0"
                     title="Remove feat"
                   >×</button>
@@ -276,6 +369,52 @@ export function FeatsPanel({ character }: Props) {
                   >
                     ⚠ Choose a weapon proficiency
                   </button>
+                )}
+                {/* Superior Implement Training: implement association dropdown */}
+                {isSit && (
+                  <div className="mt-2 pt-2 border-t border-stone-200">
+                    <label className="text-[11px] font-bold text-indigo-700 uppercase tracking-wide">
+                      Associated Superior Implement
+                    </label>
+                    {getSuperiorImplementsInInventory().length === 0 ? (
+                      <p className="text-xs text-stone-400 mt-1 italic">
+                        Purchase a superior implement in Equipment to associate it with this feat.
+                      </p>
+                    ) : (
+                      <select
+                        value={sitCurrentChoice ?? ''}
+                        onChange={(e) => setSuperiorImplementChoice(sitInstanceIdx, e.target.value)}
+                        className="mt-1 w-full border border-stone-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 min-h-[44px]"
+                      >
+                        <option value="">— None selected —</option>
+                        {sitAvailable.map((item) => {
+                          const si = SUPERIOR_IMPLEMENTS.find((s) => s.id === item.itemId);
+                          const key = item.instanceId ?? item.itemId;
+                          return (
+                            <option key={key} value={key}>
+                              {si?.name ?? item.name} ({si?.type ?? 'Unknown'})
+                              {si?.properties.map((p) => p.name).join(', ') ? ` — ${si?.properties.map((p) => p.name).join(', ')}` : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    )}
+                    {sitCurrentChoice && (() => {
+                      const item = character.equipment.find((e) => (e.instanceId ?? e.itemId) === sitCurrentChoice);
+                      const si = item ? SUPERIOR_IMPLEMENTS.find((s) => s.id === item.itemId) : undefined;
+                      if (!si) return null;
+                      return (
+                        <div className="mt-1.5 text-xs text-indigo-700 bg-indigo-50 rounded-lg px-3 py-2 border border-indigo-200">
+                          <p className="font-semibold">{si.name} <span className="text-stone-500 font-normal">({si.type})</span></p>
+                          {si.properties.map((prop) => (
+                            <p key={prop.name} className="mt-0.5 text-stone-600">
+                              <strong className="text-indigo-600">{prop.name}:</strong> {prop.description}
+                            </p>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 )}
               </div>
             );

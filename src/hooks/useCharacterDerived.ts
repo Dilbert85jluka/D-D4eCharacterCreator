@@ -9,6 +9,8 @@ import { ARMOR } from '../data/equipment/armor';
 import { MASTERWORK_ARMOR } from '../data/equipment/masterworkArmor';
 import { MAGIC_ARMOR } from '../data/equipment/magicArmor';
 import { MAGIC_ITEMS } from '../data/equipment/magicItems';
+import { MAGIC_WEAPONS } from '../data/equipment/magicWeapons';
+import { WEAPONS } from '../data/equipment/weapons';
 import { abilityModifier, ABILITIES, formatModifier } from '../utils/abilityScores';
 import { calculateAC, calculateFortitude, calculateReflex, calculateWill } from '../utils/defenses';
 import { calculateMaxHp, calculateBloodied, calculateHealingSurgeValue, calculateSurgesPerDay } from '../utils/hitPoints';
@@ -187,6 +189,21 @@ export function useCharacterDerived(character: Character): DerivedStats {
       if (b.will) { magicArmorDefBonuses.will += b.will; magicArmorDefSources.push(enchant.name); }
     }
 
+    // ── Resolve equipped weapon magic enhancement ──────────────────────────
+    const equippedWeaponItem = character.equipment.find(
+      (e) => e.equipped && e.slot === 'main-hand',
+    );
+    const equippedWeaponData = equippedWeaponItem
+      ? WEAPONS.find(w => w.id === equippedWeaponItem.itemId)
+      : undefined;
+    const magicWeaponEnchant = equippedWeaponItem?.magicWeaponId
+      ? MAGIC_WEAPONS.find(m => m.id === equippedWeaponItem.magicWeaponId)
+      : undefined;
+    const magicWeaponTier = magicWeaponEnchant?.tiers.find(
+      t => t.level === equippedWeaponItem?.magicWeaponTier,
+    );
+    const weaponEnhancementBonus = magicWeaponTier?.enhancement ?? 0;
+
     // Determine AC ability modifier (some classes use INT or DEX to unarmored AC)
     let acAbilityMod = 0;
     let acAbilityLabel = '';
@@ -196,6 +213,10 @@ export function useCharacterDerived(character: Character): DerivedStats {
     const isLightArmor = armorType === 'Cloth' || armorType === 'Leather' || armorType === 'Hide';
     let classReflexBonus = 0; // e.g. Barbarian Agility
     let classReflexLabel = '';
+    let classFortBonus = 0; // e.g. Monk Mental Equilibrium
+    let classFortLabel = '';
+    let classWillBonus = 0; // e.g. Monk Mental Bastion
+    let classWillLabel = '';
     if (armorType === 'Cloth') {
       if (cls?.id === 'wizard' || cls?.id === 'warlock') {
         acAbilityMod = Math.max(mods.int, mods.dex);
@@ -236,6 +257,17 @@ export function useCharacterDerived(character: Character): DerivedStats {
       const wisFmt = formatModifier(mods.wis);
       const winner = mods.dex >= mods.wis ? 'DEX' : 'WIS';
       acAbilityLabel = `max(DEX ${dexFmt}, WIS ${wisFmt}) — ${winner}`;
+    }
+    // Monk: Monastic Tradition defensive bonuses — tiered +1/+2/+3
+    if (cls?.id === 'monk' && character.monkTradition) {
+      const traditionBonus = character.level >= 21 ? 3 : character.level >= 11 ? 2 : 1;
+      if (character.monkTradition === 'centered-breath') {
+        classFortBonus = traditionBonus;
+        classFortLabel = 'Mental Equilibrium';
+      } else if (character.monkTradition === 'stone-fist') {
+        classWillBonus = traditionBonus;
+        classWillLabel = 'Mental Bastion';
+      }
     }
     // Battlemind: uses CON for AC in light armor (optional — Battlemind already uses CON as primary)
     // Barbarian: Barbarian Agility — +1/+2/+3 AC and Reflex when not wearing heavy armor
@@ -329,9 +361,9 @@ export function useCharacterDerived(character: Character): DerivedStats {
     );
 
     const armorClass = calculateAC(armorAcBonus, acAbilityMod, halfLevel, shieldAcBonus) + classAcBonus + magicBonuses.ac + (pb.ac ?? 0) + featBonuses.ac + armorEnhancementBonus + shieldEnhancementBonus + magicArmorDefBonuses.ac;
-    const fortitude = calculateFortitude(mods.str, mods.con, halfLevel, cls?.fortitudeBonus ?? 0, humanDefBonus) + magicBonuses.fortitude + (pb.fortitude ?? 0) + featBonuses.fortitude + magicArmorDefBonuses.fortitude;
+    const fortitude = calculateFortitude(mods.str, mods.con, halfLevel, cls?.fortitudeBonus ?? 0, humanDefBonus) + classFortBonus + magicBonuses.fortitude + (pb.fortitude ?? 0) + featBonuses.fortitude + magicArmorDefBonuses.fortitude;
     const reflex = calculateReflex(mods.dex, mods.int, halfLevel, cls?.reflexBonus ?? 0, shieldAcBonus, humanDefBonus) + classReflexBonus + magicBonuses.reflex + (pb.reflex ?? 0) + featBonuses.reflex + magicArmorDefBonuses.reflex;
-    const will = calculateWill(mods.wis, mods.cha, halfLevel, cls?.willBonus ?? 0, humanDefBonus + racialWillBonus) + magicBonuses.will + (pb.will ?? 0) + featBonuses.will + magicArmorDefBonuses.will;
+    const will = calculateWill(mods.wis, mods.cha, halfLevel, cls?.willBonus ?? 0, humanDefBonus + racialWillBonus) + classWillBonus + magicBonuses.will + (pb.will ?? 0) + featBonuses.will + magicArmorDefBonuses.will;
 
     // ── Defense breakdowns ─────────────────────────────────────────────────────
     const totalRacialWillBonus = humanDefBonus + racialWillBonus;
@@ -364,6 +396,7 @@ export function useCharacterDerived(character: Character): DerivedStats {
         { label: `max(STR ${formatModifier(mods.str)}, CON ${formatModifier(mods.con)})`, value: Math.max(mods.str, mods.con) },
         { label: '½ Level', value: halfLevel },
         ...rowIf((cls?.fortitudeBonus ?? 0) > 0, `Class (${cls?.name ?? ''})`, cls?.fortitudeBonus ?? 0),
+        ...rowIf(classFortBonus > 0, classFortLabel, classFortBonus),
         ...rowIf(humanDefBonus > 0, 'Racial (Human)', humanDefBonus),
         ...rowIf(magicBonuses.fortitude > 0, 'Magic items', magicBonuses.fortitude),
         ...rowIf((pb.fortitude ?? 0) > 0, paragonLabel, pb.fortitude!),
@@ -388,6 +421,7 @@ export function useCharacterDerived(character: Character): DerivedStats {
         { label: `max(WIS ${formatModifier(mods.wis)}, CHA ${formatModifier(mods.cha)})`, value: Math.max(mods.wis, mods.cha) },
         { label: '½ Level', value: halfLevel },
         ...rowIf((cls?.willBonus ?? 0) > 0, `Class (${cls?.name ?? ''})`, cls?.willBonus ?? 0),
+        ...rowIf(classWillBonus > 0, classWillLabel, classWillBonus),
         ...rowIf(totalRacialWillBonus > 0, racialWillLabel, totalRacialWillBonus),
         ...rowIf(magicBonuses.will > 0, 'Magic items', magicBonuses.will),
         ...rowIf((pb.will ?? 0) > 0, paragonLabel, pb.will!),
@@ -468,8 +502,12 @@ export function useCharacterDerived(character: Character): DerivedStats {
       speed,
       skillBonuses,
       skillBreakdowns,
-      meleeBasicAttack: mods.str + halfLevel,
-      rangedBasicAttack: mods.dex + halfLevel,
+      meleeBasicAttack: mods.str + halfLevel + (equippedWeaponData && !equippedWeaponData.category.includes('Ranged') ? equippedWeaponData.proficiencyBonus + weaponEnhancementBonus : 0),
+      rangedBasicAttack: mods.dex + halfLevel + (equippedWeaponData && equippedWeaponData.category.includes('Ranged') ? equippedWeaponData.proficiencyBonus + weaponEnhancementBonus : 0),
+      weaponEnhancementBonus,
+      equippedWeaponName: equippedWeaponData?.name,
+      equippedWeaponDamage: equippedWeaponData?.damage,
+      equippedWeaponProficiency: equippedWeaponData?.proficiencyBonus ?? 0,
       savingThrowBonus,
     };
   }, [character]);

@@ -9,7 +9,7 @@ import { calculateMaxHp } from '../utils/hitPoints';
 import { parseRaceLanguages } from '../data/languages';
 import { getMulticlassId } from '../data/feats';
 import { getPowerById } from '../data/powers';
-import { isPsionicClass, getMaxPowerPoints } from '../utils/psionics';
+import { usesPowerPoints, getMaxPowerPoints } from '../utils/psionics';
 import { getRitualById } from '../data/rituals';
 
 const DEFAULT_SCORES: AbilityScores = defaultAbilityScores();
@@ -583,7 +583,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       usedEncounterPowers: [],
       usedDailyPowers: [],
       // Psionic power points — initialize at max for psionic classes
-      currentPowerPoints: isPsionicClass(s.classId) ? getMaxPowerPoints(1) : undefined,
+      currentPowerPoints: usesPowerPoints(s.classId) ? getMaxPowerPoints(1) : undefined,
       ritualScrolls: [],
       ritualBooks: (() => {
         // Psion gets a free ritual book with one chosen ritual (Sending or Tenser's Floating Disk)

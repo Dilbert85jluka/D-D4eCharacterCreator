@@ -4,12 +4,12 @@ import { getClassById } from '../../data/classes';
 import { calculateMaxHp } from '../../utils/hitPoints';
 import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
-import { getPowersByClass, getPowersByClassUpToLevel, getUtilityPowersByClass, getPowerById } from '../../data/powers';
-import { FEATS, getFeatById, featMeetsPrerequisites } from '../../data/feats';
+import { getPowersByClassUpToLevel, getUtilityPowersByClassUpToLevel, getPowerById } from '../../data/powers';
+import { FEATS, getFeatById, featMeetsPrerequisites, isFeatRepeatable } from '../../data/feats';
 import { FEAT_LEVELS } from '../../data/advancement';
 import { getParagonPathsForCharacter, getParagonPathById } from '../../data/paragonPaths';
 import { getRituals } from '../../data/rituals';
-import { isPsionicClass, getMaxPowerPoints } from '../../utils/psionics';
+import { usesPowerPoints, getMaxPowerPoints } from '../../utils/psionics';
 import type { PowerData, FeatData, ParagonPathData, RitualData } from '../../types/gameData';
 
 interface Props {
@@ -41,8 +41,8 @@ function getPowerGains(
     usage,
     level: newLevel,
     label,
-    options: getPowersByClass(classId, usage, newLevel)
-               .filter((p) => p.powerType !== 'utility' && !allExcluded.includes(p.id)),
+    options: getPowersByClassUpToLevel(classId, newLevel, usage)
+               .filter((p) => p.level > 0 && p.powerType !== 'utility' && !allExcluded.includes(p.id)),
   });
 
   // Psionic classes (encounterPowerCount: 0) don't gain encounter powers — they augment at-wills
@@ -50,12 +50,12 @@ function getPowerGains(
     gains.push(makeAttackGain('encounter', `Level ${newLevel} Encounter Power`));
 
   // Psionic augmenters (Ardent, Battlemind, Psion) gain a new at-will at level 3 (instead of encounter power)
-  if (newLevel === 3 && isPsionicClass(classId)) {
+  if (newLevel === 3 && usesPowerPoints(classId)) {
     gains.push({
       usage: 'at-will',
       level: newLevel,
       label: 'Level 3 At-Will Attack Power',
-      options: getPowersByClass(classId, 'at-will', newLevel)
+      options: getPowersByClassUpToLevel(classId, newLevel, 'at-will')
                  .filter((p) => p.powerType !== 'utility' && !allExcluded.includes(p.id)),
     });
   }
@@ -66,7 +66,7 @@ function getPowerGains(
       usage: 'utility',
       level: newLevel,
       label: `Level ${newLevel} Utility Power`,
-      options: getUtilityPowersByClass(classId, newLevel).filter((p) => !allExcluded.includes(p.id)),
+      options: getUtilityPowersByClassUpToLevel(classId, newLevel).filter((p) => !allExcluded.includes(p.id)),
     });
 
   return gains;
@@ -118,7 +118,7 @@ export function LevelUpModal({ character, derived, onClose }: Props) {
   const newCurrentHp = Math.min(character.currentHp + hpGain, newMaxHp);
 
   const isWizard            = character.classId === 'wizard';
-  const psionic             = isPsionicClass(character.classId);
+  const psionic             = usesPowerPoints(character.classId);
   const hasAbilityIncrease  = ABILITY_INCREASE_LEVELS.includes(newLevel);
   const hasFeat             = FEAT_LEVELS.includes(newLevel);
   const hasParagonChoice    = newLevel === 11;
@@ -203,7 +203,7 @@ export function LevelUpModal({ character, derived, onClose }: Props) {
   // Available feats for this character (not already taken, meets prerequisites)
   const availableFeats = FEATS
     .filter((feat) =>
-      !allFeatIds.includes(feat.id) &&
+      (!allFeatIds.includes(feat.id) || isFeatRepeatable(feat)) &&
       featMeetsPrerequisites(
         feat,
         character.raceId,

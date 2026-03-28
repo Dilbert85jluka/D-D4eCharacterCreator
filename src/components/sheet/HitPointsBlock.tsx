@@ -1,7 +1,10 @@
 import type { Character, DerivedStats } from '../../types/character';
 import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
-import { isPsionicClass, getMaxPowerPoints } from '../../utils/psionics';
+import { usesPowerPoints, getMaxPowerPoints } from '../../utils/psionics';
+import { IMPLEMENTS } from '../../data/equipment/implements';
+import { SUPERIOR_IMPLEMENTS } from '../../data/equipment/superiorImplements';
+import { MAGIC_IMPLEMENTS } from '../../data/equipment/magicImplements';
 
 interface Props {
   character: Character;
@@ -107,8 +110,8 @@ export function HitPointsBlock({ character, derived }: Props) {
           </div>
         </div>
 
-        {/* Power Points — psionic classes only */}
-        {isPsionicClass(character.classId) && (() => {
+        {/* Power Points — psionic augmentation classes only (not Monk) */}
+        {usesPowerPoints(character.classId) && (() => {
           const maxPP = getMaxPowerPoints(character.level);
           const currentPP = character.currentPowerPoints ?? maxPP;
           return (
@@ -131,6 +134,45 @@ export function HitPointsBlock({ character, derived }: Props) {
                   disabled={currentPP >= maxPP}
                   className="w-7 h-7 rounded bg-violet-200 text-violet-700 font-bold hover:bg-violet-300 disabled:opacity-30 transition-colors"
                 >+</button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Ki Focus Implement Slot — Monk only */}
+        {character.classId === 'monk' && (() => {
+          // Find equipped Ki Focus implement
+          const kiFocusItem = character.equipment.find((e) => {
+            if (!e.equipped || e.slot !== 'implement') return false;
+            const basic = IMPLEMENTS.find(i => i.id === e.itemId);
+            if (basic?.type === 'Ki Focus') return true;
+            const sup = SUPERIOR_IMPLEMENTS.find(i => i.id === e.itemId);
+            if (sup?.type === 'Ki Focus') return true;
+            return false;
+          });
+
+          let label = 'None equipped';
+          if (kiFocusItem) {
+            const mi = kiFocusItem.magicImplementId
+              ? MAGIC_IMPLEMENTS.find(m => m.id === kiFocusItem.magicImplementId)
+              : null;
+            const tier = mi ? mi.tiers.find(t => t.level === kiFocusItem.magicImplementTier) : null;
+            if (mi && tier) {
+              label = `${mi.name} +${tier.enhancement}`;
+            } else {
+              const sup = SUPERIOR_IMPLEMENTS.find(i => i.id === kiFocusItem.itemId);
+              label = sup ? sup.name : kiFocusItem.name;
+            }
+          }
+
+          return (
+            <div className="flex items-center justify-between bg-teal-50 rounded-lg px-3 py-2">
+              <div>
+                <div className="text-xs text-teal-700 font-semibold uppercase">Ki Focus</div>
+                <div className="text-xs text-stone-400">Implement Slot</div>
+              </div>
+              <div className="text-sm font-semibold text-teal-800">
+                {label}
               </div>
             </div>
           );
