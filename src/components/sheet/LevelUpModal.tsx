@@ -200,6 +200,12 @@ export function LevelUpModal({ character, derived, onClose }: Props) {
   const autoGrantedIds = AUTO_GRANTED[character.classId] ?? [];
   const allFeatIds = [...character.selectedFeatIds, ...autoGrantedIds];
 
+  // Compute ability scores including any boosts being applied this level-up
+  const levelUpAbilityScores: Record<string, number> = {};
+  for (const ab of ['str', 'con', 'dex', 'int', 'wis', 'cha'] as const) {
+    levelUpAbilityScores[ab] = (derived.finalAbilityScores[ab] ?? 0) + (abilityBoosts[ab] ?? 0);
+  }
+
   // Available feats for this character (not already taken, meets prerequisites)
   const availableFeats = FEATS
     .filter((feat) =>
@@ -211,7 +217,7 @@ export function LevelUpModal({ character, derived, onClose }: Props) {
         character.trainedSkills,
         allFeatIds,
         newLevel,
-        undefined,
+        levelUpAbilityScores,
         character.deity,
       ),
     )
@@ -652,6 +658,30 @@ interface FeatPickSectionProps {
 }
 
 function FeatPickSection({ availableFeats, selectedFeat, selectedFeatId, onSelect }: FeatPickSectionProps) {
+  const [featSearch, setFeatSearch] = useState('');
+  const [expandedFeatId, setExpandedFeatId] = useState<string | null>(null);
+
+  const filteredFeats = featSearch.trim()
+    ? availableFeats.filter((f) =>
+        f.name.toLowerCase().includes(featSearch.toLowerCase()) ||
+        f.benefit.toLowerCase().includes(featSearch.toLowerCase()))
+    : availableFeats;
+
+  const formatPrereqs = (feat: FeatData) => {
+    const parts = [
+      feat.prerequisites.race?.join(' or '),
+      feat.prerequisites.class?.join(' or '),
+      feat.prerequisites.trainedSkill && `Trained in ${feat.prerequisites.trainedSkill.join(' or ')}`,
+      feat.prerequisites.abilities &&
+        Object.entries(feat.prerequisites.abilities)
+          .map(([ab, val]) => `${ab.toUpperCase()} ${val}`)
+          .join(', '),
+      feat.prerequisites.anyMulticlassFeat && 'Any multiclass feat',
+      feat.prerequisites.minLevel && `Level ${feat.prerequisites.minLevel}+`,
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(' · ') : null;
+  };
+
   return (
     <div className="rounded-xl border border-stone-200 overflow-hidden">
       {/* Section header */}
@@ -663,54 +693,95 @@ function FeatPickSection({ availableFeats, selectedFeat, selectedFeatId, onSelec
       </div>
 
       <div className="p-4 space-y-3">
-        {/* Dropdown */}
-        <div>
-          <select
-            value={selectedFeatId}
-            onChange={(e) => onSelect(e.target.value)}
-            className="w-full border border-stone-300 rounded-lg px-3 py-2.5 text-sm text-stone-800 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 min-h-[44px]"
-          >
-            <option value="">— Choose a feat —</option>
-            {availableFeats.map((feat) => (
-              <option key={feat.id} value={feat.id}>{feat.name}</option>
-            ))}
-          </select>
-          {availableFeats.length === 0 && (
-            <p className="text-xs text-stone-400 mt-1">
-              No eligible feats found. You can update feats from the character sheet later.
-            </p>
-          )}
-        </div>
+        {/* Search bar */}
+        <input
+          type="text"
+          placeholder="Search feats…"
+          value={featSearch}
+          onChange={(e) => setFeatSearch(e.target.value)}
+          className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm text-stone-800 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 min-h-[44px]"
+        />
 
-        {/* Selected feat description */}
-        {selectedFeat && (
-          <div className="bg-violet-50 border border-violet-200 rounded-lg p-3 space-y-1.5">
-            {/* Prerequisites */}
-            {Object.keys(selectedFeat.prerequisites).length > 0 && (
-              <p className="text-[11px] text-violet-600 font-medium">
-                Req: {[
-                  selectedFeat.prerequisites.race?.join(' or '),
-                  selectedFeat.prerequisites.class?.join(' or '),
-                  selectedFeat.prerequisites.trainedSkill && `Trained in ${selectedFeat.prerequisites.trainedSkill.join(' or ')}`,
-                  selectedFeat.prerequisites.abilities &&
-                    Object.entries(selectedFeat.prerequisites.abilities)
-                      .map(([ab, val]) => `${ab.toUpperCase()} ${val}`)
-                      .join(', '),
-                  selectedFeat.prerequisites.anyMulticlassFeat && 'Any multiclass feat',
-                  selectedFeat.prerequisites.minLevel && `Level ${selectedFeat.prerequisites.minLevel}+`,
-                ].filter(Boolean).join(' · ')}
-              </p>
-            )}
-            {/* Benefit */}
-            <p className="text-sm text-stone-700">{selectedFeat.benefit}</p>
-            {/* Special tag (e.g. "Multiclass: Fighter") */}
-            {selectedFeat.special && (
-              <p className="text-xs text-violet-700 font-semibold">{selectedFeat.special}</p>
+        {availableFeats.length === 0 && (
+          <p className="text-xs text-stone-400">
+            No eligible feats found. You can update feats from the character sheet later.
+          </p>
+        )}
+
+        {/* Scrollable feat list */}
+        {availableFeats.length > 0 && (
+          <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+            {filteredFeats.map((feat) => {
+              const isSelected = feat.id === selectedFeatId;
+              const isExpanded = feat.id === expandedFeatId;
+              const prereqText = formatPrereqs(feat);
+
+              return (
+                <div
+                  key={feat.id}
+                  className={`rounded-lg border transition-all ${
+                    isSelected
+                      ? 'bg-violet-50 border-violet-400 ring-1 ring-violet-300'
+                      : 'bg-stone-50 border-stone-200 hover:border-violet-300'
+                  }`}
+                >
+                  {/* Feat header row: name + badges + info button + select button */}
+                  <div className="flex items-center gap-2 p-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`font-semibold text-sm ${isSelected ? 'text-violet-800' : 'text-stone-800'}`}>
+                          {feat.name}
+                        </span>
+                        {feat.multiclassFor && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">
+                            MC · {getClassById(feat.multiclassFor)?.name ?? feat.multiclassFor}
+                          </span>
+                        )}
+                      </div>
+                      {prereqText && (
+                        <p className="text-[11px] text-stone-400 mt-0.5">Req: {prereqText}</p>
+                      )}
+                    </div>
+                    {/* Info toggle button */}
+                    <button
+                      onClick={() => setExpandedFeatId(isExpanded ? null : feat.id)}
+                      className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-stone-400 hover:bg-stone-200 hover:text-stone-600 transition-colors"
+                      title={isExpanded ? 'Hide details' : 'Show details'}
+                    >
+                      <span className="text-sm font-bold">{isExpanded ? '▲' : 'ℹ'}</span>
+                    </button>
+                    {/* Select / Selected button */}
+                    <button
+                      onClick={() => onSelect(isSelected ? '' : feat.id)}
+                      className={`flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors min-h-[36px] ${
+                        isSelected
+                          ? 'bg-violet-600 text-white'
+                          : 'bg-amber-600 hover:bg-amber-500 text-white'
+                      }`}
+                    >
+                      {isSelected ? '✓ Selected' : 'Select'}
+                    </button>
+                  </div>
+
+                  {/* Expandable detail section */}
+                  {isExpanded && (
+                    <div className="px-3 pb-3 border-t border-stone-200 mt-0 pt-2 space-y-1.5">
+                      <p className="text-xs text-stone-600">{feat.benefit}</p>
+                      {feat.special && (
+                        <p className="text-xs text-amber-700"><strong>Special:</strong> {feat.special}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {filteredFeats.length === 0 && featSearch.trim() && (
+              <p className="text-xs text-stone-400 text-center py-2">No feats match "{featSearch}"</p>
             )}
           </div>
         )}
 
-        {!selectedFeatId && (
+        {!selectedFeatId && availableFeats.length > 0 && (
           <p className="text-xs text-stone-400">
             Skip for now — add a feat from the Feats panel later.
           </p>
