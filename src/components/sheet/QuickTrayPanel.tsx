@@ -15,6 +15,8 @@ import { parseMagicArmorPower } from '../../utils/magicArmorPowers';
 import { parseMagicWeaponPower } from '../../utils/magicWeaponPowers';
 import { MAGIC_IMPLEMENTS } from '../../data/equipment/magicImplements';
 import { parseMagicImplementPower } from '../../utils/magicImplementPowers';
+import { MAGIC_ITEMS } from '../../data/equipment/magicItems';
+import { parseMagicItemPower } from '../../utils/magicItemPowers';
 import { isFullDisciplinePower, extractMovementTechnique } from '../../utils/fullDiscipline';
 
 const PAGE_SIZE = 9;
@@ -68,6 +70,15 @@ export function QuickTrayPanel({ character }: Props) {
             const p = parseMagicImplementPower(mi, tier);
             if (p) map.set(p.id, p);
           }
+        }
+      }
+      // Magic item powers
+      const magicItem = MAGIC_ITEMS.find(m => m.id === item.itemId);
+      if (magicItem?.power) {
+        const tier = magicItem.tiers.find(t => t.level === item.magicItemTier) ?? magicItem.tiers[0];
+        if (tier) {
+          const p = parseMagicItemPower(magicItem, tier);
+          if (p) map.set(p.id, p);
         }
       }
     }

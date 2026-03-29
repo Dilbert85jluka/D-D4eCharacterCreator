@@ -62,7 +62,7 @@ src/
 │   ├── races/                 # 17 race definitions (8 PHB1 + 5 PHB2 + 4 PHB3) + index.ts (getRaceById)
 │   ├── powers/                # 22 class power files (8 PHB1 + 8 PHB2 + 6 PHB3) + featPowers.ts + index.ts (query functions)
 │   ├── feats/                 # index.ts — 465 feats (161 PHB1 + 132 PHB2 + 172 PHB3)
-│   ├── equipment/             # weapons, armor, masterworkArmor, magicArmor, magicWeapons, implements, superiorImplements, magicImplements, magicItems, consumables, gear + index.ts
+│   ├── equipment/             # weapons, armor, masterworkArmor, magicArmor, magicWeapons, implements, superiorImplements, magicImplements, magicItems (788 slot items), consumables, gear + index.ts
 │   ├── magicItems/            # potions, scrolls, rings, rods, staves, wands, miscA/G/O, armor, weapons + index.ts
 │   ├── monsters/              # mm1.ts, mm2.ts, mm3.ts, dmg.ts, dmg2.ts, mv.ts, mvttnv.ts + index.ts
 │   ├── skills.ts
@@ -128,6 +128,7 @@ src/
     ├── magicArmorPowers.ts    # parseMagicArmorPower() — converts magic armor power text to PowerData for display in Powers/Actions tabs
     ├── magicWeaponPowers.ts   # parseMagicWeaponPower() — converts magic weapon power text to PowerData for display in Powers/Actions tabs
     ├── magicImplementPowers.ts # parseMagicImplementPower() — converts magic implement power text to PowerData for display in Powers/Actions tabs
+    ├── magicItemPowers.ts     # parseMagicItemPower() — converts magic item (head/neck/arms/hands/ring/waist/feet/companion/wondrous) power text to PowerData; supports At-Will/Encounter/Daily
     └── fullDiscipline.ts      # isFullDisciplinePower() + extractMovementTechnique() — splits monk Full Discipline powers into Attack + Movement technique PowerData
 ```
 
@@ -158,6 +159,7 @@ interface EquipmentItem {
   magicWeaponTier?: number;  // Selected tier level (determines +N and cost)
   magicImplementId?: string; // Magic implement enchantment ID
   magicImplementTier?: number; // Selected tier level (determines +N and cost)
+  magicItemTier?: number;      // For magic items (head/neck/arms/hands/ring/waist/feet/companion/wondrous): selected tier level
 }
 
 interface Character {
@@ -787,8 +789,10 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Repeatable feats: Feats like Superior Implement Training, Skill Focus, Weapon Focus can be taken multiple times. `isFeatRepeatable(feat)` in `src/data/feats/index.ts` detects via "more than once" in special/benefit text. `selectedFeatIds` supports duplicate entries. FeatsPanel, Step7_Feats, LevelUpModal all updated to allow re-selection of repeatable feats. Removal uses indexOf + splice (one instance at a time).
 - [x] Superior Implement Training feat-implement association: `superiorImplementChoices: Record<number, string>` on Character maps SIT feat instance index to equipment instanceId. Dropdown UI in FeatsPanel for each SIT card. Constraints: one implement per feat, one feat per implement, no duplicate base types across instances.
 - [x] Weapon enhancement prefix: Weapon enhancement type text in expanded inventory view now prefixed with "Enhancement:" (matching "Critical:" pattern).
-- [x] Collapsible sub-groups in equipment picker: All section headers (Base Weapons, Magic Weapons, Basic Implements, Superior Implements, Magic Implements, Base Armor, Magic Armor) are clickable toggle buttons. Collapsed state shows item count; expanded shows full list. State resets when switching tabs.
+- [x] Collapsible sub-groups in equipment picker: All section headers (Base Weapons, Magic Weapons, Basic Implements, Superior Implements, Magic Implements, Base Armor, Magic Armor, and Magic Items by slot — Head/Neck/Arms/Hands/Ring/Waist/Feet/Companion/Wondrous) are clickable toggle buttons. Collapsed state shows item count; expanded shows full list. State resets when switching tabs.
 - [x] Level-up power picker shows all unlocked levels: When gaining a new power slot (encounter/daily/utility), the picker shows powers from all unlocked levels of that type, not just the exact gain level. E.g., at L3 encounter gain, player can choose L1 or L3 encounter powers.
+- [x] Magic items system overhaul: 788 real magic items from PHB/PHB2/PHB3/AV/AV2 across 9 slot categories (Arms 47, Companion 6, Feet 93, Hands 78, Head 112, Neck 114, Ring 103, Waist 64, Wondrous 171). Tiered structure matching magic weapons/armor/implements pattern. New types `MagicItemTier` and `MagicItemSlot` in `gameData.ts`. Data in `src/data/equipment/magicItems.ts`. "Magic" tab renamed to "Items" in EquipmentPanel. Inventory shows rarity badges (Common/Uncommon/Rare), tier selector dropdown for multi-tier items, property text, power preview. Neck slot items (114) auto-apply enhancement bonus to Fort/Ref/Will in `useCharacterDerived.ts`. `parseMagicItemPower()` in `src/utils/magicItemPowers.ts` handles At-Will/Encounter/Daily item powers. Magic item powers appear in PowersPanel (cyan "Item" badge, pin, usage toggle), ActionsByTypePanel (grouped by action type), and QuickTrayPanel (equipment power map fallback). `EquipmentItem` extended with `magicItemTier` field. Click-to-expand inventory: collapsed view shows name+enhancement, equipped/rarity badges, level/cost, truncated property & power; expanded view shows full item info header, enhancement box (emerald, neck only), property box (blue), power box (violet), tier selector dropdown. `expandedMagicItem` state; Equip/Unequip and tier selector use `e.stopPropagation()`. Inventory grouped by slot category (Head, Neck, Arms, Hands, Ring, Waist, Feet, Companion, Wondrous) with collapsible amber-themed headers showing item counts. `collapsedSlotGroups` state + `toggleSlotGroup()`. Slot label removed from individual item rows (redundant with group header). Picker also grouped by slot with collapsible amber-themed headers via `collapsedGroups` (shared picker state, keyed `picker-magic-{slot}`). Generator scripts at `C:\Claude\fetch_items.js` and `C:\Claude\generate_magic_items_ts.js`.
+- [x] Auto-increment version on build: GitHub Actions workflow bumps patch version (npm version patch) on every push to main, commits with `[skip ci]` to prevent infinite loops. Version bump committed by github-actions[bot].
 
 ---
 

@@ -391,32 +391,28 @@ export interface ConsumableData {
   healBonus?: number;
 }
 
-export interface MagicItemBonuses {
-  ac?: number;
-  fortitude?: number;
-  reflex?: number;
-  will?: number;
-  initiative?: number;
-  speed?: number;
-  /** Bonus HP added to each healing surge value */
-  healingSurgeBonus?: number;
-  /** Extra healing surges per day */
-  surgesPerDay?: number;
+export type MagicItemSlot = 'head' | 'neck' | 'arms' | 'hands' | 'ring' | 'waist' | 'feet' | 'companion' | 'wondrous';
+
+export interface MagicItemTier {
+  level: number;
+  enhancement: number;
+  cost: number;
 }
 
 export interface MagicItemData {
   id: string;
   name: string;
-  level: number;
-  slot: 'head' | 'neck' | 'arms' | 'hands' | 'ring' | 'waist' | 'feet' | 'implement' | 'wondrous';
-  /** Enhancement bonus (0 for non-enhancement items) */
-  enhancement: number;
-  properties: string;
+  slot: MagicItemSlot;
+  /** Enhancement target — only neck items: "Fortitude, Reflex, and Will" */
+  enhancementType?: string;
+  /** Passive property text */
+  property?: string;
+  /** Activatable power text */
   power?: string;
-  cost: number;
-  weight: number;
-  /** Passive stat bonuses applied when the item is equipped */
-  bonuses?: MagicItemBonuses;
+  /** Level/enhancement/cost tiers (sorted by level ascending) */
+  tiers: MagicItemTier[];
+  rarity: 'Common' | 'Uncommon' | 'Rare';
+  source: string;
 }
 
 export interface ParagonPathBonuses {

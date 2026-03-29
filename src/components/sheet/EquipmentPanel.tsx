@@ -23,13 +23,13 @@ interface Props {
 type SectionTab = 'weapons' | 'implements' | 'armor' | 'magic' | 'consumables' | 'gear';
 
 const SECTION_LABELS: Record<SectionTab, string> = {
-  weapons: 'Weapons', implements: 'Implements', armor: 'Armor', magic: 'Magic', consumables: 'Consumables', gear: 'Gear',
+  weapons: 'Weapons', implements: 'Implements', armor: 'Armor', magic: 'Items', consumables: 'Consumables', gear: 'Gear',
 };
 
 const SLOT_LABELS: Record<string, string> = {
   head: 'Head', neck: 'Neck', arms: 'Arms', hands: 'Hands',
   ring: 'Ring', waist: 'Waist', feet: 'Feet',
-  implement: 'Implement', wondrous: 'Wondrous',
+  companion: 'Companion', wondrous: 'Wondrous',
 };
 
 /** Stable unique key for an inventory row — uses instanceId if present, falls back to itemId */
@@ -228,10 +228,13 @@ export function EquipmentPanel({ character, derived }: Props) {
     });
   };
 
-  const addMagicItem = (m: MagicItemData) => {
+  const addMagicItem = (m: MagicItemData, tierLevel?: number) => {
+    const tier = m.tiers.find(t => t.level === tierLevel) ?? m.tiers[0];
+    const enhLabel = tier && tier.enhancement > 0 ? ` +${tier.enhancement}` : '';
     const newItem: EquipmentItem = {
       instanceId: crypto.randomUUID(),
-      itemId: m.id, name: m.name, quantity: 1, equipped: false, slot: m.slot,
+      itemId: m.id, name: `${m.name}${enhLabel}`, quantity: 1, equipped: false, slot: m.slot,
+      magicItemTier: tier?.level,
     };
     patch({ equipment: [...character.equipment, newItem] });
   };
@@ -281,6 +284,17 @@ export function EquipmentPanel({ character, derived }: Props) {
   const [expandedArmor, setExpandedArmor] = useState<string | null>(null);
   // Picker: when user clicks Add on a magic armor tier, show base armor type selector
   const [pendingMagicArmor, setPendingMagicArmor] = useState<{ maId: string; tierLevel: number } | null>(null);
+
+  // ── Magic Items (head/neck/arms/etc.) ───────────────────────────────────────
+  const [expandedMagicItem, setExpandedMagicItem] = useState<string | null>(null);
+  const [collapsedSlotGroups, setCollapsedSlotGroups] = useState<Set<string>>(new Set());
+  const toggleSlotGroup = (slot: string) => {
+    setCollapsedSlotGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(slot)) next.delete(slot); else next.add(slot);
+      return next;
+    });
+  };
 
   // ── Magic Weapons ──────────────────────────────────────────────────────────
   const [expandedWeapon, setExpandedWeapon] = useState<string | null>(null);
@@ -413,19 +427,14 @@ export function EquipmentPanel({ character, derived }: Props) {
     return { allowed: true };
   };
 
-  // ── Magic item bonus summary string ──────────────────────────────────────
-  const magicBonusSummary = (m: MagicItemData): string | null => {
-    if (!m.bonuses) return null;
-    const parts: string[] = [];
-    if (m.bonuses.ac)                parts.push(`+${m.bonuses.ac} AC`);
-    if (m.bonuses.fortitude)         parts.push(`+${m.bonuses.fortitude} Fort`);
-    if (m.bonuses.reflex)            parts.push(`+${m.bonuses.reflex} Ref`);
-    if (m.bonuses.will)              parts.push(`+${m.bonuses.will} Will`);
-    if (m.bonuses.initiative)        parts.push(`+${m.bonuses.initiative} Init`);
-    if (m.bonuses.speed)             parts.push(`+${m.bonuses.speed} Spd`);
-    if (m.bonuses.healingSurgeBonus) parts.push(`+${m.bonuses.healingSurgeBonus} Surge HP`);
-    if (m.bonuses.surgesPerDay)      parts.push(`+${m.bonuses.surgesPerDay} Surges/day`);
-    return parts.length > 0 ? parts.join(', ') : null;
+  // ── Magic item summary string ────────────────────────────────────────────
+  const magicItemSummary = (m: MagicItemData, tierLevel?: number): string | null => {
+    const tier = m.tiers.find(t => t.level === tierLevel) ?? m.tiers[0];
+    if (!tier) return null;
+    if (m.slot === 'neck' && tier.enhancement > 0) {
+      return `+${tier.enhancement} Fort/Ref/Will`;
+    }
+    return m.property ? (m.property.length > 60 ? m.property.substring(0, 60) + '...' : m.property) : null;
   };
 
   // ── Categorise current inventory ─────────────────────────────────────────
@@ -489,7 +498,7 @@ export function EquipmentPanel({ character, derived }: Props) {
   const filteredMagicImplementTiers = magicImplementTierEntries.filter(({ mi }) =>
     !q || mi.name.toLowerCase().includes(q) || mi.rarity.toLowerCase().includes(q) || mi.type.toLowerCase().includes(q) || (mi.property ?? '').toLowerCase().includes(q) || (mi.critical ?? '').toLowerCase().includes(q)
   );
-  const filteredMagic       = MAGIC_ITEMS.filter((m) => !q || m.name.toLowerCase().includes(q) || m.slot.toLowerCase().includes(q) || m.properties.toLowerCase().includes(q));
+  const filteredMagic       = MAGIC_ITEMS.filter((m) => !q || m.name.toLowerCase().includes(q) || m.slot.toLowerCase().includes(q) || (m.property ?? '').toLowerCase().includes(q) || (m.power ?? '').toLowerCase().includes(q));
   const filteredConsumables = CONSUMABLES.filter((c) => !q || c.name.toLowerCase().includes(q) || c.category.toLowerCase().includes(q) || c.effect.toLowerCase().includes(q));
   const filteredGear        = GEAR.filter((g) => !q || g.name.toLowerCase().includes(q) || g.description.toLowerCase().includes(q) || (g.category && g.category.toLowerCase().includes(q)));
 
@@ -1074,48 +1083,142 @@ export function EquipmentPanel({ character, derived }: Props) {
               </div>
         )}
 
-        {/* Magic Items */}
+        {/* Magic Items — grouped by slot */}
         {activeSection === 'magic' && (
           magicItems.length === 0
             ? <EmptySection tab="magic" />
-            : <div className="divide-y divide-stone-100">
-                {magicItems.map((item) => {
-                  const m = MAGIC_ITEMS.find((mi) => mi.id === item.itemId);
-                  if (!m) return null;
-                  const bonusSummary = magicBonusSummary(m);
-                  const key = itemKey(item);
+            : <div>
+                {(['head', 'neck', 'arms', 'hands', 'ring', 'waist', 'feet', 'companion', 'wondrous'] as const).map((slot) => {
+                  const slotItems = magicItems.filter((item) => {
+                    const m = MAGIC_ITEMS.find((mi) => mi.id === item.itemId);
+                    return m && m.slot === slot;
+                  });
+                  if (slotItems.length === 0) return null;
+                  const isSlotCollapsed = collapsedSlotGroups.has(slot);
                   return (
-                    <div key={key} className={`px-4 py-3 flex items-center gap-2 ${item.equipped ? 'bg-white' : 'bg-stone-50'}`}>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`font-semibold text-sm ${item.equipped ? 'text-stone-800' : 'text-stone-500'}`}>{m.name}</span>
-                          {item.equipped && <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-semibold">Equipped</span>}
+                    <div key={slot}>
+                      <button
+                        onClick={() => toggleSlotGroup(slot)}
+                        className="w-full px-4 py-2 bg-amber-50 border-y border-amber-200 flex items-center justify-between"
+                      >
+                        <span className="text-xs font-bold text-amber-800">{SLOT_LABELS[slot] ?? slot} Slot</span>
+                        <span className="text-amber-500 text-xs">{isSlotCollapsed ? `▸ ${slotItems.length} items` : `▾ ${slotItems.length}`}</span>
+                      </button>
+                      {!isSlotCollapsed && (
+                        <div className="divide-y divide-stone-100">
+                          {slotItems.map((item) => {
+                            const m = MAGIC_ITEMS.find((mi) => mi.id === item.itemId);
+                            if (!m) return null;
+                            const tier = m.tiers.find(t => t.level === item.magicItemTier) ?? m.tiers[0];
+                            const bonusSummary = magicItemSummary(m, item.magicItemTier);
+                            const key = itemKey(item);
+                            const enhLabel = tier && tier.enhancement > 0 ? ` +${tier.enhancement}` : '';
+                            const isExpanded = expandedMagicItem === key;
+                            return (
+                              <div key={key} className={`px-4 py-3 ${item.equipped ? 'bg-white' : 'bg-stone-50'}`}>
+                                <div
+                                  className="flex items-center gap-2 cursor-pointer"
+                                  onClick={() => setExpandedMagicItem(isExpanded ? null : key)}
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className={`font-semibold text-sm ${item.equipped ? 'text-stone-800' : 'text-stone-500'}`}>{m.name}{enhLabel}</span>
+                                      {item.equipped && <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-semibold">Equipped</span>}
+                                      <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${m.rarity === 'Rare' ? 'bg-amber-100 text-amber-700' : m.rarity === 'Uncommon' ? 'bg-sky-100 text-sky-700' : 'bg-stone-100 text-stone-600'}`}>{m.rarity}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                      <span className="text-xs text-stone-400">Lv {tier?.level ?? '?'} · {tier ? tier.cost.toLocaleString() : '?'} gp</span>
+                                      {item.equipped && bonusSummary && (
+                                        <span className="text-xs text-emerald-600 font-medium">{bonusSummary}</span>
+                                      )}
+                                    </div>
+                                    {!isExpanded && m.property && (
+                                      <p className="text-xs text-stone-500 mt-0.5 line-clamp-1">{m.property}</p>
+                                    )}
+                                    {!isExpanded && m.power && (
+                                      <p className="text-xs text-violet-600 mt-0.5 line-clamp-1">⚡ {m.power}</p>
+                                    )}
+                                  </div>
+                                  {pendingRemove !== key && (() => {
+                                    const check = canEquip(key);
+                                    const blocked = !item.equipped && !check.allowed;
+                                    return (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); if (!blocked) toggleEquip(key); }}
+                                        disabled={blocked}
+                                        className={blocked ? blockedBtnCls : equipBtnCls(item.equipped)}
+                                        title={blocked ? check.reason : undefined}
+                                      >
+                                        {item.equipped ? 'Unequip' : 'Equip'}
+                                      </button>
+                                    );
+                                  })()}
+                                  <RemoveConfirm itemK={key} name={m.name} />
+                                </div>
+
+                                {/* Expanded detail */}
+                                {isExpanded && (
+                                  <div className="mt-3 pt-3 border-t border-stone-200 space-y-3">
+                                    <div className="text-xs text-stone-500 space-y-0.5">
+                                      <p><span className="font-semibold text-stone-600">{m.name}{enhLabel}</span> — {SLOT_LABELS[m.slot] ?? m.slot} Slot</p>
+                                      <p>Level {tier?.level ?? '?'} · {m.rarity} · {tier ? tier.cost.toLocaleString() : '?'} gp · {m.source}</p>
+                                    </div>
+
+                                    {m.enhancementType && tier && tier.enhancement > 0 && (
+                                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                                        <p className="text-xs font-semibold text-emerald-700">Enhancement +{tier.enhancement}</p>
+                                        <p className="text-xs text-emerald-600 mt-0.5">{m.enhancementType}</p>
+                                      </div>
+                                    )}
+
+                                    {m.property && (
+                                      <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                                        <p className="text-xs font-semibold text-blue-700">Property</p>
+                                        <p className="text-xs text-blue-600 mt-0.5">{m.property}</p>
+                                      </div>
+                                    )}
+
+                                    {m.power && (
+                                      <div className="bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
+                                        <p className="text-xs font-semibold text-violet-700">Power</p>
+                                        <p className="text-xs text-violet-600 mt-0.5">{m.power}</p>
+                                      </div>
+                                    )}
+
+                                    {m.tiers.length > 1 && (
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-semibold text-stone-600">Tier:</span>
+                                        <select
+                                          className="text-xs border border-stone-300 rounded px-2 py-1"
+                                          value={item.magicItemTier ?? m.tiers[0].level}
+                                          onClick={(e) => e.stopPropagation()}
+                                          onChange={(e) => {
+                                            const newTier = Number(e.target.value);
+                                            patch({
+                                              equipment: character.equipment.map((eq) =>
+                                                itemKey(eq) === key ? { ...eq, magicItemTier: newTier } : eq,
+                                              ),
+                                            });
+                                          }}
+                                        >
+                                          {m.tiers.map((t) => {
+                                            const available = t.level <= character.level;
+                                            return (
+                                              <option key={t.level} value={t.level} disabled={!available}>
+                                                Lvl {t.level}{t.enhancement > 0 ? ` — +${t.enhancement}` : ''} ({t.cost.toLocaleString()} gp){!available ? ' — not yet available' : ''}
+                                              </option>
+                                            );
+                                          })}
+                                        </select>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          <span className="text-xs text-stone-400">{SLOT_LABELS[m.slot] ?? m.slot} · Lv {m.level}</span>
-                          {item.equipped && bonusSummary && (
-                            <span className="text-xs text-emerald-600 font-medium">{bonusSummary}</span>
-                          )}
-                        </div>
-                        {m.power && item.equipped && (
-                          <p className="text-xs text-violet-600 mt-0.5 line-clamp-1">⚡ {m.power.split('–')[0].trim()}</p>
-                        )}
-                      </div>
-                      {pendingRemove !== key && (() => {
-                        const check = canEquip(key);
-                        const blocked = !item.equipped && !check.allowed;
-                        return (
-                          <button
-                            onClick={() => !blocked && toggleEquip(key)}
-                            disabled={blocked}
-                            className={blocked ? blockedBtnCls : equipBtnCls(item.equipped)}
-                            title={blocked ? check.reason : undefined}
-                          >
-                            {item.equipped ? 'Unequip' : 'Equip'}
-                          </button>
-                        );
-                      })()}
-                      <RemoveConfirm itemK={key} name={m.name} />
+                      )}
                     </div>
                   );
                 })}
@@ -1593,29 +1696,49 @@ export function EquipmentPanel({ character, derived }: Props) {
                 </>
               )}
 
-              {/* Magic Items */}
+              {/* Magic Items — grouped by slot */}
               {pickerTab === 'magic' && (
                 filteredMagic.length === 0
                   ? <p className="text-stone-400 text-sm text-center py-8">No magic items found.</p>
-                  : filteredMagic.map((m) => {
-                    const n = ownedCount(m.id);
-                    const bonusSummary = magicBonusSummary(m);
+                  : (['head', 'neck', 'arms', 'hands', 'ring', 'waist', 'feet', 'companion', 'wondrous'] as const).map((slot) => {
+                    const slotItems = filteredMagic.filter((m) => m.slot === slot);
+                    if (slotItems.length === 0) return null;
+                    const groupKey = `picker-magic-${slot}`;
                     return (
-                      <div key={m.id} className="flex items-center gap-3 p-3 bg-stone-50 rounded-lg border border-stone-200">
-                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => togglePickerExpand(`mag-${m.id}`)}>
-                          <p className="text-sm font-semibold text-stone-800">
-                            {m.name}
-                            {n > 0 && <span className="text-xs text-stone-400 font-normal ml-1.5">×{n} owned</span>}
-                          </p>
-                          <p className="text-xs text-stone-500 mt-0.5">
-                            {SLOT_LABELS[m.slot] ?? m.slot} · Lv {m.level} · {m.cost} gp
-                          </p>
-                          {bonusSummary && <p className="text-xs text-emerald-600 mt-0.5">{bonusSummary}</p>}
-                          <p className={`text-xs text-stone-400 mt-0.5 ${clamp(`mag-${m.id}`, 2)}`}>{m.properties}</p>
-                        </div>
-                        <button onClick={() => addMagicItem(m)} className={addPickerBtnCls}>
-                          {n > 0 ? `+${n + 1}` : 'Add'}
+                      <div key={slot}>
+                        <button onClick={() => toggleGroup(groupKey)} className="w-full px-3 py-2 bg-amber-50 border-y border-amber-200 flex items-center justify-between">
+                          <span className="text-xs font-bold text-amber-800">{SLOT_LABELS[slot] ?? slot} Slot</span>
+                          <span className="text-amber-500 text-xs">{collapsedGroups.has(groupKey) ? `▸ ${slotItems.length} items` : `▾ ${slotItems.length}`}</span>
                         </button>
+                        {!collapsedGroups.has(groupKey) && slotItems.map((m) => {
+                          const n = ownedCount(m.id);
+                          const lowestTier = m.tiers[0];
+                          const enhLabel = lowestTier && lowestTier.enhancement > 0 ? ` +${lowestTier.enhancement}` : '';
+                          const summary = magicItemSummary(m, lowestTier?.level);
+                          return (
+                            <div key={m.id} className="flex items-center gap-3 p-3 bg-stone-50 rounded-lg border border-stone-200">
+                              <div className="flex-1 min-w-0 cursor-pointer" onClick={() => togglePickerExpand(`mag-${m.id}`)}>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-semibold text-stone-800">
+                                    {m.name}{enhLabel}
+                                    {n > 0 && <span className="text-xs text-stone-400 font-normal ml-1.5">×{n} owned</span>}
+                                  </p>
+                                  <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${m.rarity === 'Rare' ? 'bg-amber-100 text-amber-700' : m.rarity === 'Uncommon' ? 'bg-sky-100 text-sky-700' : 'bg-stone-100 text-stone-600'}`}>{m.rarity}</span>
+                                </div>
+                                <p className="text-xs text-stone-500 mt-0.5">
+                                  Lv {lowestTier?.level ?? '?'} · {lowestTier ? lowestTier.cost.toLocaleString() : '?'} gp
+                                  {m.tiers.length > 1 && ` — ${m.tiers.length} tiers`}
+                                </p>
+                                {summary && <p className="text-xs text-emerald-600 mt-0.5">{summary}</p>}
+                                {m.property && <p className={`text-xs text-stone-400 mt-0.5 ${clamp(`mag-${m.id}`, 2)}`}>{m.property}</p>}
+                                {m.power && <p className={`text-xs text-violet-500 mt-0.5 ${clamp(`mag-${m.id}-pw`, 1)}`}>⚡ {m.power}</p>}
+                              </div>
+                              <button onClick={() => addMagicItem(m, lowestTier?.level)} className={addPickerBtnCls}>
+                                {n > 0 ? `+${n + 1}` : 'Add'}
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   })

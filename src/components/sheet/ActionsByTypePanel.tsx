@@ -12,6 +12,8 @@ import { parseMagicArmorPower } from '../../utils/magicArmorPowers';
 import { parseMagicWeaponPower } from '../../utils/magicWeaponPowers';
 import { MAGIC_IMPLEMENTS } from '../../data/equipment/magicImplements';
 import { parseMagicImplementPower } from '../../utils/magicImplementPowers';
+import { MAGIC_ITEMS } from '../../data/equipment/magicItems';
+import { parseMagicItemPower } from '../../utils/magicItemPowers';
 import { isFullDisciplinePower, extractMovementTechnique } from '../../utils/fullDiscipline';
 import { PowerCard } from '../wizard/shared/PowerCard';
 import { characterRepository } from '../../db/characterRepository';
@@ -122,6 +124,17 @@ function collectAllPowers(character: Character): PowerData[] {
     const tier = mi.tiers.find(t => t.level === item.magicImplementTier);
     if (!tier) continue;
     const p = parseMagicImplementPower(mi, tier);
+    if (p) add(p);
+  }
+
+  // 8. Magic item powers (from equipped items with power text)
+  for (const item of character.equipment) {
+    if (!item.equipped) continue;
+    const mi = MAGIC_ITEMS.find(m => m.id === item.itemId);
+    if (!mi?.power) continue;
+    const tier = mi.tiers.find(t => t.level === item.magicItemTier) ?? mi.tiers[0];
+    if (!tier) continue;
+    const p = parseMagicItemPower(mi, tier);
     if (p) add(p);
   }
 

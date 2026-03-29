@@ -19,6 +19,8 @@ import { parseMagicArmorPower } from '../../utils/magicArmorPowers';
 import { parseMagicWeaponPower } from '../../utils/magicWeaponPowers';
 import { MAGIC_IMPLEMENTS } from '../../data/equipment/magicImplements';
 import { parseMagicImplementPower } from '../../utils/magicImplementPowers';
+import { MAGIC_ITEMS } from '../../data/equipment/magicItems';
+import { parseMagicItemPower } from '../../utils/magicItemPowers';
 import { isFullDisciplinePower, extractMovementTechnique } from '../../utils/fullDiscipline';
 
 interface Props {
@@ -223,6 +225,18 @@ export function PowersPanel({ character }: Props) {
     if (!tier) continue;
     const p = parseMagicImplementPower(mi, tier);
     if (p) magicImplementPowers.push(p);
+  }
+
+  // ── Magic item powers (from equipped items with power text) ───────────────
+  const magicItemPowers: PowerData[] = [];
+  for (const item of character.equipment) {
+    if (!item.equipped) continue;
+    const mi = MAGIC_ITEMS.find(m => m.id === item.itemId);
+    if (!mi?.power) continue;
+    const tier = mi.tiers.find(t => t.level === item.magicItemTier) ?? mi.tiers[0];
+    if (!tier) continue;
+    const p = parseMagicItemPower(mi, tier);
+    if (p) magicItemPowers.push(p);
   }
 
   // ── Power categorisation ──────────────────────────────────────────────────
@@ -772,6 +786,23 @@ export function PowersPanel({ character }: Props) {
                   <PowerCard power={power} abilityModifiers={abilityMods} />
                 </div>
               ))}
+
+              {/* Magic item at-will powers */}
+              {magicItemPowers.filter((p) => p.usage === 'at-will').map((power) => (
+                <div key={power.id}>
+                  <div className="flex items-center justify-between mb-0.5 px-1">
+                    <span className="text-[10px] font-bold bg-cyan-700 text-white px-1.5 py-0.5 rounded">Item</span>
+                    <div className="flex items-center gap-1">
+                      {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      ) : (
+                        <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      )}
+                    </div>
+                  </div>
+                  <PowerCard power={power} abilityModifiers={abilityMods} />
+                </div>
+              ))}
             </>
           )}
 
@@ -973,6 +1004,26 @@ export function PowersPanel({ character }: Props) {
             );
           })}
 
+          {/* Magic item encounter powers — auto-granted while equipped */}
+          {tab === 'encounter' && magicItemPowers.filter((p) => p.usage === 'encounter').map((power) => {
+            const isUsed = character.usedEncounterPowers.includes(power.id);
+            return (
+              <div key={power.id}>
+                <div className="flex items-center justify-between mb-0.5 px-1">
+                  <span className="text-[10px] font-bold bg-cyan-700 text-white px-1.5 py-0.5 rounded">Item</span>
+                  <div className="flex items-center gap-1">
+                    {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                    ) : (
+                      <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                    )}
+                  </div>
+                </div>
+                <PowerCard power={power} used={isUsed} onToggleUsed={() => toggleUsed(power.id, power.usage)} abilityModifiers={abilityMods} />
+              </div>
+            );
+          })}
+
           {/* MC daily slot */}
           {tab === 'daily' && mcDailySlots.map((mcSlot) => {
             const filled = mcDailyPowers[0];
@@ -1045,6 +1096,26 @@ export function PowersPanel({ character }: Props) {
               <div key={power.id}>
                 <div className="flex items-center justify-between mb-0.5 px-1">
                   <span className="text-[10px] font-bold bg-indigo-700 text-white px-1.5 py-0.5 rounded">Implement</span>
+                  <div className="flex items-center gap-1">
+                    {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                    ) : (
+                      <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                    )}
+                  </div>
+                </div>
+                <PowerCard power={power} used={isUsed} onToggleUsed={() => toggleUsed(power.id, power.usage)} abilityModifiers={abilityMods} />
+              </div>
+            );
+          })}
+
+          {/* Magic item daily powers — auto-granted while equipped */}
+          {tab === 'daily' && magicItemPowers.filter((p) => p.usage === 'daily').map((power) => {
+            const isUsed = character.usedDailyPowers.includes(power.id);
+            return (
+              <div key={power.id}>
+                <div className="flex items-center justify-between mb-0.5 px-1">
+                  <span className="text-[10px] font-bold bg-cyan-700 text-white px-1.5 py-0.5 rounded">Item</span>
                   <div className="flex items-center gap-1">
                     {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
                       <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>

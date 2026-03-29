@@ -112,6 +112,8 @@ export interface EquipmentItem {
   magicImplementId?: string;
   /** For implements: selected tier level of the magic implement */
   magicImplementTier?: number;
+  /** For magic items (head/neck/arms/hands/ring/waist/feet/companion/wondrous): selected tier level */
+  magicItemTier?: number;
 }
 
 export interface Character {

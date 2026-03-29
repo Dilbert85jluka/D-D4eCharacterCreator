@@ -20,6 +20,7 @@
       "Bash(node -e *)",
       "Bash(cd *)",
 	  "Bash(ls -lh *)",
+	  "Bash(curl -s *)",
       "Edit",
       "Write"
     ],

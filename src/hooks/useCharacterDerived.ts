@@ -286,23 +286,26 @@ export function useCharacterDerived(character: Character): DerivedStats {
     // Racial Will bonus (Eladrin +1, Goliath +1 Mountain's Tenacity)
     const racialWillBonus = (character.raceId === 'eladrin' ? 1 : 0) + (race?.willBonus ?? 0);
 
-    // Sum passive bonuses from all equipped magic items
+    // Sum passive bonuses from all equipped magic items (tiered structure)
     const magicBonuses = character.equipment
       .filter((e) => e.equipped)
       .reduce(
         (acc, e) => {
           const item = MAGIC_ITEMS.find((m) => m.id === e.itemId);
-          if (!item?.bonuses) return acc;
-          return {
-            ac:                acc.ac                + (item.bonuses.ac                ?? 0),
-            fortitude:         acc.fortitude         + (item.bonuses.fortitude         ?? 0),
-            reflex:            acc.reflex            + (item.bonuses.reflex            ?? 0),
-            will:              acc.will              + (item.bonuses.will              ?? 0),
-            initiative:        acc.initiative        + (item.bonuses.initiative        ?? 0),
-            speed:             acc.speed             + (item.bonuses.speed             ?? 0),
-            healingSurgeBonus: acc.healingSurgeBonus + (item.bonuses.healingSurgeBonus ?? 0),
-            surgesPerDay:      acc.surgesPerDay      + (item.bonuses.surgesPerDay      ?? 0),
-          };
+          if (!item) return acc;
+          const tier = item.tiers.find(t => t.level === e.magicItemTier) ?? item.tiers[0];
+          if (!tier) return acc;
+
+          // Neck slot items: enhancement bonus applies to Fort/Ref/Will
+          if (item.slot === 'neck' && item.enhancementType && tier.enhancement > 0) {
+            return {
+              ...acc,
+              fortitude: acc.fortitude + tier.enhancement,
+              reflex:    acc.reflex    + tier.enhancement,
+              will:      acc.will      + tier.enhancement,
+            };
+          }
+          return acc;
         },
         { ac: 0, fortitude: 0, reflex: 0, will: 0, initiative: 0, speed: 0, healingSurgeBonus: 0, surgesPerDay: 0 },
       );
@@ -386,7 +389,7 @@ export function useCharacterDerived(character: Character): DerivedStats {
         ...rowIf(shieldEnhancementBonus > 0, `Enhancement (${magicShieldEnchant?.name ?? 'Shield'})`, shieldEnhancementBonus),
         ...rowIf(classAcBonus > 0, classAcLabel, classAcBonus),
         { label: '½ Level',                value: halfLevel   },
-        ...rowIf(magicBonuses.ac > 0, 'Magic items', magicBonuses.ac),
+        ...rowIf(magicBonuses.ac > 0, 'Neck (enhancement)', magicBonuses.ac),
         ...rowIf((pb.ac ?? 0) > 0, paragonLabel, pb.ac!),
         ...rowIf(featBonuses.ac > 0, 'Feats', featBonuses.ac),
         ...rowIf(magicArmorDefBonuses.ac > 0, `Armor property (${magicArmorDefSources.join(', ')})`, magicArmorDefBonuses.ac),
@@ -398,7 +401,7 @@ export function useCharacterDerived(character: Character): DerivedStats {
         ...rowIf((cls?.fortitudeBonus ?? 0) > 0, `Class (${cls?.name ?? ''})`, cls?.fortitudeBonus ?? 0),
         ...rowIf(classFortBonus > 0, classFortLabel, classFortBonus),
         ...rowIf(humanDefBonus > 0, 'Racial (Human)', humanDefBonus),
-        ...rowIf(magicBonuses.fortitude > 0, 'Magic items', magicBonuses.fortitude),
+        ...rowIf(magicBonuses.fortitude > 0, 'Neck (enhancement)', magicBonuses.fortitude),
         ...rowIf((pb.fortitude ?? 0) > 0, paragonLabel, pb.fortitude!),
         ...rowIf(featBonuses.fortitude > 0, 'Feats', featBonuses.fortitude),
         ...rowIf(magicArmorDefBonuses.fortitude > 0, `Armor property (${magicArmorDefSources.join(', ')})`, magicArmorDefBonuses.fortitude),
@@ -411,7 +414,7 @@ export function useCharacterDerived(character: Character): DerivedStats {
         ...rowIf(classReflexBonus > 0, classReflexLabel, classReflexBonus),
         ...rowIf(shieldAcBonus > 0, `Shield (${shieldName})`, shieldAcBonus),
         ...rowIf(humanDefBonus > 0, 'Racial (Human)', humanDefBonus),
-        ...rowIf(magicBonuses.reflex > 0, 'Magic items', magicBonuses.reflex),
+        ...rowIf(magicBonuses.reflex > 0, 'Neck (enhancement)', magicBonuses.reflex),
         ...rowIf((pb.reflex ?? 0) > 0, paragonLabel, pb.reflex!),
         ...rowIf(featBonuses.reflex > 0, 'Feats', featBonuses.reflex),
         ...rowIf(magicArmorDefBonuses.reflex > 0, `Armor property (${magicArmorDefSources.join(', ')})`, magicArmorDefBonuses.reflex),
@@ -423,7 +426,7 @@ export function useCharacterDerived(character: Character): DerivedStats {
         ...rowIf((cls?.willBonus ?? 0) > 0, `Class (${cls?.name ?? ''})`, cls?.willBonus ?? 0),
         ...rowIf(classWillBonus > 0, classWillLabel, classWillBonus),
         ...rowIf(totalRacialWillBonus > 0, racialWillLabel, totalRacialWillBonus),
-        ...rowIf(magicBonuses.will > 0, 'Magic items', magicBonuses.will),
+        ...rowIf(magicBonuses.will > 0, 'Neck (enhancement)', magicBonuses.will),
         ...rowIf((pb.will ?? 0) > 0, paragonLabel, pb.will!),
         ...rowIf(featBonuses.will > 0, 'Feats', featBonuses.will),
         ...rowIf(magicArmorDefBonuses.will > 0, `Armor property (${magicArmorDefSources.join(', ')})`, magicArmorDefBonuses.will),
