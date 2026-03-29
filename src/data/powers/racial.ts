@@ -1,11 +1,91 @@
 import type { PowerData } from '../../types/gameData';
 
 /**
- * PHB2 racial encounter powers.
+ * Racial encounter powers for all PHB1 / PHB2 / PHB3 races.
  * These use classId: 'racial' to distinguish from class powers.
  * Level 0 = auto-granted racial feature (not a player choice).
  */
 export const RACIAL_POWERS: PowerData[] = [
+  // ────────────────────────────────────────────────────────────────────────────
+  // PHB1 RACIAL POWERS
+  // ────────────────────────────────────────────────────────────────────────────
+
+  // ── Dragonborn ──────────────────────────────────────────────────────────────
+  {
+    id: 'dragon-breath',
+    name: 'Dragon Breath',
+    classId: 'racial',
+    level: 0,
+    usage: 'encounter',
+    actionType: 'minor',
+    keywords: ['Varies'],
+    target: 'Each creature in blast',
+    attack: 'Strength, Constitution, or Dexterity vs. Reflex. You gain a +2 bonus to the attack roll. Level 11: +4. Level 21: +6.',
+    hit: '1d6 + Constitution modifier damage. Level 11: 2d6 + Constitution modifier damage. Level 21: 3d6 + Constitution modifier damage.',
+    special: 'When you create your character, choose Strength, Constitution, or Dexterity as the ability score you use when making attack rolls with this power. You also choose the power\'s damage type: acid, cold, fire, lightning, or poison. Close blast 3.',
+    flavor: 'As you open your mouth with a roar, the deadly power of your draconic kin blasts forth to engulf your foes.',
+  },
+
+  // ── Eladrin ─────────────────────────────────────────────────────────────────
+  {
+    id: 'fey-step',
+    name: 'Fey Step',
+    classId: 'racial',
+    level: 0,
+    usage: 'encounter',
+    actionType: 'move',
+    keywords: ['Teleportation'],
+    effect: 'Teleport up to 5 squares.',
+    flavor: 'You step through the boundary between the planes, crossing the distance in a single stride.',
+  },
+
+  // ── Elf ─────────────────────────────────────────────────────────────────────
+  {
+    id: 'elven-accuracy',
+    name: 'Elven Accuracy',
+    classId: 'racial',
+    level: 0,
+    usage: 'encounter',
+    actionType: 'free',
+    keywords: [],
+    trigger: 'You make an attack roll and dislike the result.',
+    effect: 'Reroll the attack roll. Use the second roll, even if it\'s lower.',
+    flavor: 'With an elf\'s supernatural accuracy, you take careful aim and strike again.',
+  },
+
+  // ── Halfling ────────────────────────────────────────────────────────────────
+  {
+    id: 'second-chance',
+    name: 'Second Chance',
+    classId: 'racial',
+    level: 0,
+    usage: 'encounter',
+    actionType: 'immediate-interrupt',
+    keywords: [],
+    trigger: 'You are hit by an attack.',
+    effect: 'The attacker must reroll the attack and use the second roll, even if it is lower.',
+    flavor: 'Luck and small size combine to work in your favor as you dodge your enemy\'s attack.',
+  },
+
+  // ── Tiefling ────────────────────────────────────────────────────────────────
+  {
+    id: 'infernal-wrath',
+    name: 'Infernal Wrath',
+    classId: 'racial',
+    level: 0,
+    usage: 'encounter',
+    actionType: 'free',
+    keywords: ['Fire'],
+    trigger: 'An enemy within 10 squares of you hits you.',
+    target: 'The triggering enemy in close burst 10',
+    effect: 'The target takes 1d6 + Intelligence modifier or Charisma modifier fire damage. Level 11: 2d6 + modifier. Level 21: 3d6 + modifier.',
+    flavor: 'You invoke the wrath of your infernal bloodline, causing a foe to burst into flame.',
+  },
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // PHB2 RACIAL POWERS
+  // ────────────────────────────────────────────────────────────────────────────
+
   // ── Deva ──────────────────────────────────────────────────────────────────
   {
     id: 'racial-memory-of-a-thousand-lifetimes',

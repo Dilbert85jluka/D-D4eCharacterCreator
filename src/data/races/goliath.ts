@@ -19,14 +19,17 @@ export const goliath: RaceData = {
     {
       name: "Mountain's Tenacity",
       description: 'You have a +1 racial bonus to Will.',
+      source: 'PHB2',
     },
     {
       name: 'Powerful Athlete',
       description: 'When you make an Athletics check to jump or climb, roll twice and use either result.',
+      source: 'PHB2',
     },
     {
       name: "Stone's Endurance",
       description: "You have the stone's endurance power.",
+      source: 'PHB2',
     },
   ],
   racialPowerIds: ['racial-stones-endurance'],

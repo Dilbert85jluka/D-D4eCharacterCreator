@@ -17,14 +17,19 @@ export const halfOrc: RaceData = {
     {
       name: 'Furious Assault',
       description: 'You have the furious assault power.',
+      source: 'PHB2',
     },
     {
       name: 'Half-Orc Resilience',
       description: 'The first time you are bloodied during an encounter, you gain 5 temporary hit points. The temporary hit points increase to 10 at 11th level and to 15 at 21st level.',
+      source: 'PHB2',
+      conditional: true,
     },
     {
       name: 'Swift Charge',
       description: 'You gain a +2 bonus to speed when charging.',
+      source: 'PHB2',
+      conditional: true,
     },
   ],
   racialPowerIds: ['racial-furious-assault'],

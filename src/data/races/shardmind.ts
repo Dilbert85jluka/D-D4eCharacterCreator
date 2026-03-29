@@ -19,18 +19,27 @@ export const shardmind: RaceData = {
     {
       name: 'Crystalline Mind',
       description: 'You have resist 5 psychic. The resistance increases to 10 at 11th level and 15 at 21st level.',
+      source: 'PHB3',
     },
     {
       name: 'Immortal Origin',
       description: 'You are considered an immortal creature for the purpose of effects that relate to creature origin.',
+      source: 'PHB3',
     },
     {
       name: 'Living Construct',
       description: 'You do not need to eat, drink, breathe, or sleep. You never make Endurance checks to resist the effect of starvation, thirst, or suffocation. You still need to take extended rests to gain their benefits.',
+      source: 'PHB3',
+    },
+    {
+      name: 'Shard Swarm',
+      description: 'You have the shard swarm power.',
+      source: 'PHB3',
     },
     {
       name: 'Telepathy',
       description: 'You can communicate telepathically with any creature within 5 squares of you that has a language.',
+      source: 'PHB3',
     },
   ],
   racialPowerIds: ['racial-shard-swarm'],

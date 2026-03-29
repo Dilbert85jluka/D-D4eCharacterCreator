@@ -21,6 +21,7 @@ import { DisciplinePowersPanel, DISCIPLINE_CLASSES } from './DisciplinePowersPan
 import { ArcaneImplementMasteryPanel } from './ArcaneImplementMasteryPanel';
 import { EldritchPactPanel } from './EldritchPactPanel';
 import { ClassFeaturesPanel } from './ClassFeaturesPanel';
+import { RacialFeaturesPanel } from './RacialFeaturesPanel';
 import { AvailableActionsPanel } from './AvailableActionsPanel';
 import { ActionsByTypePanel } from './ActionsByTypePanel';
 import { QuickTrayPanel } from './QuickTrayPanel';
@@ -28,7 +29,7 @@ import { DiceRollerModal } from '../dice/DiceRollerModal';
 import { RitualsPanel } from './RitualsPanel';
 import { SpellbookPanel } from './SpellbookPanel';
 
-type Tab = 'combat' | 'powers' | 'class-features' | 'paragon' | 'inventory' | 'notes';
+type Tab = 'combat' | 'powers' | 'features' | 'paragon' | 'inventory' | 'notes';
 
 interface Props {
   character: Character;
@@ -70,6 +71,13 @@ export function CharacterSheet({ character }: Props) {
     { key: 'feats',              label: 'Feats'              },
   ];
 
+  type FeaturesTab = 'class' | 'racial';
+  const [featuresTab, setFeaturesTab] = useState<FeaturesTab>('class');
+  const featuresTabs: { key: FeaturesTab; label: string }[] = [
+    { key: 'class',  label: 'Class Features'  },
+    { key: 'racial', label: 'Racial Features' },
+  ];
+
   type InventoryTab = 'purse' | 'equipment' | 'rituals' | 'spellbooks';
   const [inventoryTab, setInventoryTab] = useState<InventoryTab>('equipment');
   const inventoryTabs: { key: InventoryTab; label: string }[] = [
@@ -80,12 +88,12 @@ export function CharacterSheet({ character }: Props) {
   ];
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: 'combat',         label: 'Actions'        },
-    { key: 'powers',         label: 'Powers'         },
-    { key: 'class-features', label: 'Class Features' },
-    { key: 'paragon',        label: 'Paragon'        },
-    { key: 'inventory',      label: 'Inventory'      },
-    { key: 'notes',          label: 'Notes'          },
+    { key: 'combat',    label: 'Actions'   },
+    { key: 'powers',    label: 'Powers'    },
+    { key: 'features',  label: 'Features'  },
+    { key: 'paragon',   label: 'Paragon'   },
+    { key: 'inventory', label: 'Inventory' },
+    { key: 'notes',     label: 'Notes'     },
   ];
 
   return (
@@ -200,10 +208,32 @@ export function CharacterSheet({ character }: Props) {
               </div>
             </>
           )}
-          {activeTab === 'class-features' && (
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <ClassFeaturesPanel character={character} />
-            </div>
+          {activeTab === 'features' && (
+            <>
+              {/* Features sub-tab bar — pinned */}
+              <div className="bg-white rounded-xl border border-stone-200 overflow-hidden flex-shrink-0">
+                <div className="flex">
+                  {featuresTabs.map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setFeaturesTab(key)}
+                      className={[
+                        'flex-1 py-3 text-sm font-semibold transition-colors',
+                        featuresTab === key
+                          ? 'border-b-2 border-amber-600 text-amber-700'
+                          : 'text-stone-500 hover:text-stone-700',
+                      ].join(' ')}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                {featuresTab === 'class'  && <ClassFeaturesPanel character={character} />}
+                {featuresTab === 'racial' && <RacialFeaturesPanel character={character} />}
+              </div>
+            </>
           )}
           {activeTab === 'paragon' && (
             <div className="flex-1 min-h-0 overflow-y-auto">

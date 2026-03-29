@@ -24,7 +24,8 @@ export const shifter: RaceData = {
       traits: [
         {
           name: 'Longtooth Shifting',
-          description: 'You have the longtooth shifting power.',
+          description: 'You have the longtooth shifting power. While bloodied, you gain regeneration 2. This increases to regeneration 4 at 11th level and regeneration 6 at 21st level.',
+          source: 'PHB2',
         },
       ],
       racialPowerIds: ['racial-longtooth-shifting'],
@@ -40,7 +41,8 @@ export const shifter: RaceData = {
       traits: [
         {
           name: 'Razorclaw Shifting',
-          description: 'You have the razorclaw shifting power.',
+          description: 'You have the razorclaw shifting power. Your speed increases by 2 and you gain a +1 bonus to AC and Reflex until the end of the encounter.',
+          source: 'PHB2',
         },
       ],
       racialPowerIds: ['racial-razorclaw-shifting'],

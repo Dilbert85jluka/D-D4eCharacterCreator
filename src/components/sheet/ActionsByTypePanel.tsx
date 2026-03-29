@@ -4,6 +4,7 @@ import type { Character, PowerUsage } from '../../types/character';
 import type { PowerData } from '../../types/gameData';
 import { getPowerById, getPowersByClass } from '../../data/powers';
 import { getFeatById } from '../../data/feats';
+import { getRaceById } from '../../data/races';
 import { ARMOR } from '../../data/equipment/armor';
 import { WEAPONS } from '../../data/equipment/weapons';
 import { MAGIC_ARMOR } from '../../data/equipment/magicArmor';
@@ -90,7 +91,15 @@ function collectAllPowers(character: Character): PowerData[] {
     }
   }
 
-  // 5. Magic armor powers (from equipped armor/shield with power text)
+  // 5. Racial powers (auto-granted racial encounter/at-will powers)
+  const race = getRaceById(character.raceId);
+  const subrace = race?.subraces?.find(sr => sr.id === character.subraceId);
+  for (const pid of [...(race?.racialPowerIds ?? []), ...(subrace?.racialPowerIds ?? [])]) {
+    const p = getPowerById(pid);
+    if (p) add(p);
+  }
+
+  // 6. Magic armor powers (from equipped armor/shield with power text)
   for (const item of character.equipment) {
     if (!item.equipped || !item.magicArmorId) continue;
     const isArmor = ARMOR.find(a => a.id === item.itemId);

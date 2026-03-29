@@ -13,22 +13,34 @@ export const minotaur: RaceData = {
     { skillId: 'nature', bonus: 2 },
     { skillId: 'perception', bonus: 2 },
   ],
+  surgesPerDayBonus: 1,
   traits: [
     {
       name: 'Ferocity',
       description: 'When you drop to 0 hit points or fewer, you can make a melee basic attack as an immediate interrupt.',
+      source: 'PHB3',
+      conditional: true,
+    },
+    {
+      name: 'Goring Charge',
+      description: 'You have the goring charge power.',
+      source: 'PHB3',
     },
     {
       name: 'Heedless Charge',
-      description: '+2 racial bonus to AC against opportunity attacks you provoke during a charge.',
+      description: 'You have a +2 racial bonus to AC against opportunity attacks you provoke during a charge.',
+      source: 'PHB3',
+      conditional: true,
     },
     {
       name: 'Vitality',
-      description: 'You have one additional healing surge.',
+      description: 'You have one additional healing surge per day.',
+      source: 'PHB3',
     },
     {
       name: 'Oversized',
       description: 'You can use weapons intended for Large creatures without penalty.',
+      source: 'PHB3',
     },
   ],
   racialPowerIds: ['racial-goring-charge'],

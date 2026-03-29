@@ -17,14 +17,17 @@ export const wilden: RaceData = {
     {
       name: 'Fey Origin',
       description: 'You are considered a fey creature for the purpose of effects that relate to creature origin.',
+      source: 'PHB3',
     },
     {
       name: 'Hardy Form',
-      description: 'Choose Fortitude, Reflex, or Will defense at character creation; you gain a +1 racial bonus to that defense.',
+      description: 'Choose Fortitude, Reflex, or Will defense at character creation. You gain a +1 racial bonus to that defense.',
+      source: 'PHB3',
     },
     {
       name: "Nature's Aspect",
       description: 'After each extended rest, choose one of three aspects: Aspect of the Ancients (Voyage of the Ancients power), Aspect of the Destroyer (Wrath of the Destroyer power), or Aspect of the Hunter (Pursuit of the Hunter power). Each aspect grants you a different encounter power.',
+      source: 'PHB3',
     },
   ],
   racialPowerIds: [

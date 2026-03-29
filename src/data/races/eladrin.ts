@@ -14,30 +14,37 @@ export const eladrin: RaceData = {
     { skillId: 'arcana', bonus: 2 },
     { skillId: 'history', bonus: 2 },
   ],
+  willBonus: 1,
   traits: [
     {
       name: 'Eladrin Education',
       description: 'You gain training in one additional skill selected from the following list: Arcana, Diplomacy, Dungeoneering, Endurance, History, Insight, Nature, or Perception.',
+      source: 'PHB',
     },
     {
       name: 'Eladrin Weapon Proficiency',
       description: 'You gain proficiency with the longsword.',
+      source: 'PHB',
     },
     {
       name: 'Eladrin Will',
-      description: 'You gain a +1 racial bonus to your Will defense. In addition, you gain a +5 racial bonus to saving throws against the charmed condition.',
+      description: 'You gain a +1 racial bonus to your Will defense. In addition, you gain a +5 racial bonus to saving throws against charm effects.',
+      source: 'PHB',
     },
     {
       name: 'Fey Origin',
       description: 'Your origin is fey, not natural. You are considered a fey creature for the purpose of effects that relate to creature origin.',
+      source: 'PHB',
     },
     {
       name: 'Trance',
       description: 'Rather than sleeping, eladrin enter a meditative state known as trance. You need to spend 4 hours in this state to gain the same benefits other races gain from taking a 6-hour extended rest. While in a trance, you are fully aware of your surroundings and notice approaching enemies and other events as normal.',
+      source: 'PHB',
     },
     {
       name: 'Fey Step',
       description: 'You can use fey step as an encounter power. Effect: Teleport up to 5 squares.',
+      source: 'PHB',
     },
   ],
   racialPowerIds: ['fey-step'],

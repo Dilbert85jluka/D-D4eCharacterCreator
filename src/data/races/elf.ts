@@ -18,22 +18,27 @@ export const elf: RaceData = {
     {
       name: 'Elven Weapon Proficiency',
       description: 'You gain proficiency with the longbow and the shortbow.',
+      source: 'PHB',
     },
     {
       name: 'Fey Origin',
       description: 'Your origin is fey, not natural. You are considered a fey creature for the purpose of effects that relate to creature origin.',
+      source: 'PHB',
     },
     {
       name: 'Group Awareness',
       description: 'You grant non-elf allies within 5 squares of you a +1 racial bonus to Perception checks.',
+      source: 'PHB',
     },
     {
       name: 'Wild Step',
       description: 'You ignore difficult terrain when you shift (even if you have a power that allows you to shift multiple squares).',
+      source: 'PHB',
     },
     {
       name: 'Elven Accuracy',
       description: 'You can use elven accuracy as an encounter power. Trigger: You make an attack roll. Effect: Reroll the attack roll. Use the second roll, even if it\'s lower.',
+      source: 'PHB',
     },
   ],
   racialPowerIds: ['elven-accuracy'],

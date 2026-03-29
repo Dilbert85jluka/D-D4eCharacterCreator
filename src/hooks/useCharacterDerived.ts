@@ -279,12 +279,10 @@ export function useCharacterDerived(character: Character): DerivedStats {
       classReflexLabel = 'Barbarian Agility';
     }
 
-    // Human defense bonuses
-    const isHuman = character.raceId === 'human';
-    const humanDefBonus = isHuman ? 1 : 0;
-
-    // Racial Will bonus (Eladrin +1, Goliath +1 Mountain's Tenacity)
-    const racialWillBonus = (character.raceId === 'eladrin' ? 1 : 0) + (race?.willBonus ?? 0);
+    // Racial defense bonuses (data-driven from RaceData fields)
+    const racialFortBonus = race?.fortitudeBonus ?? 0;
+    const racialRefBonus = race?.reflexBonus ?? 0;
+    const racialWillBonus = race?.willBonus ?? 0;
 
     // Sum passive bonuses from all equipped magic items (tiered structure)
     const magicBonuses = character.equipment
@@ -364,19 +362,12 @@ export function useCharacterDerived(character: Character): DerivedStats {
     );
 
     const armorClass = calculateAC(armorAcBonus, acAbilityMod, halfLevel, shieldAcBonus) + classAcBonus + magicBonuses.ac + (pb.ac ?? 0) + featBonuses.ac + armorEnhancementBonus + shieldEnhancementBonus + magicArmorDefBonuses.ac;
-    const fortitude = calculateFortitude(mods.str, mods.con, halfLevel, cls?.fortitudeBonus ?? 0, humanDefBonus) + classFortBonus + magicBonuses.fortitude + (pb.fortitude ?? 0) + featBonuses.fortitude + magicArmorDefBonuses.fortitude;
-    const reflex = calculateReflex(mods.dex, mods.int, halfLevel, cls?.reflexBonus ?? 0, shieldAcBonus, humanDefBonus) + classReflexBonus + magicBonuses.reflex + (pb.reflex ?? 0) + featBonuses.reflex + magicArmorDefBonuses.reflex;
-    const will = calculateWill(mods.wis, mods.cha, halfLevel, cls?.willBonus ?? 0, humanDefBonus + racialWillBonus) + classWillBonus + magicBonuses.will + (pb.will ?? 0) + featBonuses.will + magicArmorDefBonuses.will;
+    const fortitude = calculateFortitude(mods.str, mods.con, halfLevel, cls?.fortitudeBonus ?? 0, racialFortBonus) + classFortBonus + magicBonuses.fortitude + (pb.fortitude ?? 0) + featBonuses.fortitude + magicArmorDefBonuses.fortitude;
+    const reflex = calculateReflex(mods.dex, mods.int, halfLevel, cls?.reflexBonus ?? 0, shieldAcBonus, racialRefBonus) + classReflexBonus + magicBonuses.reflex + (pb.reflex ?? 0) + featBonuses.reflex + magicArmorDefBonuses.reflex;
+    const will = calculateWill(mods.wis, mods.cha, halfLevel, cls?.willBonus ?? 0, racialWillBonus) + classWillBonus + magicBonuses.will + (pb.will ?? 0) + featBonuses.will + magicArmorDefBonuses.will;
 
     // ── Defense breakdowns ─────────────────────────────────────────────────────
-    const totalRacialWillBonus = humanDefBonus + racialWillBonus;
-    const racialWillLabel = (() => {
-      const parts: string[] = [];
-      if (isHuman) parts.push('Human');
-      if (character.raceId === 'eladrin') parts.push('Eladrin');
-      if (race?.willBonus) parts.push(race.name);
-      return parts.length > 0 ? `Racial (${parts.join(' + ')})` : 'Racial';
-    })();
+    const racialDefLabel = race ? `Racial (${race.name})` : 'Racial';
 
     const paragonLabel = paragonPath ? `Paragon (${paragonPath.name})` : 'Paragon';
     const defenseBreakdowns = {
@@ -400,7 +391,7 @@ export function useCharacterDerived(character: Character): DerivedStats {
         { label: '½ Level', value: halfLevel },
         ...rowIf((cls?.fortitudeBonus ?? 0) > 0, `Class (${cls?.name ?? ''})`, cls?.fortitudeBonus ?? 0),
         ...rowIf(classFortBonus > 0, classFortLabel, classFortBonus),
-        ...rowIf(humanDefBonus > 0, 'Racial (Human)', humanDefBonus),
+        ...rowIf(racialFortBonus > 0, racialDefLabel, racialFortBonus),
         ...rowIf(magicBonuses.fortitude > 0, 'Neck (enhancement)', magicBonuses.fortitude),
         ...rowIf((pb.fortitude ?? 0) > 0, paragonLabel, pb.fortitude!),
         ...rowIf(featBonuses.fortitude > 0, 'Feats', featBonuses.fortitude),
@@ -413,7 +404,7 @@ export function useCharacterDerived(character: Character): DerivedStats {
         ...rowIf((cls?.reflexBonus ?? 0) > 0, `Class (${cls?.name ?? ''})`, cls?.reflexBonus ?? 0),
         ...rowIf(classReflexBonus > 0, classReflexLabel, classReflexBonus),
         ...rowIf(shieldAcBonus > 0, `Shield (${shieldName})`, shieldAcBonus),
-        ...rowIf(humanDefBonus > 0, 'Racial (Human)', humanDefBonus),
+        ...rowIf(racialRefBonus > 0, racialDefLabel, racialRefBonus),
         ...rowIf(magicBonuses.reflex > 0, 'Neck (enhancement)', magicBonuses.reflex),
         ...rowIf((pb.reflex ?? 0) > 0, paragonLabel, pb.reflex!),
         ...rowIf(featBonuses.reflex > 0, 'Feats', featBonuses.reflex),
@@ -425,7 +416,7 @@ export function useCharacterDerived(character: Character): DerivedStats {
         { label: '½ Level', value: halfLevel },
         ...rowIf((cls?.willBonus ?? 0) > 0, `Class (${cls?.name ?? ''})`, cls?.willBonus ?? 0),
         ...rowIf(classWillBonus > 0, classWillLabel, classWillBonus),
-        ...rowIf(totalRacialWillBonus > 0, racialWillLabel, totalRacialWillBonus),
+        ...rowIf(racialWillBonus > 0, racialDefLabel, racialWillBonus),
         ...rowIf(magicBonuses.will > 0, 'Neck (enhancement)', magicBonuses.will),
         ...rowIf((pb.will ?? 0) > 0, paragonLabel, pb.will!),
         ...rowIf(featBonuses.will > 0, 'Feats', featBonuses.will),
@@ -443,10 +434,12 @@ export function useCharacterDerived(character: Character): DerivedStats {
     const bloodiedValue = calculateBloodied(maxHp);
     const isDragonborn = character.raceId === 'dragonborn';
     const healingSurgeValue = calculateHealingSurgeValue(maxHp, mods.con, isDragonborn) + magicBonuses.healingSurgeBonus;
-    const surgesPerDay = calculateSurgesPerDay(cls?.healingSurgesPerDay ?? 6, mods.con) + magicBonuses.surgesPerDay + featBonuses.surgesPerDay;
+    const racialSurgesBonus = race?.surgesPerDayBonus ?? 0;
+    const surgesPerDay = calculateSurgesPerDay(cls?.healingSurgesPerDay ?? 6, mods.con) + magicBonuses.surgesPerDay + featBonuses.surgesPerDay + racialSurgesBonus;
 
     // Initiative and speed
-    const initiative = mods.dex + halfLevel + magicBonuses.initiative + (pb.initiative ?? 0) + featBonuses.initiative + magicArmorInitiativeBonus;
+    const racialInitiativeBonus = race?.initiativeBonus ?? 0;
+    const initiative = mods.dex + halfLevel + magicBonuses.initiative + (pb.initiative ?? 0) + featBonuses.initiative + magicArmorInitiativeBonus + racialInitiativeBonus;
     const speed = (race?.speed ?? 6) + magicBonuses.speed + featBonuses.speed + armorSpeedPenalty + magicArmorSpeedBonus;
 
     // Saving throw bonus (half-level is NOT added here — 4e saving throws are flat d20, 10+ succeeds;

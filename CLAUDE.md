@@ -53,7 +53,7 @@ src/
 │   ├── auth/                  # LoginPage.tsx — magic link email sign-in
 │   ├── sharing/               # ShareCampaignModal, JoinCampaignModal, LinkCharacterModal, SharedCampaignView, PartyRosterCards
 │   ├── dice/                  # DiceRollerModal.tsx — floating dice roller (d2–d20 + d%)
-│   ├── sheet/                 # Character sheet panels (20 files — see below)
+│   ├── sheet/                 # Character sheet panels (21 files — see below)
 │   ├── ui/                    # Button, Card, Badge, Modal (primitive components)
 │   └── wizard/                # CreationWizard, WizardNav, 10 step components, PowerCard
 ├── data/
@@ -296,6 +296,8 @@ Each class defines: role, powerSource, keyAbilities, HP, healingSurges, defenseB
 
 Half-Elf gets a bonus at-will power (Dilettante — see section below). Human gets bonus feat + bonus skill.
 
+Each race defines: size, speed, vision, languages, abilityBonuses, abilityBonusOptions, skillBonuses, traits (with source + conditional flags), racialPowerIds, fortitudeBonus, reflexBonus, willBonus, initiativeBonus, surgesPerDayBonus, bonusFeat, bonusSkill, bonusAtWill, bonusSkillOptions, bonusLanguageOptions, subraces.
+
 ### Power Progression (Full 30 levels — all 22 classes)
 
 | Type | Gained at levels |
@@ -478,13 +480,13 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 
 ### Tab Structure
 
-**Main tabs (CharacterSheet.tsx):** Actions · Powers · Class Features · Paragon · Inventory · Notes
+**Main tabs (CharacterSheet.tsx):** Actions · Powers · Features · Paragon · Inventory · Notes
 
 | Main Tab | Sub-tabs |
 |---|---|
 | Actions | Available Actions · Actions Descriptions · Proficiencies |
 | Powers | Powers · Channel Divinity\* · Discipline Powers\*\*\*\*\* · Implement Mastery\*\* · Eldritch Pact\*\*\* · Feats |
-| Class Features | (no sub-tabs) |
+| Features | Class Features · Racial Features |
 | Paragon | (no sub-tabs) |
 | Inventory | Coin Purse · Equipment · Rituals · Spellbooks\*\*\*\* |
 | Notes | Notes · Profile |
@@ -515,6 +517,7 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 | ArcaneImplementMasteryPanel.tsx | Shows all 3 implement options; chosen one highlighted; full encounter power text |
 | EldritchPactPanel.tsx | Shows all 3 pact options; chosen one highlighted amber; pact lore + boon trigger/effect |
 | ClassFeaturesPanel.tsx | All class features for chosen class; enhanced detail for wizard implement + warlock pact choices |
+| RacialFeaturesPanel.tsx | Racial traits with source badges + conditional indicators, racial stat summary, racial power cards, subrace support |
 | FeatsPanel.tsx | Feats list with picker modal — uses `featsEarnedByLevel()` for correct budget |
 | ParagonPanel.tsx | Paragon Path tab: locked state (< L11), selected path details, alternate paths |
 | EquipmentPanel.tsx | Multi-tab equipment (weapons/implements/armor/magic/consumables/gear) with collapsible sub-groups in picker |
@@ -793,6 +796,7 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Level-up power picker shows all unlocked levels: When gaining a new power slot (encounter/daily/utility), the picker shows powers from all unlocked levels of that type, not just the exact gain level. E.g., at L3 encounter gain, player can choose L1 or L3 encounter powers.
 - [x] Magic items system overhaul: 788 real magic items from PHB/PHB2/PHB3/AV/AV2 across 9 slot categories (Arms 47, Companion 6, Feet 93, Hands 78, Head 112, Neck 114, Ring 103, Waist 64, Wondrous 171). Tiered structure matching magic weapons/armor/implements pattern. New types `MagicItemTier` and `MagicItemSlot` in `gameData.ts`. Data in `src/data/equipment/magicItems.ts`. "Magic" tab renamed to "Items" in EquipmentPanel. Inventory shows rarity badges (Common/Uncommon/Rare), tier selector dropdown for multi-tier items, property text, power preview. Neck slot items (114) auto-apply enhancement bonus to Fort/Ref/Will in `useCharacterDerived.ts`. `parseMagicItemPower()` in `src/utils/magicItemPowers.ts` handles At-Will/Encounter/Daily item powers. Magic item powers appear in PowersPanel (cyan "Item" badge, pin, usage toggle), ActionsByTypePanel (grouped by action type), and QuickTrayPanel (equipment power map fallback). `EquipmentItem` extended with `magicItemTier` field. Click-to-expand inventory: collapsed view shows name+enhancement, equipped/rarity badges, level/cost, truncated property & power; expanded view shows full item info header, enhancement box (emerald, neck only), property box (blue), power box (violet), tier selector dropdown. `expandedMagicItem` state; Equip/Unequip and tier selector use `e.stopPropagation()`. Inventory grouped by slot category (Head, Neck, Arms, Hands, Ring, Waist, Feet, Companion, Wondrous) with collapsible amber-themed headers showing item counts. `collapsedSlotGroups` state + `toggleSlotGroup()`. Slot label removed from individual item rows (redundant with group header). Picker also grouped by slot with collapsible amber-themed headers via `collapsedGroups` (shared picker state, keyed `picker-magic-{slot}`). Generator scripts at `C:\Claude\fetch_items.js` and `C:\Claude\generate_magic_items_ts.js`.
 - [x] Auto-increment version on build: GitHub Actions workflow bumps patch version (npm version patch) on every push to main, commits with `[skip ci]` to prevent infinite loops. Version bump committed by github-actions[bot].
+- [x] Racial Features tab: Sub-tab under "Features" parent tab (alongside "Class Features") on character sheet. `RacialFeaturesPanel.tsx` shows racial summary card (size/speed/vision/languages/ability bonuses/skill bonuses/defense bonuses), all racial traits with source badges (PHB/PHB2/PHB3/HotFK/HotFL) and conditional "Situational" indicators, subrace traits for Shifter, and racial power cards from `racialPowerIds`. `RacialTrait` type enhanced with `source?: string` and `conditional?: boolean`. `RaceData` enhanced with `fortitudeBonus`, `reflexBonus`, `initiativeBonus`, `surgesPerDayBonus` fields. All 17 race data files updated with source attribution per trait and conditional flags. Racial defense bonuses now data-driven: `useCharacterDerived.ts` replaced hardcoded Human/Eladrin race ID checks with generic `race.fortitudeBonus`/`race.reflexBonus`/`race.willBonus` fields. Defense breakdowns show dynamic `Racial (RaceName)` labels. Githzerai +2 initiative bonus and Minotaur +1 surge/day bonus wired into derived stats. Additional alternate traits from Heroes of the Forgotten Kingdoms included: Dragonborn Dragonfear (HotFK), Half-Elf Knack for Success (HotFK), Human Heroic Effort (HotFK). Generator script at `C:\Claude\fetch_racial_features.js`.
 
 ---
 

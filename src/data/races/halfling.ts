@@ -18,14 +18,19 @@ export const halfling: RaceData = {
     {
       name: 'Bold',
       description: 'You gain a +5 racial bonus to saving throws against fear.',
+      source: 'PHB',
+      conditional: true,
     },
     {
       name: 'Nimble Reaction',
       description: 'You gain a +2 racial bonus to AC against opportunity attacks.',
+      source: 'PHB',
+      conditional: true,
     },
     {
       name: 'Second Chance',
       description: 'You can use second chance as an encounter power. Trigger: An enemy hits you. Effect (immediate interrupt): Force the enemy to reroll the attack. The enemy must use the second roll, even if it\'s lower.',
+      source: 'PHB',
     },
   ],
   racialPowerIds: ['second-chance'],

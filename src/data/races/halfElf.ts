@@ -17,15 +17,23 @@ export const halfElf: RaceData = {
   traits: [
     {
       name: 'Dilettante',
-      description: 'At 1st level, you choose an at-will power from a class different from yours. You can use that power as an encounter power.',
+      description: 'At 1st level, you choose a 1st-level at-will attack power from a class different from yours. You can use that power as an encounter power.',
+      source: 'PHB',
     },
     {
       name: 'Dual Heritage',
-      description: 'You can take feats that have either elf or human as a prerequisite (as long as you meet any other requirements).',
+      description: 'You can take feats that have either elf or human as a prerequisite (as well as those specifically for half-elves), as long as you meet any other requirements.',
+      source: 'PHB',
     },
     {
       name: 'Group Diplomacy',
       description: 'You grant allies within 10 squares of you a +1 racial bonus to Diplomacy checks.',
+      source: 'PHB',
+    },
+    {
+      name: 'Knack for Success',
+      description: 'You have the knack for success power. You or one ally in the burst gains one of the following: a saving throw, a shift up to 2 squares, or a +2 bonus to the next attack roll before the end of your next turn. (Replaces Dilettante.)',
+      source: 'HotFK',
     },
   ],
   racialPowerIds: [],

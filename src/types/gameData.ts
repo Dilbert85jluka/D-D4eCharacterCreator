@@ -9,6 +9,10 @@ export interface RacialSkillBonus {
 export interface RacialTrait {
   name: string;
   description: string;
+  /** Source book abbreviation: "PHB", "PHB2", "PHB3", "HotFK", "HotFL", "DSCS", "FRPG", etc. */
+  source?: string;
+  /** True if the bonus is situational ("+1 when bloodied", "+5 vs poison saves") — displayed but NOT auto-applied */
+  conditional?: boolean;
 }
 
 /** Sub-race option (e.g. Shifter → Longtooth or Razorclaw) */
@@ -45,8 +49,16 @@ export interface RaceData {
   /** If set, the bonus language must be chosen from this specific set (e.g. Goliath: Dwarven or Giant).
    *  If absent, bonus language is chosen from the full CHOOSABLE_LANGUAGES list. */
   bonusLanguageOptions?: string[];
+  /** Racial bonus to Fortitude defense (e.g. Human +1) */
+  fortitudeBonus?: number;
+  /** Racial bonus to Reflex defense (e.g. Human +1) */
+  reflexBonus?: number;
   /** Racial bonus to Will defense (e.g. Goliath Mountain's Tenacity: +1) */
   willBonus?: number;
+  /** Racial bonus to initiative (e.g. Githzerai Danger Sense: +2) */
+  initiativeBonus?: number;
+  /** Racial bonus to healing surges per day (e.g. Minotaur Vitality: +1) */
+  surgesPerDayBonus?: number;
   /** Sub-race options (e.g. Shifter has Longtooth/Razorclaw). Player must choose one during creation. */
   subraces?: SubraceData[];
 }

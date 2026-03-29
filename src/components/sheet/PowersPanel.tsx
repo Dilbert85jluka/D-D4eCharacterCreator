@@ -9,6 +9,7 @@ import { useCharactersStore } from '../../store/useCharactersStore';
 import type { PowerUsage } from '../../types/character';
 import type { PowerData } from '../../types/gameData';
 import { getMulticlassId, getFeatById } from '../../data/feats';
+import { getRaceById } from '../../data/races';
 import { usesPowerPoints, getMaxPowerPoints, parseAugments, getNonAugmentSpecialText } from '../../utils/psionics';
 import { useCharacterDerived } from '../../hooks/useCharacterDerived';
 import { ARMOR } from '../../data/equipment/armor';
@@ -186,6 +187,18 @@ export function PowersPanel({ character }: Props) {
       }
     }
   }
+
+  // ── Racial powers (auto-granted racial encounter/at-will powers) ─────────
+  const racialPowers: PowerData[] = (() => {
+    const race = getRaceById(character.raceId);
+    const subrace = race?.subraces?.find(sr => sr.id === character.subraceId);
+    const powers: PowerData[] = [];
+    for (const pid of [...(race?.racialPowerIds ?? []), ...(subrace?.racialPowerIds ?? [])]) {
+      const p = getPowerById(pid);
+      if (p) powers.push(p);
+    }
+    return powers;
+  })();
 
   // ── Magic armor powers (from equipped armor/shield with power text) ─────
   const magicArmorPowers: PowerData[] = [];
@@ -770,6 +783,23 @@ export function PowersPanel({ character }: Props) {
                 </>
               )}
 
+              {/* Racial at-will powers */}
+              {racialPowers.filter((p) => p.usage === 'at-will').map((power) => (
+                <div key={power.id}>
+                  <div className="flex items-center justify-between mb-0.5 px-1">
+                    <span className="text-[10px] font-bold bg-emerald-700 text-white px-1.5 py-0.5 rounded">Race</span>
+                    <div className="flex items-center gap-1">
+                      {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      ) : (
+                        <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      )}
+                    </div>
+                  </div>
+                  <PowerCard power={power} abilityModifiers={abilityMods} />
+                </div>
+              ))}
+
               {/* Magic implement at-will powers */}
               {magicImplementPowers.filter((p) => p.usage === 'at-will').map((power) => (
                 <div key={power.id}>
@@ -932,6 +962,38 @@ export function PowersPanel({ character }: Props) {
             );
           })}
 
+          {/* Racial encounter powers — auto-granted, no remove */}
+          {tab === 'encounter' && racialPowers.filter((p) => p.usage === 'encounter').map((power) => {
+            const isUsed = character.usedEncounterPowers.includes(power.id);
+            return (
+              <div key={power.id}>
+                <div className="flex items-center justify-between mb-0.5 px-1">
+                  <span className="text-[10px] font-bold bg-emerald-700 text-white px-1.5 py-0.5 rounded">Race</span>
+                  <div className="flex items-center gap-1">
+                    {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                      <span
+                        className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300"
+                        title="In quick tray"
+                      >✓</span>
+                    ) : (
+                      <button
+                        onClick={() => addToQuickTray(power.id)}
+                        className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200"
+                        title="Pin to quick tray"
+                      >⚡</button>
+                    )}
+                  </div>
+                </div>
+                <PowerCard
+                  power={power}
+                  used={isUsed}
+                  onToggleUsed={() => toggleUsed(power.id, power.usage)}
+                  abilityModifiers={abilityMods}
+                />
+              </div>
+            );
+          })}
+
           {/* Magic armor encounter powers — auto-granted while equipped, no remove */}
           {tab === 'encounter' && magicArmorPowers.filter((p) => p.usage === 'encounter').map((power) => {
             const isUsed = character.usedEncounterPowers.includes(power.id);
@@ -1035,6 +1097,26 @@ export function PowersPanel({ character }: Props) {
               );
             }
             return renderMcEmptySlot(mcSlot);
+          })}
+
+          {/* Racial daily powers — auto-granted, no remove */}
+          {tab === 'daily' && racialPowers.filter((p) => p.usage === 'daily').map((power) => {
+            const isUsed = character.usedDailyPowers.includes(power.id);
+            return (
+              <div key={power.id}>
+                <div className="flex items-center justify-between mb-0.5 px-1">
+                  <span className="text-[10px] font-bold bg-emerald-700 text-white px-1.5 py-0.5 rounded">Race</span>
+                  <div className="flex items-center gap-1">
+                    {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                    ) : (
+                      <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                    )}
+                  </div>
+                </div>
+                <PowerCard power={power} used={isUsed} onToggleUsed={() => toggleUsed(power.id, power.usage)} abilityModifiers={abilityMods} />
+              </div>
+            );
           })}
 
           {/* Magic armor daily powers — auto-granted while equipped, no remove */}

@@ -16,16 +16,25 @@ export const dragonborn: RaceData = {
   ],
   traits: [
     {
-      name: 'Dragonborn Fury',
-      description: 'When you are bloodied, you gain a +1 racial bonus to attack rolls.',
+      name: 'Draconic Heritage',
+      description: 'Your healing surge value is equal to one-quarter of your maximum hit points + your Constitution modifier.',
+      source: 'PHB',
     },
     {
-      name: 'Draconic Heritage',
-      description: 'Your healing surge value equals one-quarter of your maximum hit points plus your Constitution modifier.',
+      name: 'Dragonborn Fury',
+      description: 'While you are bloodied, you gain a +1 racial bonus to attack rolls.',
+      source: 'PHB',
+      conditional: true,
     },
     {
       name: 'Dragon Breath',
-      description: 'You can use dragon breath as an encounter power. Choose a damage type when you create your character: acid, cold, fire, lightning, or poison.',
+      description: 'You have the dragon breath power. When you create your character, choose a damage type: acid, cold, fire, lightning, or poison.',
+      source: 'PHB',
+    },
+    {
+      name: 'Dragonfear',
+      description: 'You are naturally intimidating at the best of times, and when passions strike, you are positively terrifying. You gain the dragonfear racial power. (Replaces Dragon Breath.)',
+      source: 'HotFK',
     },
   ],
   racialPowerIds: ['dragon-breath'],
