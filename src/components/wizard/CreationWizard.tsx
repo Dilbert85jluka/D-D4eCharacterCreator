@@ -45,6 +45,7 @@ function canProceed(step: number, wizard: ReturnType<typeof useWizardStore.getSt
       if (!wizard.classId) return false;
       if (wizard.classId === 'wizard') return wizard.arcaneImplement !== '';
       if (wizard.classId === 'warlock') return wizard.warlockPact !== '';
+      if (wizard.classId === 'fighter') return wizard.fighterCombatStyle !== '';
       if (wizard.classId === 'avenger') return wizard.avengerCensure !== '';
       if (wizard.classId === 'barbarian') return wizard.barbarianFeralMight !== '';
       if (wizard.classId === 'bard') return wizard.bardVirtue !== '';

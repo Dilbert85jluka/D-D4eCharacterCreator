@@ -176,6 +176,15 @@ export function PowersPanel({ character }: Props) {
     return getPowerById(flurryId) ?? null;
   })();
 
+  // ── Fighter Combat Style power (auto-granted based on combat style choice) ──
+  const fighterCombatPower: PowerData | null = (() => {
+    if (character.classId !== 'fighter') return null;
+    const powerId = character.fighterCombatStyle === 'agility'
+      ? 'fighter-combat-agility'
+      : 'fighter-combat-challenge';
+    return getPowerById(powerId) ?? null;
+  })();
+
   // ── Feat-granted powers (e.g. deity Channel Divinity feats) ──────────────
   const featGrantedPowers: PowerData[] = [];
   for (const featId of character.selectedFeatIds) {
@@ -694,6 +703,8 @@ export function PowersPanel({ character }: Props) {
               {pactBoonPower && <PowerCard power={pactBoonPower} />}
               {/* Monk Flurry of Blows — auto-granted based on monastic tradition, no remove button */}
               {monkFlurryPower && <PowerCard key={monkFlurryPower.id} power={monkFlurryPower} />}
+              {/* Fighter Combat Style power — auto-granted based on combat style choice, no remove button */}
+              {fighterCombatPower && <PowerCard key={fighterCombatPower.id} power={fighterCombatPower} abilityModifiers={abilityMods} />}
               {powersForTab.map(({ sp, power }) => {
                 if (!power) return null;
                 const mt = isFullDisciplinePower(power) ? extractMovementTechnique(power) : null;

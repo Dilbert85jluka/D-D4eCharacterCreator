@@ -95,6 +95,10 @@ function PactDetail({ pact }: { pact: 'infernal' | 'fey' | 'star' }) {
 
 // ── PHB2 build choice detail component ──────────────────────────────────────
 const PHB2_BUILD_CHOICES: Record<string, Record<string, { label: string; description: string }>> = {
+  fighter: {
+    superiority: { label: 'Combat Superiority (PHB)', description: 'You gain a bonus to opportunity attacks equal to your Wisdom modifier. An enemy struck by your opportunity attack stops moving if a move provoked the attack. Grants the Combat Challenge at-will power.' },
+    agility: { label: 'Combat Agility (Martial Power 2)', description: 'You can take opportunity attacks even when you are prone or when you have no speed (e.g. due to a slow effect). Leaving an enemy\'s threatened area provokes an opportunity attack from you. Grants the Combat Agility at-will power (shift toward target + knock prone on OA).' },
+  },
   avenger: {
     pursuit: { label: 'Censure of Pursuit', description: 'If your oath of enmity target moves away from you willingly, you gain a bonus to damage rolls against the target equal to your Dexterity modifier until the end of your next turn.' },
     retribution: { label: 'Censure of Retribution', description: 'When any enemy other than your oath of enmity target hits you, you gain a bonus to damage rolls against your oath of enmity target equal to your Intelligence modifier until the end of your next turn.' },
@@ -173,6 +177,7 @@ function BuildChoiceDetail({ classId, choice }: { classId: string; choice: strin
 
 // Map classId → { featureName, characterField }
 const BUILD_CHOICE_MAP: Record<string, { featureName: string; field: keyof Character }> = {
+  fighter:   { featureName: 'Combat Style',            field: 'fighterCombatStyle' },
   avenger:   { featureName: "Avenger's Censure",       field: 'avengerCensure' },
   barbarian: { featureName: 'Feral Might',             field: 'barbarianFeralMight' },
   bard:      { featureName: 'Bardic Virtue',           field: 'bardVirtue' },

@@ -18,6 +18,25 @@ export const fighterPowers: PowerData[] = [
     special: 'Every time you attack an enemy, that enemy is marked until the end of your next turn. A marked enemy takes a -2 penalty to attack rolls for any attack that does not include you as a target. Combat Superiority: You gain a bonus to opportunity attacks equal to your Wisdom modifier. An enemy struck by your opportunity attack stops moving, if a move provoked the attack.',
   },
 
+  // Combat Agility — replaces Combat Challenge when fighterCombatStyle === 'agility' (Martial Power 2)
+  {
+    id: 'fighter-combat-agility',
+    name: 'Combat Agility',
+    classId: 'fighter',
+    level: 0,
+    usage: 'at-will',
+    powerType: 'attack',
+    actionType: 'opportunity',
+    range: 'Melee weapon',
+    keywords: ['Martial', 'Weapon'],
+    trigger: 'An enemy adjacent to you takes an action that provokes an opportunity attack',
+    target: 'The triggering enemy',
+    attack: 'Strength vs. AC',
+    hit: '1[W] + Strength modifier damage, and you knock the target prone. Level 21: 2[W] + Strength modifier damage.',
+    effect: 'After the triggering enemy completes the action, you shift a number of squares equal to your Dexterity modifier. You must end the shift closer to the target than you were when you began the shift. Then make the attack.',
+    flavor: 'Your quick reflexes let you pursue foes who try to escape, knocking them to the ground.',
+  },
+
   // ─── LEVEL 1 AT-WILL ATTACKS ────────────────────────────────────────────────
   {
     id: 'fighter-cleave',

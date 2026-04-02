@@ -69,6 +69,10 @@ function collectAllPowers(character: Character): PowerData[] {
       if (character.monkTradition === 'centered-breath') add(p);
     } else if (p.id === 'monk-stone-fist-flurry-of-blows') {
       if (character.monkTradition === 'stone-fist') add(p);
+    } else if (p.id === 'fighter-combat-challenge') {
+      if (character.fighterCombatStyle !== 'agility') add(p);
+    } else if (p.id === 'fighter-combat-agility') {
+      if (character.fighterCombatStyle === 'agility') add(p);
     } else {
       add(p);
     }

@@ -49,6 +49,7 @@ export function Step3_Class() {
     classId, setClass,
     arcaneImplement, setArcaneImplement,
     warlockPact, setWarlockPact,
+    fighterCombatStyle, setFighterCombatStyle,
     avengerCensure, setAvengerCensure,
     barbarianFeralMight, setBarbarianFeralMight,
     bardVirtue, setBardVirtue,
@@ -235,6 +236,19 @@ export function Step3_Class() {
                           ) : null;
                         })()}
                       </div>
+                    )}
+
+                    {/* Fighter: Combat Style picker (houserule — Combat Agility from Martial Power 2) */}
+                    {cls.id === 'fighter' && (
+                      <BuildChoicePicker
+                        label="Combat Style"
+                        value={fighterCombatStyle}
+                        options={[
+                          { key: 'superiority', label: 'Combat Superiority (PHB)', desc: 'You gain a bonus to opportunity attacks equal to your Wisdom modifier. An enemy struck by your opportunity attack stops moving if a move provoked the attack. Grants the Combat Challenge at-will power.' },
+                          { key: 'agility', label: 'Combat Agility (Martial Power 2)', desc: 'You can take opportunity attacks even when prone or slowed. Leaving an enemy\'s threatened area provokes an opportunity attack from you. Grants the Combat Agility at-will power (shift + knock prone on OA).' },
+                        ]}
+                        onSelect={(v) => setFighterCombatStyle(v as 'superiority' | 'agility')}
+                      />
                     )}
 
                     {/* Avenger: Censure picker */}

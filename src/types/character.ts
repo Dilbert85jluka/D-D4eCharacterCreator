@@ -190,6 +190,9 @@ export interface Character {
   // Sub-race (e.g. Shifter → Longtooth or Razorclaw)
   subraceId?: string;
 
+  // PHB1 optional class feature (houserule: Martial Power 2)
+  fighterCombatStyle?: 'superiority' | 'agility';
+
   // PHB2 class-specific build choices
   avengerCensure?: 'pursuit' | 'retribution';
   barbarianFeralMight?: 'rageblood' | 'thaneborn';

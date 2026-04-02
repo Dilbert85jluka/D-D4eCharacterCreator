@@ -45,6 +45,7 @@ interface WizardState {
   classId: string;
   arcaneImplement: 'orb' | 'staff' | 'wand' | '';
   warlockPact: 'infernal' | 'fey' | 'star' | '';
+  fighterCombatStyle: 'superiority' | 'agility' | '';
   // PHB2 class build choices
   avengerCensure: 'pursuit' | 'retribution' | '';
   barbarianFeralMight: 'rageblood' | 'thaneborn' | '';
@@ -122,6 +123,7 @@ interface WizardState {
   setClass: (classId: string) => void;
   setArcaneImplement: (v: 'orb' | 'staff' | 'wand' | '') => void;
   setWarlockPact: (v: 'infernal' | 'fey' | 'star' | '') => void;
+  setFighterCombatStyle: (v: 'superiority' | 'agility' | '') => void;
   setAvengerCensure: (v: 'pursuit' | 'retribution' | '') => void;
   setBarbarianFeralMight: (v: 'rageblood' | 'thaneborn' | '') => void;
   setBardVirtue: (v: 'cunning' | 'valor' | '') => void;
@@ -189,6 +191,7 @@ const initialState = {
   classId: '',
   arcaneImplement: '' as 'orb' | 'staff' | 'wand' | '',
   warlockPact: '' as 'infernal' | 'fey' | 'star' | '',
+  fighterCombatStyle: '' as 'superiority' | 'agility' | '',
   avengerCensure: '' as 'pursuit' | 'retribution' | '',
   barbarianFeralMight: '' as 'rageblood' | 'thaneborn' | '',
   bardVirtue: '' as 'cunning' | 'valor' | '',
@@ -254,6 +257,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
 
   setArcaneImplement: (v) => set({ arcaneImplement: v }),
   setWarlockPact: (v) => set({ warlockPact: v }),
+  setFighterCombatStyle: (v) => set({ fighterCombatStyle: v }),
   setAvengerCensure: (v) => set({ avengerCensure: v }),
   setBarbarianFeralMight: (v) => set({ barbarianFeralMight: v }),
   setBardVirtue: (v) => set({ bardVirtue: v }),
@@ -288,6 +292,8 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       ...(classId !== 'wizard' ? { arcaneImplement: '' as const } : {}),
       // Reset pact if switching away from warlock
       ...(classId !== 'warlock' ? { warlockPact: '' as const } : {}),
+      // Reset fighter combat style if switching away from fighter
+      ...(classId !== 'fighter' ? { fighterCombatStyle: '' as const } : {}),
       // Reset PHB2 build choices when switching classes
       ...(classId !== 'avenger' ? { avengerCensure: '' as const } : {}),
       ...(classId !== 'barbarian' ? { barbarianFeralMight: '' as const } : {}),
@@ -603,6 +609,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       subraceId: s.subraceId || undefined,
       arcaneImplement: s.arcaneImplement || undefined,
       warlockPact: s.warlockPact || undefined,
+      fighterCombatStyle: s.fighterCombatStyle || undefined,
       avengerCensure: s.avengerCensure || undefined,
       barbarianFeralMight: s.barbarianFeralMight || undefined,
       bardVirtue: s.bardVirtue || undefined,

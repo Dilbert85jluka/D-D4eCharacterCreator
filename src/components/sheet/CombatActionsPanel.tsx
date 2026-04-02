@@ -66,7 +66,8 @@ export function CombatActionsPanel({ character, derived }: Props) {
           const proficient = cls ? isProficientWith(weapon, cls) : false;
           const abilityMod = weaponAbilityMod(weapon, mods);
           const profBonus = proficient ? weapon.proficiencyBonus : 0;
-          const attackBonus = abilityMod + halfLevel + profBonus;
+          const weaponTalentBonus = (character.classId === 'fighter' && proficient) ? 1 : 0;
+          const attackBonus = abilityMod + halfLevel + profBonus + weaponTalentBonus;
           const isRanged = weapon.category.toLowerCase().includes('ranged');
 
           return (
@@ -119,6 +120,7 @@ export function CombatActionsPanel({ character, derived }: Props) {
                     {formatModifier(abilityMod)} {isRanged ? 'DEX' : 'STR'}
                     {halfLevel > 0 ? ` +${halfLevel} lvl` : ''}
                     {proficient ? ` +${weapon.proficiencyBonus} prof` : ' (no prof)'}
+                    {weaponTalentBonus > 0 ? ' +1 talent' : ''}
                   </div>
                 </div>
                 <div className="w-px h-8 bg-stone-200" />
