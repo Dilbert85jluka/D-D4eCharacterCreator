@@ -104,6 +104,11 @@ export function PowerCard({
 
       {/* Body */}
       <div className="px-3 py-2 bg-white text-xs space-y-1.5">
+        {/* Range */}
+        {power.range && (
+          <p className="font-semibold text-indigo-700">{power.range}</p>
+        )}
+
         {/* Keywords */}
         {power.keywords.length > 0 && (
           <div className="flex flex-wrap gap-1">

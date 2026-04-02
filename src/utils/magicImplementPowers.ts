@@ -59,6 +59,11 @@ export function parseMagicImplementPower(mi: MagicImplementData, tier: MagicImpl
     }
   }
 
+  // Extract range
+  let range: string | undefined;
+  const rangeMatch2 = raw.match(/(?:Standard|Minor|Move|Free|Immediate (?:Interrupt|Reaction)) Action\)\.?\s*((?:Melee|Ranged|Close (?:burst|blast)|Area (?:burst|blast|wall)|Personal)[^.]*?)(?:\.\s|$)/i);
+  if (rangeMatch2) range = rangeMatch2[1].trim();
+
   return {
     id: `magic-implement-${mi.id}-${tier.level}`,
     name: `${mi.name} Power`,
@@ -66,6 +71,7 @@ export function parseMagicImplementPower(mi: MagicImplementData, tier: MagicImpl
     level: 0,
     usage,
     actionType,
+    range,
     keywords,
     trigger,
     effect,

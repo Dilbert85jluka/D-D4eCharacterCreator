@@ -106,6 +106,8 @@ export interface PowerData {
   /** 'attack' = standard attack power; 'utility' = non-attack support/buff power; 'channel-divinity' = Channel Divinity class feature power. Defaults to 'attack' when omitted. */
   powerType?: 'attack' | 'utility' | 'channel-divinity';
   actionType: PowerAction;
+  /** Range/delivery: e.g. 'Melee weapon', 'Ranged 10', 'Close burst 2', 'Close blast 3', 'Area burst 1 within 10 squares', 'Personal' */
+  range?: string;
   keywords: string[];
   attackAbility?: Ability;
   defense?: 'AC' | 'Fortitude' | 'Reflex' | 'Will';

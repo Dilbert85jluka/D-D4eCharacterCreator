@@ -54,6 +54,11 @@ export function parseMagicItemPower(
     if (afterAction) effect = afterAction;
   }
 
+  // Extract range
+  let range: string | undefined;
+  const rangeMatch = text.match(/(?:Standard|Minor|Move|Free|Immediate (?:Interrupt|Reaction)|No) Action\)\.?\s*((?:Melee|Ranged|Close (?:burst|blast)|Area (?:burst|blast|wall)|Personal)[^.]*?)(?:\.\s|$)/i);
+  if (rangeMatch) range = rangeMatch[1].trim();
+
   // Build a unique ID for this item power
   const id = `magic-item-${mi.id}-${tier.level}`;
   const enhLabel = tier.enhancement > 0 ? ` +${tier.enhancement}` : '';
@@ -66,6 +71,7 @@ export function parseMagicItemPower(
     usage,
     powerType: 'utility',
     actionType,
+    range,
     keywords,
     trigger,
     effect: effect ?? text,

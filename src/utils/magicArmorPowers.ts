@@ -53,6 +53,11 @@ export function parseMagicArmorPower(
     if (afterAction) effect = afterAction;
   }
 
+  // Extract range (e.g., "Melee", "Ranged 5", "Close burst 1", "Personal")
+  let range: string | undefined;
+  const rangeMatch = text.match(/(?:Standard|Minor|Move|Free|Immediate (?:Interrupt|Reaction)|No) Action\)\.?\s*((?:Melee|Ranged|Close (?:burst|blast)|Area (?:burst|blast|wall)|Personal)[^.]*?)(?:\.\s|$)/i);
+  if (rangeMatch) range = rangeMatch[1].trim();
+
   // Build a unique ID for this armor power
   const id = `magic-armor-${ma.id}-${tier.level}`;
 
@@ -64,6 +69,7 @@ export function parseMagicArmorPower(
     usage,
     powerType: 'utility',
     actionType,
+    range,
     keywords,
     trigger,
     effect: effect ?? text,

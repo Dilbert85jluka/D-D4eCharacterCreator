@@ -52,6 +52,11 @@ export function parseMagicWeaponPower(
     if (afterAction) effect = afterAction;
   }
 
+  // Extract range
+  let range: string | undefined;
+  const rangeMatch = text.match(/(?:Standard|Minor|Move|Free|Immediate (?:Interrupt|Reaction)|No) Action\)\.?\s*((?:Melee|Ranged|Close (?:burst|blast)|Area (?:burst|blast|wall)|Personal)[^.]*?)(?:\.\s|$)/i);
+  if (rangeMatch) range = rangeMatch[1].trim();
+
   const id = `magic-weapon-${mw.id}-${tier.level}`;
 
   return {
@@ -62,6 +67,7 @@ export function parseMagicWeaponPower(
     usage,
     powerType: 'utility',
     actionType,
+    range,
     keywords,
     trigger,
     effect: effect ?? text,
