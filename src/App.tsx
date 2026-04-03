@@ -21,6 +21,7 @@ import { useCharacterCloudSync } from './hooks/useCharacterCloudSync';
 import { useCampaignCloudSync } from './hooks/useCampaignCloudSync';
 import { useHomebrewStore } from './store/useHomebrewStore';
 import { useHomebrewContentSync } from './hooks/useHomebrewContentSync';
+import { useHomebrewCloudSync } from './hooks/useHomebrewCloudSync';
 
 export default function App() {
   const currentView    = useAppStore((s) => s.currentView);
@@ -43,6 +44,7 @@ export default function App() {
   useEffect(() => { initializeAuth(); }, [initializeAuth]);
   useCharacterCloudSync();
   useCampaignCloudSync();
+  useHomebrewCloudSync();
   useHomebrewContentSync();
 
 

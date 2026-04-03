@@ -3,6 +3,7 @@ import { useCharactersStore } from '../../store/useCharactersStore';
 import { useCampaignsStore } from '../../store/useCampaignsStore';
 import { useSessionsStore } from '../../store/useSessionsStore';
 import { useEncountersStore } from '../../store/useEncountersStore';
+import { useHomebrewStore } from '../../store/useHomebrewStore';
 import { db } from '../../db/database';
 
 interface BackupPreview {
@@ -10,8 +11,10 @@ interface BackupPreview {
   campaigns: number;
   sessions: number;
   encounters: number;
+  homebrew: number;
 }
 
+/** v2 backup format — adds homebrew. v1 files lack the homebrew field. */
 interface BackupData {
   version: number;
   exportedAt: string;
@@ -19,6 +22,7 @@ interface BackupData {
   campaigns: unknown[];
   sessions: unknown[];
   encounters: unknown[];
+  homebrew?: unknown[];
 }
 
 interface Props {
@@ -37,17 +41,19 @@ export function ImportExportModal({ onClose }: Props) {
   const campaigns  = useCampaignsStore((s) => s.campaigns);
   const sessionsByCampaign  = useSessionsStore((s) => s.sessionsByCampaign);
   const encountersBySession = useEncountersStore((s) => s.encountersBySession);
+  const homebrewItems = useHomebrewStore((s) => s.items);
 
   function handleExport() {
     const sessions   = Object.values(sessionsByCampaign).flat();
     const encounters = Object.values(encountersBySession).flat();
     const backup: BackupData = {
-      version:     1,
+      version:     2,
       exportedAt:  new Date().toISOString(),
       characters,
       campaigns,
       sessions,
       encounters,
+      homebrew:    homebrewItems,
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
@@ -74,6 +80,7 @@ export function ImportExportModal({ onClose }: Props) {
         campaigns:  data.campaigns?.length  ?? 0,
         sessions:   data.sessions?.length   ?? 0,
         encounters: data.encounters?.length ?? 0,
+        homebrew:   data.homebrew?.length   ?? 0,
       });
       setStatus('idle');
       setErrorMsg('');
@@ -94,12 +101,15 @@ export function ImportExportModal({ onClose }: Props) {
           db.campaigns.clear(),
           db.sessions.clear(),
           db.encounters.clear(),
+          db.homebrew.clear(),
         ]);
       }
       if (parsed.characters?.length) await db.characters.bulkPut(parsed.characters as never[]);
       if (parsed.campaigns?.length)  await db.campaigns.bulkPut(parsed.campaigns as never[]);
       if (parsed.sessions?.length)   await db.sessions.bulkPut(parsed.sessions as never[]);
       if (parsed.encounters?.length) await db.encounters.bulkPut(parsed.encounters as never[]);
+      // v1 files won't have homebrew — safely skip if absent
+      if (parsed.homebrew?.length)   await db.homebrew.bulkPut(parsed.homebrew as never[]);
 
       setStatus('success');
       setTimeout(() => window.location.reload(), 1500);
@@ -109,7 +119,17 @@ export function ImportExportModal({ onClose }: Props) {
     }
   }
 
-  const exportCount = `${characters.length} character${characters.length !== 1 ? 's' : ''}, ${campaigns.length} campaign${campaigns.length !== 1 ? 's' : ''}`;
+  const sessionCount   = Object.values(sessionsByCampaign).flat().length;
+  const encounterCount = Object.values(encountersBySession).flat().length;
+  const homebrewCount  = homebrewItems.length;
+
+  const exportSummary = [
+    `${characters.length} character${characters.length !== 1 ? 's' : ''}`,
+    `${campaigns.length} campaign${campaigns.length !== 1 ? 's' : ''}`,
+    `${sessionCount} session${sessionCount !== 1 ? 's' : ''}`,
+    `${encounterCount} encounter${encounterCount !== 1 ? 's' : ''}`,
+    `${homebrewCount} homebrew item${homebrewCount !== 1 ? 's' : ''}`,
+  ].join(', ');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -120,7 +140,7 @@ export function ImportExportModal({ onClose }: Props) {
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-stone-200">
-          <h2 className="text-lg font-bold text-stone-800">📦 Import / Export</h2>
+          <h2 className="text-lg font-bold text-stone-800">Import / Export</h2>
           <button
             onClick={onClose}
             className="text-stone-400 hover:text-stone-600 text-xl font-bold w-8 h-8 flex items-center justify-center rounded-lg hover:bg-stone-100"
@@ -135,16 +155,16 @@ export function ImportExportModal({ onClose }: Props) {
           <section>
             <h3 className="font-bold text-stone-700 mb-1">Export Data</h3>
             <p className="text-sm text-stone-500 mb-3">
-              Download all your characters and campaigns as a JSON backup file.
+              Download all your characters, campaigns, and homebrew content as a JSON backup file.
             </p>
             <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 mb-3 text-sm text-amber-800">
-              Current data: <span className="font-semibold">{exportCount}</span>
+              Current data: <span className="font-semibold">{exportSummary}</span>
             </div>
             <button
               onClick={handleExport}
               className="w-full py-2.5 bg-amber-700 hover:bg-amber-600 text-white font-semibold rounded-lg transition-colors min-h-[44px]"
             >
-              ⬇ Download Backup
+              Download Backup
             </button>
           </section>
 
@@ -178,11 +198,17 @@ export function ImportExportModal({ onClose }: Props) {
               <div className="mt-3 bg-stone-50 border border-stone-200 rounded-lg p-3 text-sm space-y-1">
                 <p className="font-semibold text-stone-700 mb-1.5">File contains:</p>
                 <div className="grid grid-cols-2 gap-1 text-stone-600">
-                  <span>⚔️ Characters</span>   <span className="font-semibold">{preview.characters}</span>
-                  <span>🏰 Campaigns</span>    <span className="font-semibold">{preview.campaigns}</span>
-                  <span>📋 Sessions</span>     <span className="font-semibold">{preview.sessions}</span>
-                  <span>⚔ Encounters</span>   <span className="font-semibold">{preview.encounters}</span>
+                  <span>Characters</span>    <span className="font-semibold">{preview.characters}</span>
+                  <span>Campaigns</span>     <span className="font-semibold">{preview.campaigns}</span>
+                  <span>Sessions</span>      <span className="font-semibold">{preview.sessions}</span>
+                  <span>Encounters</span>    <span className="font-semibold">{preview.encounters}</span>
+                  <span>Homebrew Items</span><span className="font-semibold">{preview.homebrew}</span>
                 </div>
+                {parsed && parsed.version < 2 && (
+                  <p className="text-xs text-amber-600 mt-2">
+                    This is a v1 backup — homebrew items were not included in older exports.
+                  </p>
+                )}
               </div>
             )}
 
@@ -213,7 +239,7 @@ export function ImportExportModal({ onClose }: Props) {
                     className="mt-0.5"
                   />
                   <div>
-                    <span className="text-sm font-medium text-red-700">⚠ Replace all data</span>
+                    <span className="text-sm font-medium text-red-700">Replace all data</span>
                     <p className="text-xs text-stone-500">Deletes everything first, then imports. Cannot be undone.</p>
                   </div>
                 </label>
@@ -223,7 +249,7 @@ export function ImportExportModal({ onClose }: Props) {
             {/* Success */}
             {status === 'success' && (
               <div className="mt-3 bg-green-50 border border-green-200 rounded-lg px-4 py-2.5 text-sm text-green-700 font-medium">
-                ✓ Import successful! Reloading…
+                Import successful! Reloading…
               </div>
             )}
 
@@ -233,7 +259,7 @@ export function ImportExportModal({ onClose }: Props) {
               disabled={!parsed || status === 'importing' || status === 'success'}
               className="mt-4 w-full py-2.5 bg-stone-700 hover:bg-stone-600 disabled:opacity-40 text-white font-semibold rounded-lg transition-colors min-h-[44px]"
             >
-              {status === 'importing' ? 'Importing…' : '⬆ Import'}
+              {status === 'importing' ? 'Importing…' : 'Import'}
             </button>
           </section>
         </div>
