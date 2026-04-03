@@ -703,14 +703,68 @@ export function PowersPanel({ character }: Props) {
             <>
               {/* Cantrips — auto-granted wizard class features, no remove button */}
               {classCantrips.map((power) => (
-                <PowerCard key={power.id} power={power} />
+                <div key={power.id}>
+                  <div className="flex items-center justify-between mb-0.5 px-1">
+                    <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Class</span>
+                    <div className="flex items-center gap-1">
+                      {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      ) : (
+                        <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      )}
+                    </div>
+                  </div>
+                  <PowerCard power={power} />
+                </div>
               ))}
               {/* Pact Boon — auto-granted warlock class feature, no remove button */}
-              {pactBoonPower && <PowerCard power={pactBoonPower} />}
+              {pactBoonPower && (
+                <div>
+                  <div className="flex items-center justify-between mb-0.5 px-1">
+                    <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Class</span>
+                    <div className="flex items-center gap-1">
+                      {(character.quickTrayPowerIds ?? []).includes(pactBoonPower.id) ? (
+                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      ) : (
+                        <button onClick={() => addToQuickTray(pactBoonPower.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      )}
+                    </div>
+                  </div>
+                  <PowerCard power={pactBoonPower} />
+                </div>
+              )}
               {/* Monk Flurry of Blows — auto-granted based on monastic tradition, no remove button */}
-              {monkFlurryPower && <PowerCard key={monkFlurryPower.id} power={monkFlurryPower} />}
+              {monkFlurryPower && (
+                <div>
+                  <div className="flex items-center justify-between mb-0.5 px-1">
+                    <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Class</span>
+                    <div className="flex items-center gap-1">
+                      {(character.quickTrayPowerIds ?? []).includes(monkFlurryPower.id) ? (
+                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      ) : (
+                        <button onClick={() => addToQuickTray(monkFlurryPower.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      )}
+                    </div>
+                  </div>
+                  <PowerCard power={monkFlurryPower} abilityModifiers={abilityMods} />
+                </div>
+              )}
               {/* Fighter Combat Style power — auto-granted based on combat style choice, no remove button */}
-              {fighterCombatPower && <PowerCard key={fighterCombatPower.id} power={fighterCombatPower} abilityModifiers={abilityMods} />}
+              {fighterCombatPower && (
+                <div>
+                  <div className="flex items-center justify-between mb-0.5 px-1">
+                    <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Class</span>
+                    <div className="flex items-center gap-1">
+                      {(character.quickTrayPowerIds ?? []).includes(fighterCombatPower.id) ? (
+                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      ) : (
+                        <button onClick={() => addToQuickTray(fighterCombatPower.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      )}
+                    </div>
+                  </div>
+                  <PowerCard power={fighterCombatPower} abilityModifiers={abilityMods} />
+                </div>
+              )}
               {powersForTab.map(({ sp, power }) => {
                 if (!power) return null;
                 const mt = isFullDisciplinePower(power) ? extractMovementTechnique(power) : null;

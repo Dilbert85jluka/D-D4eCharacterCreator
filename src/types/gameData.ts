@@ -95,6 +95,9 @@ export interface ClassData {
   encounterPowerCount: number;
   dailyPowerCount: number;
   features: ClassFeature[];
+  /** Auto-granted class power IDs (analogous to racialPowerIds on RaceData).
+   *  These powers are given to all characters of this class and displayed in Class Features. */
+  classPowerIds?: string[];
 }
 
 export interface PowerData {

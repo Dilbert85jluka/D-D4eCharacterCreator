@@ -5,6 +5,7 @@ import { useHomebrewStore } from '../../store/useHomebrewStore';
 import type { ClassData, ClassFeature } from '../../types/gameData';
 import type { Ability } from '../../types/character';
 import { SKILLS } from '../../data/skills';
+import { ALL_POWERS } from '../../data/powers';
 
 const ROLES: ClassData['role'][] = ['Controller', 'Defender', 'Leader', 'Striker'];
 const POWER_SOURCES: ClassData['powerSource'][] = ['Arcane', 'Divine', 'Martial', 'Primal', 'Psionic'];
@@ -149,6 +150,10 @@ export function ClassEditor({ editingItem, userId, onClose }: EditorProps) {
   // --- Features ---
   const [features, setFeatures] = useState<ClassFeature[]>(existing?.features ?? []);
 
+  // --- Class Powers (auto-granted) ---
+  const [classPowerIds, setClassPowerIds] = useState<string[]>(existing?.classPowerIds ?? []);
+  const [pendingPowerId, setPendingPowerId] = useState('');
+
   const toggleCampaign = (id: string) =>
     setCampaignIds((prev) => prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]);
 
@@ -170,6 +175,21 @@ export function ClassEditor({ editingItem, userId, onClose }: EditorProps) {
     setFeatures((f) => f.map((ft, i) => (i === idx ? updated : ft)));
   const removeFeature = (idx: number) => setFeatures((f) => f.filter((_, i) => i !== idx));
 
+  // --- Class Power CRUD ---
+  // Show powers that match this class's ID (for editing existing class) or any homebrew power
+  const classId = editingItem?.id ?? '';
+  const availableClassPowers = ALL_POWERS.filter(
+    (p) => (p.classId === classId || p.id.startsWith('homebrew-')) && !classPowerIds.includes(p.id),
+  );
+  const addClassPower = () => {
+    if (pendingPowerId && !classPowerIds.includes(pendingPowerId)) {
+      setClassPowerIds((prev) => [...prev, pendingPowerId]);
+      setPendingPowerId('');
+    }
+  };
+  const removeClassPower = (id: string) => setClassPowerIds((prev) => prev.filter((pid) => pid !== id));
+  const getClassPowerName = (id: string) => ALL_POWERS.find((p) => p.id === id)?.name ?? id;
+
   const handleSave = async () => {
     const data: ClassData = {
       ...form,
@@ -182,6 +202,7 @@ export function ClassEditor({ editingItem, userId, onClose }: EditorProps) {
       availableSkills,
       mandatorySkills: mandatorySkills.length > 0 ? mandatorySkills : undefined,
       features: features.filter((f) => f.name.trim()),
+      classPowerIds: classPowerIds.length > 0 ? classPowerIds : undefined,
     };
 
     if (editingItem) {
@@ -395,6 +416,45 @@ export function ClassEditor({ editingItem, userId, onClose }: EditorProps) {
         >
           + Add Feature
         </button>
+      </div>
+
+      {/* ── Class Powers (auto-granted) ── */}
+      <div>
+        <label className="block text-sm font-semibold text-stone-700 mb-1.5">Class Powers</label>
+        <p className="text-xs text-stone-400 mb-2">
+          Auto-granted powers for this class (like racial powers). Create powers first in the Powers tab, then link them here.
+          They will appear on the Class Features sheet and can be pinned to Quick Access.
+        </p>
+        {classPowerIds.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {classPowerIds.map((pid) => (
+              <span key={pid} className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
+                {getClassPowerName(pid)}
+                <button onClick={() => removeClassPower(pid)} className="hover:text-red-600 font-bold">&times;</button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <select className={selectCls} value={pendingPowerId} onChange={(e) => setPendingPowerId(e.target.value)}>
+            <option value="">Select a power...</option>
+            {availableClassPowers.map((p) => (
+              <option key={p.id} value={p.id}>{p.name} (Lvl {p.level} {p.usage})</option>
+            ))}
+          </select>
+          <button
+            onClick={addClassPower}
+            disabled={!pendingPowerId}
+            className={[
+              'px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors min-h-[36px] flex-shrink-0',
+              pendingPowerId
+                ? 'bg-amber-600 text-white hover:bg-amber-500'
+                : 'bg-stone-200 text-stone-400 cursor-not-allowed',
+            ].join(' ')}
+          >
+            + Add
+          </button>
+        </div>
       </div>
     </EditorLayout>
   );
