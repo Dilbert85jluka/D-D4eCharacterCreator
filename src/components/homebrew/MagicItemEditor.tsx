@@ -7,6 +7,12 @@ import type { MagicItemData, MagicItemSlot } from '../../types/gameData';
 
 const SLOTS: MagicItemSlot[] = ['head', 'neck', 'arms', 'hands', 'ring', 'waist', 'feet', 'companion', 'wondrous'];
 const RARITIES = ['Common', 'Uncommon', 'Rare'] as const;
+const ENHANCEMENT_TYPES = [
+  { value: '', label: 'None' },
+  { value: 'AC', label: 'AC' },
+  { value: 'attack rolls and damage rolls', label: 'Attack rolls and damage rolls' },
+  { value: 'Fortitude, Reflex, and Will', label: 'Fortitude, Reflex, and Will' },
+] as const;
 
 function defaults(): MagicItemData {
   return { id: '', name: '', slot: 'wondrous', tiers: [{ level: 1, enhancement: 0, cost: 360 }], rarity: 'Uncommon', source: 'Homebrew' };
@@ -57,7 +63,9 @@ export function MagicItemEditor({ editingItem, userId, onClose }: EditorProps) {
           </select>
         </Field>
         <Field label="Enhancement Type">
-          <input className={inputCls} value={form.enhancementType ?? ''} onChange={(e) => set('enhancementType', e.target.value || undefined)} placeholder="e.g. Fortitude, Reflex, and Will" />
+          <select className={selectCls} value={form.enhancementType ?? ''} onChange={(e) => set('enhancementType', e.target.value || undefined)}>
+            {ENHANCEMENT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
         </Field>
       </div>
       <Field label="Property">

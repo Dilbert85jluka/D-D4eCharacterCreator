@@ -5,6 +5,7 @@
       "Bash(npm run dev)",
       "Bash(npm run preview)",
       "Bash(node *)",
+	  "Bash(cat *)",
 	  "Bash(grep *)",
       "Bash(npm install *)",
       "Bash(npm ls *)",

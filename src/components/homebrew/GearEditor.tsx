@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import type { EditorProps } from './HomebrewEditorModal';
-import { EditorLayout, Field, inputCls, textareaCls } from './EditorLayout';
+import { EditorLayout, Field, inputCls, selectCls, textareaCls } from './EditorLayout';
 import { useHomebrewStore } from '../../store/useHomebrewStore';
 import type { GearData } from '../../types/gameData';
 
+const GEAR_CATEGORIES = [
+  'Gear', 'Component', 'Musical Instrument', 'Food & Drink', 'Lodging', 'Transport', 'Mount',
+] as const;
+
 function defaults(): GearData {
-  return { id: '', name: '', cost: 5, weight: 1, description: '' };
+  return { id: '', name: '', category: 'Gear', cost: 5, weight: 1, description: '' };
 }
 
 export function GearEditor({ editingItem, userId, onClose }: EditorProps) {
@@ -43,7 +47,9 @@ export function GearEditor({ editingItem, userId, onClose }: EditorProps) {
           <input className={inputCls} value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Item name" />
         </Field>
         <Field label="Category">
-          <input className={inputCls} value={form.category ?? ''} onChange={(e) => set('category', e.target.value || undefined)} placeholder="e.g. Gear, Mount, Musical Instrument" />
+          <select className={selectCls} value={form.category ?? 'Gear'} onChange={(e) => set('category', e.target.value)}>
+            {GEAR_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
         </Field>
         <Field label="Cost (gp)">
           <input className={inputCls} type="number" min={0} step={0.01} value={form.cost} onChange={(e) => set('cost', Number(e.target.value))} />

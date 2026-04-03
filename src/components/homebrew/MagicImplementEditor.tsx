@@ -8,6 +8,20 @@ import type { MagicImplementData, ImplementType } from '../../types/gameData';
 const IMPLEMENT_TYPES: ImplementType[] = ['Holy Symbol', 'Orb', 'Rod', 'Staff', 'Wand', 'Totem', 'Ki Focus', 'Tome'];
 const RARITIES = ['Common', 'Uncommon', 'Rare'] as const;
 
+const ENHANCEMENT_TYPES = [
+  { value: 'attack rolls and damage rolls', label: 'Attack rolls and damage rolls' },
+] as const;
+
+const DICE_TYPES = ['d6', 'd8', 'd10', 'd12'] as const;
+
+/** Parse "+1d8 damage per plus" → { qty: 1, die: 'd8' } */
+function parseCritical(val?: string): { qty: number; die: string } | null {
+  if (!val) return null;
+  const match = val.match(/^\+(\d+)(d\d+)\s+damage per plus$/i);
+  if (!match) return null;
+  return { qty: Number(match[1]), die: match[2] };
+}
+
 function defaults(): MagicImplementData {
   return {
     id: '', name: '', type: 'Wand', enhancementType: 'attack rolls and damage rolls',
@@ -21,6 +35,10 @@ export function MagicImplementEditor({ editingItem, userId, onClose }: EditorPro
   const existing = editingItem?.data as MagicImplementData | undefined;
 
   const [form, setForm] = useState<MagicImplementData>(existing ? { ...existing } : defaults());
+  const parsed = parseCritical(existing?.critical);
+  const [hasCritical, setHasCritical] = useState(!!parsed);
+  const [critQty, setCritQty] = useState(parsed?.qty ?? 1);
+  const [critDie, setCritDie] = useState(parsed?.die ?? 'd6');
   const [campaignIds, setCampaignIds] = useState<string[]>(editingItem?.campaignIds ?? []);
 
   const set = <K extends keyof MagicImplementData>(key: K, val: MagicImplementData[K]) =>
@@ -32,7 +50,8 @@ export function MagicImplementEditor({ editingItem, userId, onClose }: EditorPro
   const canSave = form.name.trim().length > 0 && form.tiers.length > 0;
 
   const handleSave = async () => {
-    const data: MagicImplementData = { ...form, id: existing?.id ?? '' };
+    const critical = hasCritical ? `+${critQty}${critDie} damage per plus` : undefined;
+    const data: MagicImplementData = { ...form, id: existing?.id ?? '', critical };
     if (editingItem) {
       await updateItem({ ...editingItem, name: data.name, data, campaignIds });
     } else {
@@ -60,11 +79,44 @@ export function MagicImplementEditor({ editingItem, userId, onClose }: EditorPro
           </select>
         </Field>
         <Field label="Enhancement Type">
-          <input className={inputCls} value={form.enhancementType} onChange={(e) => set('enhancementType', e.target.value)} />
+          <select className={selectCls} value={form.enhancementType} onChange={(e) => set('enhancementType', e.target.value)}>
+            {ENHANCEMENT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
         </Field>
       </div>
       <Field label="Critical">
-        <input className={inputCls} value={form.critical ?? ''} onChange={(e) => set('critical', e.target.value)} placeholder="e.g. +1d8 damage per plus" />
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={hasCritical}
+              onChange={(e) => setHasCritical(e.target.checked)}
+              className="w-4 h-4 rounded border-stone-300 text-amber-600 focus:ring-amber-500"
+            />
+            <span className="text-sm text-stone-600">Has critical damage</span>
+          </label>
+          {hasCritical && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-stone-600 font-medium">+</span>
+              <input
+                type="number"
+                min={1}
+                max={9}
+                value={critQty}
+                onChange={(e) => setCritQty(Math.max(1, Number(e.target.value)))}
+                className={inputCls + ' !w-16 text-center'}
+              />
+              <select
+                className={selectCls + ' !w-24'}
+                value={critDie}
+                onChange={(e) => setCritDie(e.target.value)}
+              >
+                {DICE_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+              <span className="text-sm text-stone-600 font-medium">damage per plus</span>
+            </div>
+          )}
+        </div>
       </Field>
       <Field label="Property">
         <textarea className={textareaCls} value={form.property ?? ''} onChange={(e) => set('property', e.target.value)} placeholder="Passive bonus" rows={2} />

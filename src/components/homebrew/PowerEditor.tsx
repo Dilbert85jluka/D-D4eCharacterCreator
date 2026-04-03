@@ -12,6 +12,46 @@ const POWER_TYPES = ['attack', 'utility', 'channel-divinity'] as const;
 const ABILITIES: Ability[] = ['str', 'con', 'dex', 'int', 'wis', 'cha'];
 const DEFENSES = ['AC', 'Fortitude', 'Reflex', 'Will'] as const;
 
+/** All official D&D 4e power keywords (alphabetical) */
+const KEYWORDS = [
+  'Acid', 'Arcane', 'BeastForm', 'ChannelDivinity', 'Charm', 'Cold', 'Conjuration',
+  'Divine', 'Enchantment', 'Evocation', 'Fear', 'Fire', 'Force', 'FullDiscipline',
+  'Healing', 'Illusion', 'Implement', 'Lightning', 'Martial', 'Necrotic', 'Poison',
+  'Polymorph', 'Primal', 'Psionic', 'Psychic', 'Radiant', 'Rage', 'Reliable',
+  'Runic', 'Sleep', 'Spirit', 'Stance', 'Summoning', 'Teleportation', 'Thunder',
+  'Varies', 'Weapon', 'Zone',
+] as const;
+
+/** Range type prefixes — some need a value, some are standalone */
+const RANGE_TYPES = [
+  { value: 'Melee weapon', label: 'Melee weapon', needsValue: false },
+  { value: 'Melee touch', label: 'Melee touch', needsValue: false },
+  { value: 'Melee', label: 'Melee', needsValue: true },
+  { value: 'Ranged weapon', label: 'Ranged weapon', needsValue: false },
+  { value: 'Ranged sight', label: 'Ranged sight', needsValue: false },
+  { value: 'Ranged', label: 'Ranged', needsValue: true },
+  { value: 'Close burst', label: 'Close burst', needsValue: true },
+  { value: 'Close blast', label: 'Close blast', needsValue: true },
+  { value: 'Area burst', label: 'Area burst', needsValue: true },
+  { value: 'Area wall', label: 'Area wall', needsValue: true },
+  { value: 'Personal', label: 'Personal', needsValue: false },
+  { value: 'Melee or Ranged weapon', label: 'Melee or Ranged weapon', needsValue: false },
+] as const;
+
+/** Parse a range string like "Ranged 10" into { type: 'Ranged', value: '10' } */
+function parseRange(range?: string): { type: string; value: string } {
+  if (!range) return { type: 'Melee weapon', value: '' };
+  // Try matching longest prefix first
+  const sorted = [...RANGE_TYPES].sort((a, b) => b.value.length - a.value.length);
+  for (const rt of sorted) {
+    if (range.startsWith(rt.value)) {
+      const rest = range.slice(rt.value.length).trim();
+      return { type: rt.value, value: rest };
+    }
+  }
+  return { type: 'Melee weapon', value: range };
+}
+
 function defaults(): PowerData {
   return {
     id: '',
@@ -41,7 +81,11 @@ export function PowerEditor({ editingItem, userId, onClose }: EditorProps) {
   const existing = editingItem?.data as PowerData | undefined;
 
   const [form, setForm] = useState<PowerData>(existing ? { ...existing } : defaults());
-  const [keywordsText, setKeywordsText] = useState(existing?.keywords.join(', ') ?? '');
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>(existing?.keywords ?? []);
+  const [pendingKeyword, setPendingKeyword] = useState('');
+  const parsedRange = parseRange(existing?.range);
+  const [rangeType, setRangeType] = useState(parsedRange.type);
+  const [rangeValue, setRangeValue] = useState(parsedRange.value);
   const [campaignIds, setCampaignIds] = useState<string[]>(editingItem?.campaignIds ?? []);
 
   const set = <K extends keyof PowerData>(key: K, val: PowerData[K]) =>
@@ -52,12 +96,32 @@ export function PowerEditor({ editingItem, userId, onClose }: EditorProps) {
 
   const canSave = form.name.trim().length > 0;
 
+  const addKeyword = () => {
+    if (pendingKeyword && !selectedKeywords.includes(pendingKeyword)) {
+      setSelectedKeywords((prev) => [...prev, pendingKeyword]);
+    }
+    setPendingKeyword('');
+  };
+
+  const removeKeyword = (kw: string) => {
+    setSelectedKeywords((prev) => prev.filter((k) => k !== kw));
+  };
+
+  const availableKeywords = KEYWORDS.filter((k) => !selectedKeywords.includes(k));
+
+  const currentRangeType = RANGE_TYPES.find((rt) => rt.value === rangeType);
+  const needsValue = currentRangeType?.needsValue ?? false;
+
   const handleSave = async () => {
-    const keywords = keywordsText.split(',').map((k) => k.trim()).filter(Boolean);
+    const range = needsValue && rangeValue
+      ? `${rangeType} ${rangeValue}`
+      : rangeType;
+
     const data: PowerData = {
       ...form,
       id: existing?.id ?? '',
-      keywords,
+      keywords: selectedKeywords,
+      range,
     };
 
     if (editingItem) {
@@ -70,7 +134,6 @@ export function PowerEditor({ editingItem, userId, onClose }: EditorProps) {
         campaignIds,
         data: { ...data, id: '' },
       });
-      // Set the power's ID to match the homebrew item ID
       data.id = item.id;
       await updateItem({ ...item, data });
     }
@@ -113,12 +176,76 @@ export function PowerEditor({ editingItem, userId, onClose }: EditorProps) {
             {ACTION_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
         </Field>
-        <Field label="Range">
-          <input className={inputCls} value={form.range ?? ''} onChange={(e) => set('range', e.target.value)} placeholder="e.g. Melee weapon, Ranged 10, Close burst 2" />
-        </Field>
-        <Field label="Keywords">
-          <input className={inputCls} value={keywordsText} onChange={(e) => setKeywordsText(e.target.value)} placeholder="Martial, Weapon (comma-separated)" />
-        </Field>
+      </div>
+
+      {/* Range — structured dropdown + value */}
+      <Field label="Range">
+        <div className="flex gap-2 items-start">
+          <select
+            className={selectCls}
+            value={rangeType}
+            onChange={(e) => { setRangeType(e.target.value); setRangeValue(''); }}
+          >
+            {RANGE_TYPES.map((rt) => <option key={rt.value} value={rt.value}>{rt.label}</option>)}
+          </select>
+          {needsValue && (
+            <input
+              className={inputCls + ' !w-24 flex-shrink-0'}
+              type="text"
+              value={rangeValue}
+              onChange={(e) => setRangeValue(e.target.value)}
+              placeholder="e.g. 10"
+            />
+          )}
+        </div>
+      </Field>
+
+      {/* Keywords — dropdown + add + tags */}
+      <Field label="Keywords">
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <select
+              className={selectCls}
+              value={pendingKeyword}
+              onChange={(e) => setPendingKeyword(e.target.value)}
+            >
+              <option value="">Select a keyword…</option>
+              {availableKeywords.map((k) => <option key={k} value={k}>{k}</option>)}
+            </select>
+            <button
+              type="button"
+              onClick={addKeyword}
+              disabled={!pendingKeyword}
+              className="px-3 py-2 rounded-lg bg-amber-600 text-white font-semibold text-sm hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0 min-h-[44px]"
+            >
+              + Add
+            </button>
+          </div>
+          {selectedKeywords.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {selectedKeywords.map((kw) => (
+                <span
+                  key={kw}
+                  className="inline-flex items-center gap-1 text-sm bg-stone-100 border border-stone-200 text-stone-700 px-2.5 py-1 rounded-lg"
+                >
+                  {kw}
+                  <button
+                    type="button"
+                    onClick={() => removeKeyword(kw)}
+                    className="text-stone-400 hover:text-red-500 transition-colors text-base leading-none ml-0.5"
+                    title={`Remove ${kw}`}
+                  >×</button>
+                </span>
+              ))}
+            </div>
+          )}
+          {selectedKeywords.length === 0 && (
+            <p className="text-xs text-stone-400">No keywords added yet.</p>
+          )}
+        </div>
+      </Field>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="Attack Ability">
           <select className={selectCls} value={form.attackAbility ?? ''} onChange={(e) => set('attackAbility', (e.target.value || undefined) as Ability | undefined)}>
             <option value="">None</option>

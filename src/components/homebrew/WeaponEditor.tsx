@@ -8,6 +8,14 @@ const CATEGORIES: WeaponData['category'][] = [
   'Simple Melee', 'Military Melee', 'Simple Ranged', 'Military Ranged', 'Superior Melee', 'Superior Ranged',
 ];
 
+/** All official D&D 4e weapon properties (alphabetical) */
+const WEAPON_PROPERTIES = [
+  'Axe', 'Bow', 'Crossbow', 'Flail', 'Hammer', 'Heavy blade', 'Heavy thrown',
+  'High crit', 'Light blade', 'Light thrown', 'Load free', 'Load minor',
+  'Mace', 'Off-hand', 'Pick', 'Polearm', 'Reach', 'Sling', 'Spear',
+  'Staff', 'Two-handed', 'Unarmed', 'Versatile',
+] as const;
+
 function defaults(): WeaponData {
   return { id: '', name: '', category: 'Simple Melee', proficiencyBonus: 2, damage: '1d8', properties: [], cost: 5, weight: 5 };
 }
@@ -18,7 +26,8 @@ export function WeaponEditor({ editingItem, userId, onClose }: EditorProps) {
   const existing = editingItem?.data as WeaponData | undefined;
 
   const [form, setForm] = useState<WeaponData>(existing ? { ...existing } : defaults());
-  const [propsText, setPropsText] = useState(existing?.properties.join(', ') ?? '');
+  const [selectedProps, setSelectedProps] = useState<string[]>(existing?.properties ?? []);
+  const [pendingProp, setPendingProp] = useState('');
   const [campaignIds, setCampaignIds] = useState<string[]>(editingItem?.campaignIds ?? []);
 
   const set = <K extends keyof WeaponData>(key: K, val: WeaponData[K]) =>
@@ -29,9 +38,22 @@ export function WeaponEditor({ editingItem, userId, onClose }: EditorProps) {
 
   const canSave = form.name.trim().length > 0;
 
+  const addProperty = () => {
+    if (pendingProp && !selectedProps.includes(pendingProp)) {
+      setSelectedProps((prev) => [...prev, pendingProp]);
+    }
+    setPendingProp('');
+  };
+
+  const removeProperty = (prop: string) => {
+    setSelectedProps((prev) => prev.filter((p) => p !== prop));
+  };
+
+  // Properties not yet added
+  const availableProps = WEAPON_PROPERTIES.filter((p) => !selectedProps.includes(p));
+
   const handleSave = async () => {
-    const properties = propsText.split(',').map((s) => s.trim()).filter(Boolean);
-    const data: WeaponData = { ...form, id: existing?.id ?? '', properties };
+    const data: WeaponData = { ...form, id: existing?.id ?? '', properties: selectedProps };
 
     if (editingItem) {
       await updateItem({ ...editingItem, name: data.name, data, campaignIds });
@@ -70,7 +92,47 @@ export function WeaponEditor({ editingItem, userId, onClose }: EditorProps) {
           <input className={inputCls} type="number" min={0} step={0.1} value={form.weight} onChange={(e) => set('weight', Number(e.target.value))} />
         </Field>
         <Field label="Properties">
-          <input className={inputCls} value={propsText} onChange={(e) => setPropsText(e.target.value)} placeholder="Heavy blade, Versatile (comma-separated)" />
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <select
+                className={selectCls}
+                value={pendingProp}
+                onChange={(e) => setPendingProp(e.target.value)}
+              >
+                <option value="">Select a property…</option>
+                {availableProps.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <button
+                type="button"
+                onClick={addProperty}
+                disabled={!pendingProp}
+                className="px-3 py-2 rounded-lg bg-amber-600 text-white font-semibold text-sm hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0 min-h-[44px]"
+              >
+                + Add
+              </button>
+            </div>
+            {selectedProps.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {selectedProps.map((prop) => (
+                  <span
+                    key={prop}
+                    className="inline-flex items-center gap-1 text-sm bg-stone-100 border border-stone-200 text-stone-700 px-2.5 py-1 rounded-lg"
+                  >
+                    {prop}
+                    <button
+                      type="button"
+                      onClick={() => removeProperty(prop)}
+                      className="text-stone-400 hover:text-red-500 transition-colors text-base leading-none ml-0.5"
+                      title={`Remove ${prop}`}
+                    >×</button>
+                  </span>
+                ))}
+              </div>
+            )}
+            {selectedProps.length === 0 && (
+              <p className="text-xs text-stone-400">No properties added yet.</p>
+            )}
+          </div>
         </Field>
       </div>
     </EditorLayout>
