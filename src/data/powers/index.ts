@@ -25,7 +25,7 @@ import { RACIAL_POWERS } from './racial';
 import { featPowers } from './featPowers';
 import type { PowerData, PowerUsage } from '../../types/gameData';
 
-export const ALL_POWERS: PowerData[] = [
+const OFFICIAL_POWERS: PowerData[] = [
   ...avengerPowers,
   ...barbarianPowers,
   ...bardPowers,
@@ -52,6 +52,19 @@ export const ALL_POWERS: PowerData[] = [
   ...RACIAL_POWERS,
   ...featPowers,
 ];
+
+// Mutable array that includes official + homebrew powers
+export let ALL_POWERS: PowerData[] = [...OFFICIAL_POWERS];
+
+/** Register homebrew powers into the global powers array */
+export function registerHomebrewPowers(powers: PowerData[]): void {
+  ALL_POWERS = [...OFFICIAL_POWERS, ...powers];
+}
+
+/** Remove all homebrew powers, restoring to official-only */
+export function unregisterHomebrewPowers(): void {
+  ALL_POWERS = [...OFFICIAL_POWERS];
+}
 
 export function getPowerById(id: string): PowerData | undefined {
   return ALL_POWERS.find((p) => p.id === id);

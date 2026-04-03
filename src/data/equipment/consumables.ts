@@ -1,6 +1,6 @@
 import type { ConsumableData } from '../../types/gameData';
 
-export const CONSUMABLES: ConsumableData[] = [
+const OFFICIAL_CONSUMABLES: ConsumableData[] = [
 
   // ── Potions ────────────────────────────────────────────────────────────────
   {
@@ -212,3 +212,12 @@ export const CONSUMABLES: ConsumableData[] = [
     weight: 0,
   },
 ];
+
+export let CONSUMABLES: ConsumableData[] = [...OFFICIAL_CONSUMABLES];
+
+export function registerHomebrewConsumables(items: ConsumableData[]): void {
+  CONSUMABLES = [...OFFICIAL_CONSUMABLES, ...items];
+}
+export function unregisterHomebrewConsumables(): void {
+  CONSUMABLES = [...OFFICIAL_CONSUMABLES];
+}

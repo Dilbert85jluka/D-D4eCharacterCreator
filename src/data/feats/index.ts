@@ -1,6 +1,6 @@
 import type { FeatData } from '../../types/gameData';
 
-export const FEATS: FeatData[] = [
+const OFFICIAL_FEATS: FeatData[] = [
   // ────────────────────────────────────────────────────────────
   // HEROIC TIER
   // ────────────────────────────────────────────────────────────
@@ -3734,6 +3734,19 @@ export const FEATS: FeatData[] = [
     special: '21st level, minotaur, goring charge racial power',
   },
 ];
+
+// Mutable array that includes official + homebrew feats
+export let FEATS: FeatData[] = [...OFFICIAL_FEATS];
+
+/** Register homebrew feats into the global feats array */
+export function registerHomebrewFeats(feats: FeatData[]): void {
+  FEATS = [...OFFICIAL_FEATS, ...feats];
+}
+
+/** Remove all homebrew feats, restoring to official-only */
+export function unregisterHomebrewFeats(): void {
+  FEATS = [...OFFICIAL_FEATS];
+}
 
 export function getFeatById(id: string): FeatData | undefined {
   return FEATS.find((f) => f.id === id);

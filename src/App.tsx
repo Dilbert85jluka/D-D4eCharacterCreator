@@ -15,9 +15,12 @@ import { PortraitPage } from './pages/PortraitPage';
 import { MonsterCompendiumPage } from './pages/MonsterCompendiumPage';
 import { CampaignManagementPage } from './pages/CampaignManagementPage';
 import { MagicItemCompendiumPage } from './pages/MagicItemCompendiumPage';
+import { HomebrewWorkshopPage } from './pages/HomebrewWorkshopPage';
 import { LoginPage } from './components/auth/LoginPage';
 import { useCharacterCloudSync } from './hooks/useCharacterCloudSync';
 import { useCampaignCloudSync } from './hooks/useCampaignCloudSync';
+import { useHomebrewStore } from './store/useHomebrewStore';
+import { useHomebrewContentSync } from './hooks/useHomebrewContentSync';
 
 export default function App() {
   const currentView    = useAppStore((s) => s.currentView);
@@ -25,6 +28,7 @@ export default function App() {
   const loadCampaigns     = useCampaignsStore((s) => s.loadCampaigns);
   const loadAllSessions   = useSessionsStore((s) => s.loadAllSessions);
   const loadAllEncounters = useEncountersStore((s) => s.loadAllEncounters);
+  const loadHomebrew      = useHomebrewStore((s) => s.loadHomebrew);
   const initializeAuth  = useAuthStore((s) => s.initialize);
   const user = useAuthStore((s) => s.user);
   const isInitialized = useAuthStore((s) => s.isInitialized);
@@ -34,10 +38,12 @@ export default function App() {
   useEffect(() => { loadCampaigns(); }, [loadCampaigns]);
   useEffect(() => { loadAllSessions(); }, [loadAllSessions]);
   useEffect(() => { loadAllEncounters(); }, [loadAllEncounters]);
+  useEffect(() => { loadHomebrew(); }, [loadHomebrew]);
   // Initialize Supabase auth (checks existing session, subscribes to changes)
   useEffect(() => { initializeAuth(); }, [initializeAuth]);
   useCharacterCloudSync();
   useCampaignCloudSync();
+  useHomebrewContentSync();
 
 
   // Show nothing while auth is initializing (checking existing session)
@@ -77,6 +83,7 @@ export default function App() {
         {currentView === 'monsters'  && <MonsterCompendiumPage />}
         {currentView === 'campaigns' && <CampaignManagementPage />}
         {currentView === 'magicItems' && <MagicItemCompendiumPage />}
+        {currentView === 'homebrew'  && <HomebrewWorkshopPage />}
         {currentView === 'login'     && <LoginPage />}
       </main>
 

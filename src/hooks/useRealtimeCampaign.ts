@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useSharingStore } from '../store/useSharingStore';
 import type { CharacterSummary, SharedCampaign } from '../types/sharing';
+import { registerCampaignHomebrew } from '../lib/homebrewContentSync';
 
 /**
  * Subscribes to Supabase Realtime for a specific campaign.
@@ -57,8 +58,13 @@ export function useRealtimeCampaign(campaignId: string | null) {
           filter: `id=eq.${campaignId}`,
         },
         (payload) => {
-          // Update campaign content in real-time (DM synced notes/sessions)
-          updateSharedCampaign(payload.new as SharedCampaign);
+          // Update campaign content in real-time (DM synced notes/sessions + homebrew)
+          const updated = payload.new as SharedCampaign;
+          updateSharedCampaign(updated);
+          // Register DM's homebrew content into the data layer for players
+          if (updated.homebrew_content) {
+            registerCampaignHomebrew(updated.homebrew_content);
+          }
         },
       )
       .subscribe();

@@ -1,6 +1,6 @@
 import type { MagicItemData } from '../../types/gameData';
 
-export const MAGIC_ITEMS: MagicItemData[] = [
+const OFFICIAL_MAGIC_ITEMS: MagicItemData[] = [
   { id: 'item515', name: 'Ankhmon\'s Bracers', slot: 'arms', property: 'Once per encounter, when you hit an enemy that is granting combat advantage to you with an arcane attack power, the attack deals 1d10 extra damage against the enemy. You also regain a number of hit points equal to the extra damage roll result', tiers: [{ level: 19, enhancement: 0, cost: 105000 }], rarity: 'Uncommon', source: 'AV2' },
   { id: 'item604', name: 'Barrage Bracers', slot: 'arms', property: 'When you hit an enemy with a melee attack, you gain a +1 bonus to attack rolls against that target until the end of your turn', tiers: [{ level: 10, enhancement: 0, cost: 5000 }], rarity: 'Uncommon', source: 'AV2' },
   { id: 'item703', name: 'Bloodhound Bracers', slot: 'arms', property: 'Creatures that are taking ongoing damage grant combat advantage to you.', power: 'Power ✦ Daily (Free Action) Trigger: You bloody an enemy. Effect: That enemy takes ongoing 5 damage (save ends)', tiers: [{ level: 13, enhancement: 0, cost: 17000 }], rarity: 'Uncommon', source: 'AV2' },
@@ -790,3 +790,12 @@ export const MAGIC_ITEMS: MagicItemData[] = [
   { id: 'item3068', name: 'Whistle of Warning', slot: 'wondrous', power: 'Power ✦ Encounter (Minor Action) Each ally within 10 squares of you who can hear the whistle can shift 1 square and draw a weapon or retrieve an implement as a free action', tiers: [{ level: 8, enhancement: 0, cost: 3400 }], rarity: 'Uncommon', source: 'AV2' },
   { id: 'item3094', name: 'Woundstitch Powder', slot: 'wondrous', power: 'Power ✦ At-Will (Standard Action) You sprinkle this dust on an adjacent dying creature. That creature stops making death saving throws until it takes damage, and any untyped ongoing damage on the creature ends', tiers: [{ level: 1, enhancement: 0, cost: 360 }], rarity: 'Common', source: 'AV2' },
 ];
+
+export let MAGIC_ITEMS: MagicItemData[] = [...OFFICIAL_MAGIC_ITEMS];
+
+export function registerHomebrewMagicItems(items: MagicItemData[]): void {
+  MAGIC_ITEMS = [...OFFICIAL_MAGIC_ITEMS, ...items];
+}
+export function unregisterHomebrewMagicItems(): void {
+  MAGIC_ITEMS = [...OFFICIAL_MAGIC_ITEMS];
+}

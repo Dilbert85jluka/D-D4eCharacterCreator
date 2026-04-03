@@ -1,5 +1,7 @@
 /** Shared data types for Supabase multi-user campaign sharing */
 
+import type { HomebrewItem } from './homebrew';
+
 export interface Profile {
   id: string;           // matches auth.users.id
   email: string;
@@ -37,6 +39,7 @@ export interface SharedCampaign {
   created_at: string;
   updated_at: string;
   campaign_content: CampaignContent | null;
+  homebrew_content: HomebrewItem[] | null;
 }
 
 export interface CampaignMember {

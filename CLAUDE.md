@@ -49,6 +49,7 @@ src/
 │   ├── management/            # CharacterList, CharacterListItem, EmptyState
 │   ├── magicItems/            # MagicItemModal, RandomItemRoller
 │   ├── monsters/              # MonsterModal
+│   ├── homebrew/              # HomebrewEditorModal, EditorLayout, TierEditor, HomebrewBadge, 10 type-specific editors
 │   ├── settings/              # ImportExportModal
 │   ├── auth/                  # LoginPage.tsx — magic link email sign-in
 │   ├── sharing/               # ShareCampaignModal, JoinCampaignModal, LinkCharacterModal, SharedCampaignView, PartyRosterCards
@@ -69,25 +70,28 @@ src/
 │   ├── deities.ts
 │   └── languages.ts
 ├── db/
-│   ├── database.ts            # Dexie schema (6 versions)
+│   ├── database.ts            # Dexie schema (7 versions, includes homebrew table)
 │   ├── characterRepository.ts # Character CRUD: getAll, getById, create, update, patch, delete
 │   ├── campaignRepository.ts
 │   ├── sessionRepository.ts
-│   └── encounterRepository.ts
+│   ├── encounterRepository.ts
+│   └── homebrewRepository.ts  # Homebrew CRUD: getAll, getByContentType, getByCampaignId, create, update, patch, delete
 ├── lib/
 │   ├── supabase.ts            # Supabase client singleton
 │   ├── sharingService.ts      # Supabase CRUD: campaigns, members, character summaries
 │   ├── summarySync.ts         # extractSummary() + createSyncDebouncer()
 │   ├── characterCloudService.ts # Cloud backup: pushCharacterToCloud, pullAllCharactersFromCloud, deleteCloudCharacter
 │   ├── campaignCloudService.ts  # Cloud backup: pushCampaignToCloud, pullAllCampaignsFromCloud, deleteCloudCampaign
-│   └── campaignContentSync.ts   # extractPublicContent() + pushCampaignContent() — DM content sync to Supabase
+│   ├── campaignContentSync.ts   # extractPublicContent() + pushCampaignContent() — DM content sync to Supabase
+│   └── homebrewContentSync.ts  # extractHomebrewContent() + pushHomebrewContent() + registerCampaignHomebrew() — homebrew sync to campaigns
 ├── hooks/
 │   ├── useCharacterDerived.ts # Memoized derived stats (modifiers, defenses, HP, skills, feat bonuses)
 │   ├── useCharacterSync.ts    # Auto-sync character summary to Supabase (debounced 2s)
 │   ├── useRealtimeCampaign.ts # Supabase Realtime subscriptions for campaign updates
 │   ├── useCharacterCloudSync.ts # Cloud backup: pull on startup + debounced push on character changes
 │   ├── useCampaignCloudSync.ts  # Cloud backup: pull on startup + debounced push on campaign changes
-│   └── useCampaignContentSync.ts # Auto-sync public campaign content (desc, notes, sessions) to Supabase
+│   ├── useCampaignContentSync.ts # Auto-sync public campaign content (desc, notes, sessions) to Supabase
+│   └── useHomebrewContentSync.ts # Auto-sync homebrew items to shared campaigns (debounced 3s)
 ├── pages/
 │   ├── HomePage.tsx
 │   ├── WizardPage.tsx
@@ -95,7 +99,8 @@ src/
 │   ├── PortraitPage.tsx
 │   ├── MonsterCompendiumPage.tsx
 │   ├── MagicItemCompendiumPage.tsx
-│   └── CampaignManagementPage.tsx
+│   ├── CampaignManagementPage.tsx
+│   └── HomebrewWorkshopPage.tsx   # Homebrew Workshop — create/edit/delete custom content
 ├── store/
 │   ├── useAppStore.ts         # Navigation, sidebar, toasts, active character
 │   ├── useCharactersStore.ts  # Character list CRUD + DB loading
@@ -104,7 +109,8 @@ src/
 │   ├── useSessionsStore.ts
 │   ├── useEncountersStore.ts
 │   ├── useAuthStore.ts        # Supabase auth: magic link login/logout, profile
-│   └── useSharingStore.ts    # Shared campaign state: campaigns, members, summaries
+│   ├── useSharingStore.ts    # Shared campaign state: campaigns, members, summaries
+│   └── useHomebrewStore.ts   # Homebrew CRUD + data layer registration (syncToDataLayer)
 ├── types/
 │   ├── character.ts           # Character, DerivedStats, SelectedPower, EquipmentItem
 │   ├── gameData.ts            # RaceData, ClassData, PowerData, FeatData, WeaponData, etc.
@@ -115,6 +121,7 @@ src/
 │   ├── monster.ts
 │   ├── wizard.ts
 │   ├── sharing.ts             # Profile, SharedCampaign, CampaignMember, CharacterSummary, PublicSession, CampaignContent
+│   ├── homebrew.ts            # HomebrewItem, HomebrewContentType, HomebrewDataMap, HOMEBREW_CONTENT_TYPES
 │   └── supabase.ts            # Database type definitions for Supabase client
 └── utils/
     ├── abilityScores.ts       # Point-buy, modifier calculations
@@ -805,6 +812,7 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Power range field: All 1,815 class powers now have a `range?: string` field (e.g. 'Melee weapon', 'Ranged 10', 'Close burst 2', 'Area burst 1 within 10 squares', 'Personal'). Displayed in `PowerCard.tsx` as bold indigo text above keywords. Magic equipment power parsers (`magicArmorPowers.ts`, `magicWeaponPowers.ts`, `magicImplementPowers.ts`, `magicItemPowers.ts`) also extract range from power text via regex. Range data sourced from iws.mx power database (`_listing.js` + `_index.js`). Generator scripts at `C:\Claude\fetch_power_ranges*.js`, `C:\Claude\add_power_ranges.js`, `C:\Claude\fix_*_ranges.js`.
 - [x] Fighter Combat Style (houserule): Fighters choose between Combat Superiority (PHB) and Combat Agility (Martial Power 2) at character creation. `fighterCombatStyle: 'superiority' | 'agility'` on Character. Combat Superiority grants `fighter-combat-challenge` (opportunity attack, mark), Combat Agility grants `fighter-combat-agility` (opportunity attack, shift + knock prone). Both are level 0 at-will powers with `actionType: 'opportunity'`. Wizard Step 3 picker via `BuildChoicePicker`. `canProceed` Step 3 enforces choice. `ClassFeaturesPanel` shows choice detail via `BUILD_CHOICE_MAP` + `PHB2_BUILD_CHOICES`. Powers conditionally auto-granted in `ActionsByTypePanel` and `PowersPanel` based on `character.fighterCombatStyle`. Fighter class features restructured: Combat Challenge, Combat Style (choice), Fighter Weapon Talent.
 - [x] Fighter Weapon Talent: +1 attack bonus with proficient weapons now mechanically applied in `CombatActionsPanel.tsx`. Added to attack calculation (`attackBonus`) and shown in breakdown as "+1 talent". Applies to both melee and ranged weapons when the character is a fighter and proficient with the weapon.
+- [x] Homebrew Workshop: New top-level tab (`AppView: 'homebrew'`) for creating custom game content. Supports 10 content types: powers, feats, weapons, armor, gear, magic items, magic armor, magic weapons, magic implements, consumables. Stored locally in Dexie.js (`homebrew` table, schema v7) with `HomebrewItem` type (`src/types/homebrew.ts`). Data registration pattern: each data index file (`powers/index.ts`, `feats/index.ts`, equipment files) has `registerHomebrew*()` / `unregisterHomebrew*()` functions that merge homebrew items into the official arrays — zero changes to existing consumer components. IDs prefixed with `homebrew-` for collision avoidance. CRUD editors in `src/components/homebrew/` (10 type-specific editors + shared `EditorLayout`, `TierEditor`). Campaign sharing: `campaignIds` field on `HomebrewItem`, `homebrew_content` JSONB column on `shared_campaigns`, `useHomebrewContentSync` hook (debounced 3s DM push), `registerCampaignHomebrew()` for player-side registration via `useRealtimeCampaign`. Homebrew badges (violet) shown on PowerCard, FeatsPanel, EquipmentPanel. Graceful degradation: `MissingHomebrewPlaceholder` component (`HomebrewBadge.tsx`) shows a red warning card with Remove button when a character references a deleted/unavailable homebrew item. Integrated in PowersPanel (detects `homebrew-` IDs where `getPowerById()` returns undefined), FeatsPanel (detects `homebrew-` IDs where `getFeatById()` returns undefined), and EquipmentPanel (detects `homebrew-` gear items not found in GEAR array). Deleted homebrew weapons/armor/magic items naturally fall into the gear tab catch-all and render as missing placeholders.
 
 ---
 

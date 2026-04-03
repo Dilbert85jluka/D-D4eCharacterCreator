@@ -1,14 +1,14 @@
-export { WEAPONS } from './weapons';
-export { ARMOR } from './armor';
+export { WEAPONS, registerHomebrewWeapons, unregisterHomebrewWeapons } from './weapons';
+export { ARMOR, registerHomebrewArmor, unregisterHomebrewArmor } from './armor';
 export { MASTERWORK_ARMOR } from './masterworkArmor';
-export { MAGIC_ARMOR } from './magicArmor';
-export { MAGIC_WEAPONS } from './magicWeapons';
-export { GEAR } from './gear';
-export { CONSUMABLES } from './consumables';
-export { MAGIC_ITEMS } from './magicItems';
+export { MAGIC_ARMOR, registerHomebrewMagicArmor, unregisterHomebrewMagicArmor } from './magicArmor';
+export { MAGIC_WEAPONS, registerHomebrewMagicWeapons, unregisterHomebrewMagicWeapons } from './magicWeapons';
+export { GEAR, registerHomebrewGear, unregisterHomebrewGear } from './gear';
+export { CONSUMABLES, registerHomebrewConsumables, unregisterHomebrewConsumables } from './consumables';
+export { MAGIC_ITEMS, registerHomebrewMagicItems, unregisterHomebrewMagicItems } from './magicItems';
 export { IMPLEMENTS } from './implements';
 export { SUPERIOR_IMPLEMENTS } from './superiorImplements';
-export { MAGIC_IMPLEMENTS } from './magicImplements';
+export { MAGIC_IMPLEMENTS, registerHomebrewMagicImplements, unregisterHomebrewMagicImplements } from './magicImplements';
 
 export function getStartingGoldByClass(classId: string): number {
   const goldMap: Record<string, number> = {

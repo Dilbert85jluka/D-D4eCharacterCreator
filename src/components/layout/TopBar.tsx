@@ -10,6 +10,7 @@ export function TopBar() {
   const isCompendiumActive = currentView === 'monsters';
   const isCampaignActive   = currentView === 'campaigns';
   const isMagicItemsActive = currentView === 'magicItems';
+  const isHomebrewActive   = currentView === 'homebrew';
 
   const tabCls = (active: boolean) =>
     [
@@ -60,6 +61,13 @@ export function TopBar() {
           <span className="text-base">✨</span>
           <span className="hidden sm:inline">Magic Item Compendium</span>
           <span className="sm:hidden">Items</span>
+        </button>
+
+        {/* Homebrew Workshop tab */}
+        <button onClick={() => navigate('homebrew')} className={tabCls(isHomebrewActive)}>
+          <span className="text-base">🔧</span>
+          <span className="hidden sm:inline">Homebrew Workshop</span>
+          <span className="sm:hidden">Homebrew</span>
         </button>
       </nav>
 

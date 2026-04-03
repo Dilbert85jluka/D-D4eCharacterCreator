@@ -1,6 +1,6 @@
 import type { ArmorData } from '../../types/gameData';
 
-export const ARMOR: ArmorData[] = [
+const OFFICIAL_ARMOR: ArmorData[] = [
   // Light armor — no speed penalty
   { id: 'cloth',      name: 'Cloth Armor',    type: 'Cloth',    acBonus: 0,  checkPenalty: 0,  speedPenalty: 0, cost: 1,   weight: 4  },
   { id: 'leather',    name: 'Leather Armor',  type: 'Leather',  acBonus: 2,  checkPenalty: 0,  speedPenalty: 0, cost: 25,  weight: 15 },
@@ -13,3 +13,12 @@ export const ARMOR: ArmorData[] = [
   { id: 'light-shield', name: 'Light Shield', type: 'Shield',   acBonus: 1,  checkPenalty: -1, speedPenalty: 0, cost: 5,   weight: 6  },
   { id: 'heavy-shield', name: 'Heavy Shield', type: 'Shield',   acBonus: 2,  checkPenalty: -2, speedPenalty: 0, cost: 10,  weight: 15 },
 ];
+
+export let ARMOR: ArmorData[] = [...OFFICIAL_ARMOR];
+
+export function registerHomebrewArmor(items: ArmorData[]): void {
+  ARMOR = [...OFFICIAL_ARMOR, ...items];
+}
+export function unregisterHomebrewArmor(): void {
+  ARMOR = [...OFFICIAL_ARMOR];
+}

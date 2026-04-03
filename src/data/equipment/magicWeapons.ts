@@ -1,6 +1,6 @@
 import type { MagicWeaponData } from '../../types/gameData';
 
-export const MAGIC_WEAPONS: MagicWeaponData[] = [
+const OFFICIAL_MAGIC_WEAPONS: MagicWeaponData[] = [
   {
     id: 'weapon447',
     name: 'Acidic Weapon',
@@ -4271,3 +4271,12 @@ export const MAGIC_WEAPONS: MagicWeaponData[] = [
     power: '✦ Daily (Free Action) Until the end of the encounter, sorcerer attack powers you use through this dagger ignore the resistances of any enemy within 10 squares of you.',
   },
 ];
+
+export let MAGIC_WEAPONS: MagicWeaponData[] = [...OFFICIAL_MAGIC_WEAPONS];
+
+export function registerHomebrewMagicWeapons(items: MagicWeaponData[]): void {
+  MAGIC_WEAPONS = [...OFFICIAL_MAGIC_WEAPONS, ...items];
+}
+export function unregisterHomebrewMagicWeapons(): void {
+  MAGIC_WEAPONS = [...OFFICIAL_MAGIC_WEAPONS];
+}

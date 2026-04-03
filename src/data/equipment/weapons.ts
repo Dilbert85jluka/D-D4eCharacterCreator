@@ -1,6 +1,6 @@
 import type { WeaponData } from '../../types/gameData';
 
-export const WEAPONS: WeaponData[] = [
+const OFFICIAL_WEAPONS: WeaponData[] = [
   // Simple Melee
   { id: 'club', name: 'Club', category: 'Simple Melee', proficiencyBonus: 2, damage: '1d6', properties: ['Mace'], cost: 1, weight: 3 },
   { id: 'dagger', name: 'Dagger', category: 'Simple Melee', proficiencyBonus: 3, damage: '1d4', properties: ['Light blade', 'Light thrown', 'Off-hand'], range: '5/10', cost: 1, weight: 1 },
@@ -46,3 +46,12 @@ export const WEAPONS: WeaponData[] = [
   // Superior Ranged
   { id: 'shuriken', name: 'Shuriken', category: 'Superior Ranged', proficiencyBonus: 3, damage: '1d4', properties: ['Light blade', 'Light thrown'], range: '6/12', cost: 0, weight: 0.1 },
 ];
+
+export let WEAPONS: WeaponData[] = [...OFFICIAL_WEAPONS];
+
+export function registerHomebrewWeapons(items: WeaponData[]): void {
+  WEAPONS = [...OFFICIAL_WEAPONS, ...items];
+}
+export function unregisterHomebrewWeapons(): void {
+  WEAPONS = [...OFFICIAL_WEAPONS];
+}

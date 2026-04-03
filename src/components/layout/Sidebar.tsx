@@ -29,6 +29,12 @@ const SECTIONS: { label: string; emoji: string; view: AppView; activeFor: AppVie
     view:      'magicItems',
     activeFor: ['magicItems'],
   },
+  {
+    label:     'Homebrew Workshop',
+    emoji:     '🔧',
+    view:      'homebrew',
+    activeFor: ['homebrew'],
+  },
 ];
 
 export function Sidebar() {

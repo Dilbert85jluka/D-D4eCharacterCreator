@@ -9,6 +9,7 @@ import { useCharactersStore } from '../../store/useCharactersStore';
 import { Badge } from '../ui/Badge';
 import { featsEarnedByLevel } from '../../data/advancement';
 import { SUPERIOR_IMPLEMENTS } from '../../data/equipment/superiorImplements';
+import { MissingHomebrewPlaceholder, isHomebrew } from '../homebrew/HomebrewBadge';
 
 interface Props {
   character: Character;
@@ -41,6 +42,7 @@ export function FeatsPanel({ character }: Props) {
   const autoGrantedFeats = autoGrantedIds.map((id) => getFeatById(id)).filter(Boolean);
 
   const feats = character.selectedFeatIds.map((id) => getFeatById(id)).filter(Boolean);
+  const missingHomebrewFeatIds = character.selectedFeatIds.filter((id) => isHomebrew(id) && !getFeatById(id));
   const maxFeats = expectedFeatCount(character);
   const atLimit = character.selectedFeatIds.length >= maxFeats;
   const remaining = maxFeats - character.selectedFeatIds.length;
@@ -309,6 +311,9 @@ export function FeatsPanel({ character }: Props) {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 flex-wrap min-w-0">
                     <h4 className="font-semibold text-stone-800 text-sm">{feat.name}</h4>
+                    {feat.id.startsWith('homebrew-') && (
+                      <span className="text-xs bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded font-semibold">Homebrew</span>
+                    )}
                     {feat.multiclassFor && (
                       <Badge color="purple">
                         Multiclass · {getClassById(feat.multiclassFor)?.name ?? feat.multiclassFor}
@@ -420,6 +425,15 @@ export function FeatsPanel({ character }: Props) {
             );
           })}
 
+          {/* Missing homebrew feats */}
+          {missingHomebrewFeatIds.map((id) => (
+            <MissingHomebrewPlaceholder
+              key={id}
+              label="Feat"
+              onRemove={() => removeFeat(id)}
+            />
+          ))}
+
           {/* Prompt when slots remain */}
           {!atLimit && feats.length > 0 && (
             <button
@@ -504,6 +518,9 @@ export function FeatsPanel({ character }: Props) {
                         <p className={`text-sm font-semibold ${canSelect ? 'text-stone-800' : 'text-stone-400'}`}>
                           {feat.name}
                         </p>
+                        {feat.id.startsWith('homebrew-') && (
+                          <span className="text-xs bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded font-semibold">Homebrew</span>
+                        )}
                         {feat.multiclassFor && (
                           <Badge color="purple">
                             Multiclass · {getClassById(feat.multiclassFor)?.name ?? feat.multiclassFor}

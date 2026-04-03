@@ -3,12 +3,14 @@ import type { Character } from '../types/character';
 import type { Campaign } from '../types/campaign';
 import type { CampaignSession } from '../types/session';
 import type { SessionEncounter } from '../types/encounter';
+import type { HomebrewItem } from '../types/homebrew';
 
 export class Dnd4eDatabase extends Dexie {
   characters!: Table<Character, string>;
   campaigns!: Table<Campaign, string>;
   sessions!: Table<CampaignSession, string>;
   encounters!: Table<SessionEncounter, string>;
+  homebrew!: Table<HomebrewItem, string>;
 
   constructor() {
     super('Dnd4eCharacterCreator');
@@ -49,6 +51,15 @@ export class Dnd4eDatabase extends Dexie {
       campaigns:  'id, name, updatedAt',
       sessions:   'id, campaignId, sessionNumber, updatedAt',
       encounters: 'id, sessionId, campaignId, sortOrder, updatedAt',
+    });
+
+    // v7: homebrew content table
+    this.version(7).stores({
+      characters: 'id, name, classId, raceId, level, updatedAt',
+      campaigns:  'id, name, updatedAt',
+      sessions:   'id, campaignId, sessionNumber, updatedAt',
+      encounters: 'id, sessionId, campaignId, sortOrder, updatedAt',
+      homebrew:   'id, contentType, name, createdBy, updatedAt, *campaignIds',
     });
   }
 }

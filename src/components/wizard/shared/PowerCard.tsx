@@ -83,6 +83,9 @@ export function PowerCard({
             />
           )}
           <span className="font-bold text-sm truncate">{power.name}</span>
+          {power.id.startsWith('homebrew-') && (
+            <span className="text-xs bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded font-semibold flex-shrink-0">Homebrew</span>
+          )}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           {power.cantrip && (

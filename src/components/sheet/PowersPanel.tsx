@@ -23,6 +23,7 @@ import { parseMagicImplementPower } from '../../utils/magicImplementPowers';
 import { MAGIC_ITEMS } from '../../data/equipment/magicItems';
 import { parseMagicItemPower } from '../../utils/magicItemPowers';
 import { isFullDisciplinePower, extractMovementTechnique } from '../../utils/fullDiscipline';
+import { MissingHomebrewPlaceholder, isHomebrew } from '../homebrew/HomebrewBadge';
 
 interface Props {
   character: Character;
@@ -263,6 +264,11 @@ export function PowersPanel({ character }: Props) {
 
   // ── Power categorisation ──────────────────────────────────────────────────
   const selectedIds = character.selectedPowers.map((p) => p.powerId);
+
+  // Detect missing homebrew powers (deleted or unavailable)
+  const missingHomebrewPowerIds = character.selectedPowers
+    .filter((sp) => isHomebrew(sp.powerId) && !getPowerById(sp.powerId))
+    .map((sp) => sp.powerId);
 
   // Attack powers for the current non-utility tab (primary class only, utility excluded)
   // Dilettante power is handled separately — excluded here
@@ -1323,6 +1329,15 @@ export function PowersPanel({ character }: Props) {
               </>
             );
           })()}
+
+          {/* Missing homebrew powers — shown on every tab */}
+          {missingHomebrewPowerIds.map((id) => (
+            <MissingHomebrewPlaceholder
+              key={id}
+              label="Power"
+              onRemove={() => removePower(id)}
+            />
+          ))}
 
         </div>
       </div>

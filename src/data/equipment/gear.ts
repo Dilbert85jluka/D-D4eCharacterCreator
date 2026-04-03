@@ -1,6 +1,6 @@
 import type { GearData } from '../../types/gameData';
 
-export const GEAR: GearData[] = [
+const OFFICIAL_GEAR: GearData[] = [
   // ── Gear (PHB) ─────────────────────────────────────────────────────────────
   { id: 'adventurers-kit',   name: "Adventurer's Kit",       cost: 15,   weight: 33,  description: 'Includes backpack, bedroll, flint and steel, belt pouch, two sunrods, ten days\' trail rations, 50 ft. hempen rope, and waterskin.', category: 'Gear' },
   { id: 'backpack',          name: 'Backpack',               cost: 2,    weight: 2,   description: 'A sturdy leather backpack.', category: 'Gear' },
@@ -95,3 +95,12 @@ export const GEAR: GearData[] = [
   { id: 'manticore',          name: 'Manticore',             cost: 45000,  weight: 0, description: 'Level 10 Elite Skirmisher. Speed 6, fly 8. HP 210, AC 26, Fort 24, Ref 24, Will 22. Claw: +15 vs AC, 3d8+5. Spike (ranged 10): +15 vs AC, 2d8+10. Spike Volley (area burst 1, recharge 4-6). Guided Sniper: manticore gains +2 attack with ranged.', category: 'Mount' },
   { id: 'rimefire-griffon',   name: 'Rimefire Griffon',      cost: 525000, weight: 0, description: 'Level 20 Skirmisher. Speed 5, fly 10. Resist 10 cold, 10 fire. HP 186, AC 34, Fort 34, Ref 32, Will 31. Bite: +25 vs AC, 3d8+9 + 1d10 cold. Rimefire Blast (close blast 5, recharge): 2d10+10 fire. Rider Resistance: rider gains resist 10 cold and resist 10 fire.', category: 'Mount' },
 ];
+
+export let GEAR: GearData[] = [...OFFICIAL_GEAR];
+
+export function registerHomebrewGear(items: GearData[]): void {
+  GEAR = [...OFFICIAL_GEAR, ...items];
+}
+export function unregisterHomebrewGear(): void {
+  GEAR = [...OFFICIAL_GEAR];
+}

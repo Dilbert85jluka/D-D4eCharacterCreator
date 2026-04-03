@@ -1,6 +1,6 @@
 import type { MagicArmorData } from '../../types/gameData';
 
-export const MAGIC_ARMOR: MagicArmorData[] = [
+const OFFICIAL_MAGIC_ARMOR: MagicArmorData[] = [
   {
     id: 'armor444',
     name: 'Absorbing Shield',
@@ -4894,3 +4894,12 @@ export const MAGIC_ARMOR: MagicArmorData[] = [
     property: 'Whenever an undead creature hits you with a melee attack, it takes radiant damage equal to the enhancement bonus of this armor. Published in Adventurer\'s Vault, page(s) 55.',
   },
 ];
+
+export let MAGIC_ARMOR: MagicArmorData[] = [...OFFICIAL_MAGIC_ARMOR];
+
+export function registerHomebrewMagicArmor(items: MagicArmorData[]): void {
+  MAGIC_ARMOR = [...OFFICIAL_MAGIC_ARMOR, ...items];
+}
+export function unregisterHomebrewMagicArmor(): void {
+  MAGIC_ARMOR = [...OFFICIAL_MAGIC_ARMOR];
+}

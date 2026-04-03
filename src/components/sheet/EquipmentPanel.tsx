@@ -14,6 +14,7 @@ import { MAGIC_ITEMS } from '../../data/equipment/magicItems';
 import { CONSUMABLES } from '../../data/equipment/consumables';
 import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
+import { MissingHomebrewPlaceholder, isHomebrew } from '../homebrew/HomebrewBadge';
 
 interface Props {
   character: Character;
@@ -1278,12 +1279,26 @@ export function EquipmentPanel({ character, derived }: Props) {
                 {gearItems.map((item) => {
                   const g = GEAR.find((gr) => gr.id === item.itemId);
                   const key = itemKey(item);
+                  // Missing homebrew item — show placeholder with remove
+                  if (!g && isHomebrew(item.itemId)) {
+                    return (
+                      <div key={key} className="px-4 py-2">
+                        <MissingHomebrewPlaceholder
+                          label={`Item (${item.name})`}
+                          onRemove={() => removeItem(key)}
+                        />
+                      </div>
+                    );
+                  }
                   return (
                     <div key={key} className="px-4 py-3 flex items-center gap-2 bg-stone-50">
                       <div className="flex-1 min-w-0">
                         <span className="font-semibold text-sm text-stone-600">
                           {g?.name ?? item.name}
                         </span>
+                        {item.itemId.startsWith('homebrew-') && (
+                          <span className="text-xs bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded font-semibold ml-1">Homebrew</span>
+                        )}
                         {g?.description && <p className="text-xs text-stone-400 mt-0.5 line-clamp-1">{g.description}</p>}
                       </div>
                       {pendingRemove !== key && (
