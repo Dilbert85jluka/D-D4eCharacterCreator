@@ -9,9 +9,13 @@ import type {
   MagicWeaponData,
   MagicImplementData,
   ConsumableData,
+  RaceData,
+  ClassData,
 } from './gameData';
 
 export type HomebrewContentType =
+  | 'race'
+  | 'class'
   | 'power'
   | 'feat'
   | 'weapon'
@@ -24,6 +28,8 @@ export type HomebrewContentType =
   | 'consumable';
 
 export const HOMEBREW_CONTENT_TYPES: { key: HomebrewContentType; label: string }[] = [
+  { key: 'race', label: 'Races' },
+  { key: 'class', label: 'Classes' },
   { key: 'power', label: 'Powers' },
   { key: 'feat', label: 'Feats' },
   { key: 'weapon', label: 'Weapons' },
@@ -37,6 +43,8 @@ export const HOMEBREW_CONTENT_TYPES: { key: HomebrewContentType; label: string }
 ];
 
 export type HomebrewDataMap = {
+  race: RaceData;
+  class: ClassData;
   power: PowerData;
   feat: FeatData;
   weapon: WeaponData;

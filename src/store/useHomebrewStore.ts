@@ -4,7 +4,9 @@ import { db } from '../db/database';
 import type { HomebrewItem, HomebrewContentType } from '../types/homebrew';
 import { deleteCloudHomebrew } from '../lib/homebrewCloudService';
 import { useAuthStore } from './useAuthStore';
-import type { PowerData, FeatData, WeaponData, ArmorData, GearData, MagicItemData, MagicArmorData, MagicWeaponData, MagicImplementData, ConsumableData } from '../types/gameData';
+import type { RaceData, ClassData, PowerData, FeatData, WeaponData, ArmorData, GearData, MagicItemData, MagicArmorData, MagicWeaponData, MagicImplementData, ConsumableData } from '../types/gameData';
+import { registerHomebrewRaces, unregisterHomebrewRaces } from '../data/races';
+import { registerHomebrewClasses, unregisterHomebrewClasses } from '../data/classes';
 import { registerHomebrewPowers, unregisterHomebrewPowers } from '../data/powers';
 import { registerHomebrewFeats, unregisterHomebrewFeats } from '../data/feats';
 import {
@@ -20,6 +22,8 @@ import {
 
 function syncToDataLayer(items: HomebrewItem[]) {
   // Group items by contentType and register them into the static data arrays
+  const races = items.filter((i) => i.contentType === 'race').map((i) => i.data as RaceData);
+  const classes = items.filter((i) => i.contentType === 'class').map((i) => i.data as ClassData);
   const powers = items.filter((i) => i.contentType === 'power').map((i) => i.data as PowerData);
   const feats = items.filter((i) => i.contentType === 'feat').map((i) => i.data as FeatData);
   const weapons = items.filter((i) => i.contentType === 'weapon').map((i) => i.data as WeaponData);
@@ -31,6 +35,8 @@ function syncToDataLayer(items: HomebrewItem[]) {
   const magicWeapons = items.filter((i) => i.contentType === 'magicWeapon').map((i) => i.data as MagicWeaponData);
   const magicImplements = items.filter((i) => i.contentType === 'magicImplement').map((i) => i.data as MagicImplementData);
 
+  if (races.length) registerHomebrewRaces(races); else unregisterHomebrewRaces();
+  if (classes.length) registerHomebrewClasses(classes); else unregisterHomebrewClasses();
   if (powers.length) registerHomebrewPowers(powers); else unregisterHomebrewPowers();
   if (feats.length) registerHomebrewFeats(feats); else unregisterHomebrewFeats();
   if (weapons.length) registerHomebrewWeapons(weapons); else unregisterHomebrewWeapons();

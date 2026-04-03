@@ -19,7 +19,7 @@ import { shardmind } from './shardmind';
 import { wilden } from './wilden';
 import type { RaceData } from '../../types/gameData';
 
-export const RACES: RaceData[] = [
+const OFFICIAL_RACES: RaceData[] = [
   dragonborn,
   dwarf,
   eladrin,
@@ -40,6 +40,19 @@ export const RACES: RaceData[] = [
   shardmind,
   wilden,
 ];
+
+// Mutable array that includes official + homebrew races
+export let RACES: RaceData[] = [...OFFICIAL_RACES];
+
+/** Register homebrew races into the global races array */
+export function registerHomebrewRaces(races: RaceData[]): void {
+  RACES = [...OFFICIAL_RACES, ...races];
+}
+
+/** Remove all homebrew races, restoring to official-only */
+export function unregisterHomebrewRaces(): void {
+  RACES = [...OFFICIAL_RACES];
+}
 
 export function getRaceById(id: string): RaceData | undefined {
   return RACES.find((r) => r.id === id);

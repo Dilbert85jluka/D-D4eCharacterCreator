@@ -1,4 +1,6 @@
 import type { HomebrewContentType, HomebrewItem } from '../../types/homebrew';
+import { RaceEditor } from './RaceEditor';
+import { ClassEditor } from './ClassEditor';
 import { PowerEditor } from './PowerEditor';
 import { FeatEditor } from './FeatEditor';
 import { WeaponEditor } from './WeaponEditor';
@@ -18,6 +20,8 @@ interface Props {
 }
 
 const EDITORS: Record<HomebrewContentType, React.ComponentType<EditorProps>> = {
+  race: RaceEditor,
+  class: ClassEditor,
   power: PowerEditor,
   feat: FeatEditor,
   weapon: WeaponEditor,

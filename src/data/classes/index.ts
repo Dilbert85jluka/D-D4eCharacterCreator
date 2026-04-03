@@ -23,7 +23,7 @@ import { runepriest } from './runepriest';
 import { seeker } from './seeker';
 import type { ClassData } from '../../types/gameData';
 
-export const CLASSES: ClassData[] = [
+const OFFICIAL_CLASSES: ClassData[] = [
   avenger,
   barbarian,
   bard,
@@ -48,6 +48,19 @@ export const CLASSES: ClassData[] = [
   runepriest,
   seeker,
 ];
+
+// Mutable array that includes official + homebrew classes
+export let CLASSES: ClassData[] = [...OFFICIAL_CLASSES];
+
+/** Register homebrew classes into the global classes array */
+export function registerHomebrewClasses(classes: ClassData[]): void {
+  CLASSES = [...OFFICIAL_CLASSES, ...classes];
+}
+
+/** Remove all homebrew classes, restoring to official-only */
+export function unregisterHomebrewClasses(): void {
+  CLASSES = [...OFFICIAL_CLASSES];
+}
 
 export function getClassById(id: string): ClassData | undefined {
   return CLASSES.find((c) => c.id === id);
