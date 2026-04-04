@@ -61,6 +61,20 @@ export class Dnd4eDatabase extends Dexie {
       encounters: 'id, sessionId, campaignId, sortOrder, updatedAt',
       homebrew:   'id, contentType, name, createdBy, updatedAt, *campaignIds',
     });
+
+    // v8: privateNotes field on campaigns (no index change)
+    this.version(8).stores({
+      characters: 'id, name, classId, raceId, level, updatedAt',
+      campaigns:  'id, name, updatedAt',
+      sessions:   'id, campaignId, sessionNumber, updatedAt',
+      encounters: 'id, sessionId, campaignId, sortOrder, updatedAt',
+      homebrew:   'id, contentType, name, createdBy, updatedAt, *campaignIds',
+    }).upgrade((tx) => {
+      // Add empty privateNotes to existing campaigns
+      return tx.table('campaigns').toCollection().modify((campaign) => {
+        if (campaign.privateNotes === undefined) campaign.privateNotes = '';
+      });
+    });
   }
 }
 

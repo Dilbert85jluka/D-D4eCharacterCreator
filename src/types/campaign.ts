@@ -7,10 +7,13 @@ export interface Campaign {
   /** Campaign display name */
   name: string;
 
-  /** DM-facing description / world notes */
+  /** DM-facing description / world notes (HTML) */
   description: string;
 
-  /** Notes that are visible to players */
+  /** DM-only private notes — not shared with players (HTML) */
+  privateNotes: string;
+
+  /** Notes that are visible to players (HTML) */
   publicNotes: string;
 
   /** IDs of Character objects that belong to this campaign */

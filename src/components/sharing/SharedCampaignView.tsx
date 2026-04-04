@@ -7,6 +7,7 @@ import { ShareCampaignModal } from './ShareCampaignModal';
 import { LinkCharacterModal } from './LinkCharacterModal';
 import { MemberCard } from './PartyRosterCards';
 import type { PublicSession } from '../../types/sharing';
+import { RichTextDisplay } from '../ui/RichTextDisplay';
 
 interface SharedCampaignViewProps {
   campaignId: string;
@@ -113,7 +114,9 @@ export function SharedCampaignView({ campaignId }: SharedCampaignViewProps) {
           <div className="min-w-0">
             <h2 className="text-xl font-bold text-stone-800 truncate">{campaign.name}</h2>
             {(content?.description || campaign.description) && (
-              <p className="text-sm text-stone-500 mt-1">{content?.description || campaign.description}</p>
+              <div className="text-sm text-stone-500 mt-1">
+                <RichTextDisplay content={content?.description || campaign.description} />
+              </div>
             )}
             {isDm && (
               <p className="text-xs text-amber-700 font-mono mt-2 tracking-wider">
@@ -139,7 +142,7 @@ export function SharedCampaignView({ campaignId }: SharedCampaignViewProps) {
           <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider mb-2">
             Campaign Notes
           </h3>
-          <p className="text-sm text-stone-600 whitespace-pre-wrap">{content.publicNotes}</p>
+          <RichTextDisplay content={content.publicNotes} className="text-sm text-stone-600" />
         </div>
       )}
 

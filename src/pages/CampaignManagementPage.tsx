@@ -25,6 +25,8 @@ import { MemberCard } from '../components/sharing/PartyRosterCards';
 import { useRealtimeCampaign } from '../hooks/useRealtimeCampaign';
 import { useCampaignContentSync } from '../hooks/useCampaignContentSync';
 import { extractPublicContent, pushCampaignContent } from '../lib/campaignContentSync';
+import { RichTextEditor } from '../components/ui/RichTextEditor';
+import { RichTextDisplay } from '../components/ui/RichTextDisplay';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -38,7 +40,7 @@ type EditorMode =
 
 // ── Form shape types ──────────────────────────────────────────────────────────
 
-const CAMPAIGN_EMPTY = { name: '', description: '', publicNotes: '', characterIds: [] as string[] };
+const CAMPAIGN_EMPTY = { name: '', description: '', privateNotes: '', publicNotes: '', characterIds: [] as string[] };
 type CampaignDraft = typeof CAMPAIGN_EMPTY;
 
 const SESSION_EMPTY = {
@@ -155,11 +157,13 @@ export function CampaignManagementPage() {
   const [campaignDraft, setCampaignDraft] = useState<CampaignDraft>(CAMPAIGN_EMPTY);
   const [campaignSaving, setCampaignSaving] = useState(false);
   const [campaignError, setCampaignError]   = useState<string | null>(null);
+  const [editingNotes, setEditingNotes]     = useState(false);
 
   const loadCampaignDraft = useCallback((c: Campaign) => {
     setCampaignDraft({
       name: c.name,
       description: c.description,
+      privateNotes: c.privateNotes ?? '',
       publicNotes: c.publicNotes,
       characterIds: [...c.characterIds],
     });
@@ -171,6 +175,7 @@ export function CampaignManagementPage() {
     setExpandedIds((prev) => new Set([...prev, c.id])); // auto-expand
     setShowEditor(true);
     setCampaignError(null);
+    setEditingNotes(false);
   };
 
   const startNewCampaign = () => {
@@ -178,18 +183,20 @@ export function CampaignManagementPage() {
     setCampaignDraft(CAMPAIGN_EMPTY);
     setShowEditor(true);
     setCampaignError(null);
+    setEditingNotes(true); // new campaigns start in edit mode
   };
 
   const isCampaignDirty = (() => {
     if (mode.type === 'new-campaign') {
       return campaignDraft.name.trim() !== '' || campaignDraft.description !== '' ||
-        campaignDraft.publicNotes !== '' || campaignDraft.characterIds.length > 0;
+        campaignDraft.privateNotes !== '' || campaignDraft.publicNotes !== '' || campaignDraft.characterIds.length > 0;
     }
     if (mode.type !== 'campaign') return false;
     const orig = campaigns.find((c) => c.id === mode.campaignId);
     if (!orig) return false;
     return campaignDraft.name.trim() !== orig.name ||
       campaignDraft.description !== orig.description ||
+      campaignDraft.privateNotes !== (orig.privateNotes ?? '') ||
       campaignDraft.publicNotes !== orig.publicNotes ||
       JSON.stringify(campaignDraft.characterIds) !== JSON.stringify(orig.characterIds);
   })();
@@ -203,8 +210,9 @@ export function CampaignManagementPage() {
       if (mode.type === 'new-campaign') {
         const created = await campaignRepository.create({
           name,
-          description: campaignDraft.description.trim(),
-          publicNotes: campaignDraft.publicNotes.trim(),
+          description: campaignDraft.description,
+          privateNotes: campaignDraft.privateNotes,
+          publicNotes: campaignDraft.publicNotes,
           characterIds: campaignDraft.characterIds,
         });
         addCampaign(created);
@@ -216,8 +224,9 @@ export function CampaignManagementPage() {
         const updated: Campaign = {
           ...existing,
           name,
-          description: campaignDraft.description.trim(),
-          publicNotes: campaignDraft.publicNotes.trim(),
+          description: campaignDraft.description,
+          privateNotes: campaignDraft.privateNotes,
+          publicNotes: campaignDraft.publicNotes,
           characterIds: campaignDraft.characterIds,
           updatedAt: Date.now(),
         };
@@ -1246,28 +1255,71 @@ export function CampaignManagementPage() {
                     />
                   </section>
 
+                  {/* Notes edit/read toggle */}
+                  <div className="flex items-center justify-between">
+                    <label className={labelCls}>Campaign Notes</label>
+                    <button
+                      onClick={() => setEditingNotes(!editingNotes)}
+                      className={[
+                        'px-4 py-2 rounded-lg text-sm font-bold min-h-[44px] transition-colors',
+                        editingNotes
+                          ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                          : 'bg-amber-600 text-white hover:bg-amber-700',
+                      ].join(' ')}
+                    >
+                      {editingNotes ? 'Done Editing' : 'Edit Notes'}
+                    </button>
+                  </div>
+
                   {/* Description */}
                   <section>
                     <label className={labelCls}>Description</label>
                     <p className={hintCls}>DM-facing notes — world details, plot hooks, campaign overview.</p>
-                    <textarea
-                      value={campaignDraft.description}
-                      onChange={(e) => setCampaignDraft((d) => ({ ...d, description: e.target.value }))}
-                      placeholder="Describe your campaign setting, ongoing story, or DM reminders…"
-                      rows={5} className={fieldCls}
-                    />
+                    {editingNotes ? (
+                      <RichTextEditor
+                        content={campaignDraft.description}
+                        onChange={(html) => setCampaignDraft((d) => ({ ...d, description: html }))}
+                        placeholder="Describe your campaign setting, ongoing story, or DM reminders…"
+                      />
+                    ) : (
+                      <div className="border border-stone-200 rounded-xl bg-white px-4 py-3 min-h-[60px]">
+                        <RichTextDisplay content={campaignDraft.description} />
+                      </div>
+                    )}
+                  </section>
+
+                  {/* Private Notes (DM only) */}
+                  <section>
+                    <label className={labelCls}>Private Notes (DM Only)</label>
+                    <p className={hintCls}>Only you can see these — session prep, secret plot details, NPC motivations.</p>
+                    {editingNotes ? (
+                      <RichTextEditor
+                        content={campaignDraft.privateNotes}
+                        onChange={(html) => setCampaignDraft((d) => ({ ...d, privateNotes: html }))}
+                        placeholder="Secret plots, NPC motivations, upcoming encounters…"
+                      />
+                    ) : (
+                      <div className="border border-stone-200 rounded-xl bg-white px-4 py-3 min-h-[60px]">
+                        <RichTextDisplay content={campaignDraft.privateNotes} />
+                      </div>
+                    )}
                   </section>
 
                   {/* Public Notes */}
                   <section>
                     <label className={labelCls}>Public Notes for Players</label>
                     <p className={hintCls}>Information shared with your players — handouts, lore, house rules.</p>
-                    <textarea
-                      value={campaignDraft.publicNotes}
-                      onChange={(e) => setCampaignDraft((d) => ({ ...d, publicNotes: e.target.value }))}
-                      placeholder="House rules, world lore, quest hooks the players know about…"
-                      rows={5} className={fieldCls}
-                    />
+                    {editingNotes ? (
+                      <RichTextEditor
+                        content={campaignDraft.publicNotes}
+                        onChange={(html) => setCampaignDraft((d) => ({ ...d, publicNotes: html }))}
+                        placeholder="House rules, world lore, quest hooks the players know about…"
+                      />
+                    ) : (
+                      <div className="border border-stone-200 rounded-xl bg-white px-4 py-3 min-h-[60px]">
+                        <RichTextDisplay content={campaignDraft.publicNotes} />
+                      </div>
+                    )}
                   </section>
 
                   {/* Characters */}
