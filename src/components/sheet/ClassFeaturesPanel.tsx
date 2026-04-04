@@ -1,4 +1,5 @@
 import type { Character } from '../../types/character';
+import type { PowerData } from '../../types/gameData';
 import { getClassById } from '../../data/classes';
 import { getPowerById, getPowersByClass } from '../../data/powers';
 import { characterRepository } from '../../db/characterRepository';
@@ -178,10 +179,7 @@ function BuildChoiceDetail({ classId, choice }: { classId: string; choice: strin
   );
 }
 
-function ClassPowerCard({ powerId, character, onPin }: { powerId: string; character: Character; onPin: (id: string) => void }) {
-  const power = getPowerById(powerId);
-  if (!power) return null;
-
+function ClassPowerCard({ power, character, onPin }: { power: PowerData; character: Character; onPin: (id: string) => void }) {
   const usageColor = power.usage === 'at-will'
     ? 'bg-emerald-700'
     : power.usage === 'encounter'
@@ -192,60 +190,28 @@ function ClassPowerCard({ powerId, character, onPin }: { powerId: string; charac
 
   return (
     <div className="rounded-xl border border-stone-200 overflow-hidden">
-      {/* Header bar */}
       <div className={`${usageColor} px-4 py-2 flex items-center justify-between`}>
         <span className="text-sm font-bold text-white">{power.name}</span>
         <div className="flex items-center gap-2">
-          {/* Quick tray pin */}
           {inTray ? (
-            <span
-              className="w-6 h-6 flex items-center justify-center rounded-full bg-white/30 text-white text-xs leading-none"
-              title="In quick tray"
-            >&#10003;</span>
+            <span className="w-6 h-6 flex items-center justify-center rounded-full bg-white/30 text-white text-xs leading-none" title="In quick tray">&#10003;</span>
           ) : (
-            <button
-              onClick={() => onPin(power.id)}
-              className="w-6 h-6 flex items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors text-xs leading-none"
-              title="Pin to quick tray"
-            >&#9889;</button>
+            <button onClick={() => onPin(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors text-xs leading-none" title="Pin to quick tray">&#9889;</button>
           )}
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/20 text-white font-medium capitalize">
-            {power.usage}
-          </span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/20 text-white font-medium capitalize">
-            {power.actionType.replace('-', ' ')}
-          </span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/20 text-white font-medium capitalize">{power.usage}</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/20 text-white font-medium capitalize">{power.actionType.replace('-', ' ')}</span>
         </div>
       </div>
-      {/* Body */}
       <div className="p-4 bg-white space-y-1.5">
-        {power.keywords.length > 0 && (
-          <p className="text-[10px] text-stone-500 italic">{power.keywords.join(', ')}</p>
-        )}
-        {power.range && (
-          <p className="text-xs text-stone-600"><span className="font-semibold">Range:</span> {power.range}</p>
-        )}
-        {power.trigger && (
-          <p className="text-xs text-stone-600"><span className="font-semibold">Trigger:</span> {power.trigger}</p>
-        )}
-        {power.target && (
-          <p className="text-xs text-stone-600"><span className="font-semibold">Target:</span> {power.target}</p>
-        )}
-        {power.attack && (
-          <p className="text-xs text-stone-600"><span className="font-semibold">Attack:</span> {power.attack}</p>
-        )}
-        {power.hit && (
-          <p className="text-xs text-stone-600"><span className="font-semibold">Hit:</span> {power.hit}</p>
-        )}
-        {power.miss && (
-          <p className="text-xs text-stone-600"><span className="font-semibold">Miss:</span> {power.miss}</p>
-        )}
-        {power.effect && (
-          <p className="text-xs text-stone-600"><span className="font-semibold">Effect:</span> {power.effect}</p>
-        )}
-        {power.special && (
-          <p className="text-xs text-stone-600"><span className="font-semibold">Special:</span> {power.special}</p>
-        )}
+        {power.keywords.length > 0 && <p className="text-[10px] text-stone-500 italic">{power.keywords.join(', ')}</p>}
+        {power.range && <p className="text-xs text-stone-600"><span className="font-semibold">Range:</span> {power.range}</p>}
+        {power.trigger && <p className="text-xs text-stone-600"><span className="font-semibold">Trigger:</span> {power.trigger}</p>}
+        {power.target && <p className="text-xs text-stone-600"><span className="font-semibold">Target:</span> {power.target}</p>}
+        {power.attack && <p className="text-xs text-stone-600"><span className="font-semibold">Attack:</span> {power.attack}</p>}
+        {power.hit && <p className="text-xs text-stone-600"><span className="font-semibold">Hit:</span> {power.hit}</p>}
+        {power.miss && <p className="text-xs text-stone-600"><span className="font-semibold">Miss:</span> {power.miss}</p>}
+        {power.effect && <p className="text-xs text-stone-600"><span className="font-semibold">Effect:</span> {power.effect}</p>}
+        {power.special && <p className="text-xs text-stone-600"><span className="font-semibold">Special:</span> {power.special}</p>}
       </div>
     </div>
   );
@@ -279,42 +245,31 @@ export function ClassFeaturesPanel({ character }: Props) {
 
   const buildChoice = BUILD_CHOICE_MAP[cls.id];
 
-  // Collect auto-granted class powers:
-  // 1. Level 0 powers for this class (e.g. Fighter Combat Challenge, Wizard cantrips)
-  // 2. Build-specific powers (pact boon, monk flurry, combat style variant)
-  // 3. Homebrew classPowerIds
-  const autoGrantedPowers: import('../../types/gameData').PowerData[] = [];
+  // Collect ONLY level 0 auto-granted class powers
+  const autoGrantedPowers: PowerData[] = [];
   const seen = new Set<string>();
 
-  // Level 0 class powers (auto-granted class features)
-  const allClassPowersRaw = getPowersByClass(cls.id);
-  for (const p of allClassPowersRaw) {
-    if (p.level === 0 && !seen.has(p.id)) {
-      // For Fighter, only show the chosen combat style power
-      if (cls.id === 'fighter' && (p.id === 'fighter-combat-challenge' || p.id === 'fighter-combat-agility')) {
-        const expected = character.fighterCombatStyle === 'agility' ? 'fighter-combat-agility' : 'fighter-combat-challenge';
-        if (p.id !== expected) continue;
-      }
-      // For Warlock pact boon, only show the chosen pact power
-      if (p.pactBoon && p.pactBoon !== character.warlockPact) continue;
-      // For Barbarian feral might, only show the chosen power
-      if (p.feralMight && p.feralMight !== character.barbarianFeralMight) continue;
-      // For Avenger censure, only show the chosen power
-      if (p.censure && p.censure !== character.avengerCensure) continue;
-      // For Sorcerer spell source, only show the chosen power
-      if (p.sorcererSource && p.sorcererSource !== character.sorcererSpellSource) continue;
-      // For Monk tradition, only show the chosen flurry
-      if (cls.id === 'monk' && p.id.includes('flurry')) {
-        const expected = character.monkTradition === 'centered-breath'
-          ? 'monk-centered-flurry-of-blows' : 'monk-stone-fist-flurry-of-blows';
-        if (p.id !== expected) continue;
-      }
-      autoGrantedPowers.push(p);
-      seen.add(p.id);
+  for (const p of getPowersByClass(cls.id)) {
+    if (p.level !== 0 || seen.has(p.id)) continue;
+    // Fighter: only show the chosen combat style power
+    if (cls.id === 'fighter' && (p.id === 'fighter-combat-challenge' || p.id === 'fighter-combat-agility')) {
+      const expected = character.fighterCombatStyle === 'agility' ? 'fighter-combat-agility' : 'fighter-combat-challenge';
+      if (p.id !== expected) continue;
     }
+    if (p.pactBoon && p.pactBoon !== character.warlockPact) continue;
+    if (p.feralMight && p.feralMight !== character.barbarianFeralMight) continue;
+    if (p.censure && p.censure !== character.avengerCensure) continue;
+    if (p.sorcererSource && p.sorcererSource !== character.sorcererSpellSource) continue;
+    if (cls.id === 'monk' && p.id.includes('flurry')) {
+      const expected = character.monkTradition === 'centered-breath'
+        ? 'monk-centered-flurry-of-blows' : 'monk-stone-fist-flurry-of-blows';
+      if (p.id !== expected) continue;
+    }
+    autoGrantedPowers.push(p);
+    seen.add(p.id);
   }
 
-  // Homebrew classPowerIds (auto-granted)
+  // Homebrew classPowerIds
   for (const id of cls.classPowerIds ?? []) {
     if (!seen.has(id)) {
       const p = getPowerById(id);
@@ -397,7 +352,7 @@ export function ClassFeaturesPanel({ character }: Props) {
         );
       })}
 
-      {/* ── Class Powers ── */}
+      {/* ── Level 0 Class Powers ── */}
       {autoGrantedPowers.length > 0 && (
         <>
           <div className="pt-2">
@@ -406,7 +361,7 @@ export function ClassFeaturesPanel({ character }: Props) {
             </p>
           </div>
           {autoGrantedPowers.map((power) => (
-            <ClassPowerCard key={power.id} powerId={power.id} character={character} onPin={addToQuickTray} />
+            <ClassPowerCard key={power.id} power={power} character={character} onPin={addToQuickTray} />
           ))}
         </>
       )}
