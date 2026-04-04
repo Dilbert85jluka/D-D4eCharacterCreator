@@ -211,6 +211,43 @@ const OFFICIAL_CONSUMABLES: ConsumableData[] = [
     cost: 1,
     weight: 0,
   },
+  // ── HotF (Heroes of the Feywild) Consumables ────────────────────────────
+  {
+    id: 'horses-breath',
+    name: "Horse's Breath",
+    level: 6,
+    category: 'Other',
+    effect: 'Minor action. A mount or vehicle you are riding gains an extra move action this turn.',
+    cost: 75,
+    weight: 0,
+  },
+  {
+    id: 'unseelie-candle',
+    name: 'Unseelie Candle',
+    level: 7,
+    category: 'Other',
+    effect: 'Minor action. Sheds dim light in a 6-square radius for one hour. While lit, reveals invisible creatures and objects within 1 square of it.',
+    cost: 100,
+    weight: 0,
+  },
+  {
+    id: 'hags-doorknob',
+    name: "Hag's Doorknob",
+    level: 12,
+    category: 'Other',
+    effect: 'Minor action. Place on a wall to create a 5-foot-diameter passageway up to 2 squares long through the wall. Lasts until end of encounter. Does not work on horizontal surfaces.',
+    cost: 500,
+    weight: 0,
+  },
+  {
+    id: 'ray-of-feywild-sunshine',
+    name: 'Ray of Feywild Sunshine',
+    level: 17,
+    category: 'Other',
+    effect: 'Minor action. Creates a zone of bright light (functions as sunlight) in a close burst 20 that lasts until the end of the encounter. Plants in the zone are restored to peak life.',
+    cost: 2600,
+    weight: 0,
+  },
 ];
 
 export let CONSUMABLES: ConsumableData[] = [...OFFICIAL_CONSUMABLES];

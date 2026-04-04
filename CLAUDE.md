@@ -60,10 +60,10 @@ src/
 ├── data/
 │   ├── advancement.ts         # FEAT_LEVELS array + featsEarnedByLevel() — shared source of truth
 │   ├── classes/               # 22 class definitions (8 PHB1 + 8 PHB2 + 6 PHB3) + index.ts (getClassById, registerHomebrewClasses/unregisterHomebrewClasses)
-│   ├── races/                 # 17 race definitions (8 PHB1 + 5 PHB2 + 4 PHB3) + index.ts (getRaceById, registerHomebrewRaces/unregisterHomebrewRaces)
+│   ├── races/                 # 20 race definitions (8 PHB1 + 5 PHB2 + 4 PHB3 + 3 HotF) + index.ts (getRaceById, registerHomebrewRaces/unregisterHomebrewRaces)
 │   ├── powers/                # 22 class power files (8 PHB1 + 8 PHB2 + 6 PHB3) + featPowers.ts + index.ts (query functions)
-│   ├── feats/                 # index.ts — 465 feats (161 PHB1 + 132 PHB2 + 172 PHB3)
-│   ├── equipment/             # weapons, armor, masterworkArmor, magicArmor, magicWeapons, implements, superiorImplements, magicImplements, magicItems (788 slot items), consumables, gear + index.ts
+│   ├── feats/                 # index.ts — 497 feats (161 PHB1 + 132 PHB2 + 172 PHB3 + 32 HotF)
+│   ├── equipment/             # weapons, armor, masterworkArmor, magicArmor, magicWeapons, implements, superiorImplements, magicImplements (364 magic), magicItems (788 slot items), consumables, gear + index.ts
 │   ├── magicItems/            # potions, scrolls, rings, rods, staves, wands, miscA/G/O, armor, weapons + index.ts
 │   ├── monsters/              # mm1.ts, mm2.ts, mm3.ts, dmg.ts, dmg2.ts, mv.ts, mvttnv.ts + index.ts
 │   ├── skills.ts
@@ -300,10 +300,11 @@ getPowersByClassUpToLevel(classId, characterLevel, usage?): PowerData[]  // leve
 
 Each class defines: role, powerSource, keyAbilities, HP, healingSurges, defenseBonus, skills, powerCounts, features, mandatorySkills, mandatorySkillChoice.
 
-### Races (17 total — 8 PHB1 + 5 PHB2 + 4 PHB3)
+### Races (20 total — 8 PHB1 + 5 PHB2 + 4 PHB3 + 3 HotF)
 **PHB1:** dragonborn, dwarf, eladrin, elf, half-elf, halfling, human, tiefling
 **PHB2:** deva, gnome, goliath, half-orc, shifter (longtooth/razorclaw sub-races)
 **PHB3:** githzerai, minotaur, shardmind, wilden
+**HotF:** hamadryad, pixie, satyr
 
 Half-Elf gets a bonus at-will power (Dilettante — see section below). Human gets bonus feat + bonus skill.
 
@@ -348,18 +349,20 @@ export function featsEarnedByLevel(level: number): number {
 Human gets +1 bonus feat (handled by `expectedFeatCount` in FeatsPanel.tsx).
 Both `LevelUpModal.tsx` and `FeatsPanel.tsx` import from `advancement.ts` — never duplicate this constant locally.
 
-### Feats Data (src/data/feats/index.ts) — 465 feats (161 PHB1 + 132 PHB2 + 172 PHB3)
+### Feats Data (src/data/feats/index.ts) — 497 feats (161 PHB1 + 132 PHB2 + 172 PHB3 + 32 HotF)
 
 | Source | Heroic | Paragon | Epic | Total |
 |---|---|---|---|---|
 | PHB1 | 95 | 49 | 17 | 161 |
 | PHB2 | 70 | 39 | 23 | 132 |
 | PHB3 | 89 | 52 | 31 | 172 |
-| **Combined** | **254** | **140** | **71** | **465** |
+| HotF | 28 | 3 | 1 | 32 |
+| **Combined** | **282** | **143** | **72** | **497** |
 
-All 465 feats have accurate benefit text sourced from the iws.mx raw database (`feat/_listing.js` + `feat/_index.js`).
+All 497 feats have accurate benefit text sourced from the iws.mx raw database (`feat/_listing.js` + `feat/_index.js`).
 PHB2 feats include 8 multiclass feats (one per PHB2 class) with `multiclassFor` field, plus class-specific, race-specific, and general feats.
 PHB3 feats include 6 multiclass feats (one per PHB3 class) with `multiclassFor` field.
+HotF feats include 3 multiclass feats (barbarian, druid, bard/wizard) with `multiclassFor` field, plus race-specific feats for pixie, hamadryad, satyr, gnome, eladrin, elf, and wilden.
 
 **Exports:** `FEATS`, `getFeatById`, `getMulticlassId`, `featMeetsPrerequisites`, `isFeatRepeatable`
 
@@ -817,6 +820,8 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Fighter Combat Style (houserule): Fighters choose between Combat Superiority (PHB) and Combat Agility (Martial Power 2) at character creation. `fighterCombatStyle: 'superiority' | 'agility'` on Character. Combat Superiority grants `fighter-combat-challenge` (opportunity attack, mark), Combat Agility grants `fighter-combat-agility` (opportunity attack, shift + knock prone). Both are level 0 at-will powers with `actionType: 'opportunity'`. Wizard Step 3 picker via `BuildChoicePicker`. `canProceed` Step 3 enforces choice. `ClassFeaturesPanel` shows choice detail via `BUILD_CHOICE_MAP` + `PHB2_BUILD_CHOICES`. Powers conditionally auto-granted in `ActionsByTypePanel` and `PowersPanel` based on `character.fighterCombatStyle`. Fighter class features restructured: Combat Challenge, Combat Style (choice), Fighter Weapon Talent.
 - [x] Fighter Weapon Talent: +1 attack bonus with proficient weapons now mechanically applied in `CombatActionsPanel.tsx`. Added to attack calculation (`attackBonus`) and shown in breakdown as "+1 talent". Applies to both melee and ranged weapons when the character is a fighter and proficient with the weapon.
 - [x] Homebrew Workshop: New top-level tab (`AppView: 'homebrew'`) for creating custom game content. Supports 12 content types: races, classes, powers, feats, weapons, armor, gear, magic items, magic armor, magic weapons, magic implements, consumables. Stored locally in Dexie.js (`homebrew` table, schema v7) with `HomebrewItem` type (`src/types/homebrew.ts`). Data registration pattern: each data index file (`races/index.ts`, `classes/index.ts`, `powers/index.ts`, `feats/index.ts`, equipment files) has `registerHomebrew*()` / `unregisterHomebrew*()` functions that merge homebrew items into the official arrays — zero changes to existing consumer components. IDs prefixed with `homebrew-` for collision avoidance. CRUD editors in `src/components/homebrew/` (12 type-specific editors + shared `EditorLayout`, `TierEditor`). Campaign sharing: `campaignIds` field on `HomebrewItem`, `homebrew_content` JSONB column on `shared_campaigns`, `useHomebrewContentSync` hook (debounced 3s DM push), `registerCampaignHomebrew()` for player-side registration via `useRealtimeCampaign`. Homebrew badges (violet) shown on PowerCard, FeatsPanel, EquipmentPanel. Graceful degradation: `MissingHomebrewPlaceholder` component (`HomebrewBadge.tsx`) shows a red warning card with Remove button when a character references a deleted/unavailable homebrew item. Integrated in PowersPanel (detects `homebrew-` IDs where `getPowerById()` returns undefined), FeatsPanel (detects `homebrew-` IDs where `getFeatById()` returns undefined), and EquipmentPanel (detects `homebrew-` gear items not found in GEAR array). Deleted homebrew weapons/armor/magic items naturally fall into the gear tab catch-all and render as missing placeholders. Editor UX improvements: all free-text fields that reference official game data replaced with structured dropdowns. WeaponEditor: properties field is dropdown+add+tags from 23 official weapon properties. GearEditor: category is dropdown (7 categories: Gear, Component, Musical Instrument, Food & Drink, Lodging, Transport, Mount). MagicItemEditor: enhancementType is dropdown (None, AC, Attack rolls and damage rolls, Fortitude/Reflex/Will). MagicArmorEditor: armorTypes uses Preset/Specific toggle (presets: Any, Any shield; specific: dropdown+add+tags for 7 armor types); enhancementType is dropdown (AC). MagicWeaponEditor: weaponTypes uses Preset/Specific toggle (presets: Any, Any melee, Any ranged; specific: dropdown+add+tags for 15 weapon groups); enhancementType is dropdown. MagicImplementEditor: enhancementType is dropdown; critical uses checkbox + quantity input + die dropdown (d6/d8/d10/d12) + static "damage per plus" text. FeatEditor: prerequisite race/class/trained skill fields are dropdown+add+tags populated from RACES, CLASSES, SKILLS arrays. PowerEditor: keywords field is dropdown+add+tags from 38 official keywords; range field is structured as range type dropdown (12 types: Melee weapon, Ranged, Close burst, etc.) + conditional value text input. RaceEditor: full editor with basic info (name, size, speed, vision), fixed ability bonuses (6-column grid), optional ability choice bonus (checkbox + amount + ability picker), racial skill bonuses (dropdown+add), languages (tag chips with dropdown+add), defense/stat bonuses (Fort/Ref/Will/Initiative/Surges), racial flags (bonus feat, bonus skill, bonus at-will), and racial traits (repeating name+description groups with conditional toggle). ClassEditor: full editor with basic info (name, role dropdown, power source dropdown), key abilities (toggle buttons), HP & healing (HP at 1st/per level, surges/day), defense bonuses (Fort/Ref/Will), proficiencies (armor/weapon/shield/implement toggle grids), available skills (toggle buttons from all 17 skills + trained count), mandatory trained skills (auto-trained like Rogue's Stealth), power counts (at-will/encounter/daily), and class features (repeating name+description+level groups). Homebrew races and classes automatically appear in character creator race/class pickers, plus in PowerEditor class dropdown and FeatEditor prerequisite pickers, via the live `let RACES`/`let CLASSES` arrays. Cloud sync: `user_homebrew` Supabase table (same schema as `user_characters`), `homebrewCloudService.ts` (push/pull/soft-delete), `useHomebrewCloudSync.ts` hook (pull on startup, debounced 3s push per item, soft-delete on local delete), `mergeCloudHomebrew()` store action (newer-wins by `updatedAt`). Export/import v2: backup version bumped to 2, now includes all 5 Dexie tables (characters, campaigns, sessions, encounters, homebrew); backward compatible with v1 files (missing homebrew gracefully skipped); preview shows homebrew count + v1 notice.
+- [x] Heroes of the Feywild (HotF) content expansion: 3 races (hamadryad, pixie, satyr) with 5 racial powers (Hamadryad Aspects, Pixie Dust, Shrink, Lure of Enchantment), 32 feats (28 heroic, 3 paragon, 1 epic — includes 3 multiclass feats for barbarian/druid/bard+wizard, race-specific feats for pixie/hamadryad/satyr/gnome/eladrin/elf/wilden, expertise feats, and Fey Bond/Cantrip chain), 3 magic totems (Wrath of Nature, Reclaimer's, Shepherd's), 22 Feywild-themed gear items (Cold Iron Shackles, Doppelganger Mask, False Path Stones, Pixie Music Box, Wolfsbane, etc.), 4 consumables (Horse's Breath L6, Unseelie Candle L7, Hag's Doorknob L12, Ray of Feywild Sunshine L17). No HotF weapons or armor exist in the source. `RaceData.size` type union expanded to include `'Tiny'` for Pixie. Pixie is the first Tiny PC race with fly speed 6 (altitude limit 1), reach 1, and space-sharing rules. Race data in `src/data/races/hamadryad.ts`, `pixie.ts`, `satyr.ts`; racial powers in `src/data/powers/racial.ts`; feats in `src/data/feats/index.ts` with `hotf-` ID prefix.
+- [x] Class Features tab: Level 0 auto-granted class powers now shown as read-only info cards (no pin button). Pin-to-quick-tray buttons are only available on the Powers tab and Actions tab. Generic level 0 class power rendering added to PowersPanel covering all classes (not just wizard/warlock/monk/fighter) — shows teal "Class" badge with pin button for at-will and encounter class powers.
 
 ---
 
