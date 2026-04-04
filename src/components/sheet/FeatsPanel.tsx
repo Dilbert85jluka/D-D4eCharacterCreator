@@ -484,7 +484,7 @@ export function FeatsPanel({ character }: Props) {
                 onClick={() => setEligibleOnly(!eligibleOnly)}
                 className={[
                   'px-3 py-2 rounded-lg border text-sm font-medium min-h-[44px] transition-colors whitespace-nowrap',
-                  eligibleOnly ? 'bg-amber-600 text-white border-amber-700' : 'bg-white text-stone-700 border-stone-300',
+                  !eligibleOnly ? 'bg-amber-600 text-white border-amber-700' : 'bg-white text-stone-700 border-stone-300',
                 ].join(' ')}
               >
                 Eligible only

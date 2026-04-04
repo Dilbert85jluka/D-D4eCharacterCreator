@@ -16,6 +16,7 @@ export function Step8_Equipment() {
     wizardStartingRitualIds, toggleWizardStartingRitual,
   } = useWizardStore();
   const [tab, setTab] = useState<Tab>('weapons');
+  const [search, setSearch] = useState('');
   const [ritualSearch, setRitualSearch] = useState('');
 
   const isWizard = classId === 'wizard';
@@ -186,7 +187,7 @@ export function Step8_Equipment() {
         {(['weapons', 'armor', 'gear'] as Tab[]).map((t) => (
           <button
             key={t}
-            onClick={() => setTab(t)}
+            onClick={() => { setTab(t); setSearch(''); }}
             className={[
               'flex-1 py-2 px-2 rounded-lg text-sm font-semibold transition-colors min-h-[44px] capitalize',
               tab === t ? 'bg-white shadow text-stone-800' : 'text-stone-500 hover:text-stone-700',
@@ -197,9 +198,22 @@ export function Step8_Equipment() {
         ))}
       </div>
 
+      {/* Search */}
+      <div className="mb-4">
+        <input
+          type="text"
+          placeholder={`Search ${tab}…`}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[44px]"
+        />
+      </div>
+
       {/* Item lists */}
       <div className="space-y-2">
-        {tab === 'weapons' && WEAPONS.map((w) => {
+        {tab === 'weapons' && WEAPONS.filter((w) =>
+          !search.trim() || w.name.toLowerCase().includes(search.toLowerCase())
+        ).map((w) => {
           const n = ownedCount(w.id);
           const canAfford = w.cost <= goldPieces;
           return (
@@ -236,7 +250,9 @@ export function Step8_Equipment() {
           );
         })}
 
-        {tab === 'armor' && ARMOR.map((a) => {
+        {tab === 'armor' && ARMOR.filter((a) =>
+          !search.trim() || a.name.toLowerCase().includes(search.toLowerCase())
+        ).map((a) => {
           const n = ownedCount(a.id);
           const canAfford = a.cost <= goldPieces;
           return (
@@ -273,7 +289,9 @@ export function Step8_Equipment() {
           );
         })}
 
-        {tab === 'gear' && GEAR.map((g) => {
+        {tab === 'gear' && GEAR.filter((g) =>
+          !search.trim() || g.name.toLowerCase().includes(search.toLowerCase())
+        ).map((g) => {
           const qty = ownedGearQty(g.id);
           const canAfford = g.cost <= goldPieces;
           return (

@@ -159,7 +159,7 @@ export function Step7_Feats() {
           onClick={() => setAvailableOnly(!availableOnly)}
           className={[
             'px-3 py-2 rounded-lg border text-sm font-medium min-h-[44px] transition-colors',
-            availableOnly ? 'bg-amber-600 text-white border-amber-700' : 'bg-white text-stone-700 border-stone-300',
+            !availableOnly ? 'bg-amber-600 text-white border-amber-700' : 'bg-white text-stone-700 border-stone-300',
           ].join(' ')}
         >
           Eligible only

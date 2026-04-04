@@ -100,10 +100,10 @@ export function CharacterSheet({ character }: Props) {
     <div className="bg-parchment-100 min-h-screen pb-8">
       <SheetHeader character={character} derived={derived} />
 
-      <div className="max-w-6xl mx-auto px-3 pt-4 flex flex-col md:flex-row gap-4 md:items-stretch">
+      <div className="max-w-6xl mx-auto px-3 pt-4 flex flex-col lg:flex-row gap-4 lg:items-stretch">
 
         {/* Left pair: Column 1 + 2 share a sub-flex so Skills matches HP block bottom */}
-        <div className="flex flex-col md:flex-row md:flex-shrink-0 gap-4 md:items-stretch">
+        <div className="flex flex-col md:flex-row lg:flex-shrink-0 gap-4 md:items-stretch">
 
           {/* Column 1: Abilities + Defenses + HP */}
           <div className="w-full md:w-64 flex flex-col gap-4">
@@ -119,19 +119,19 @@ export function CharacterSheet({ character }: Props) {
 
         </div>
 
-        {/* Column 3: zero intrinsic height (relative + absolute inner) so Column 1 drives outer height */}
-        <div className="flex-1 min-w-0 relative">
-        <div className="absolute inset-0 flex flex-col gap-4 overflow-hidden">
+        {/* Column 3: on lg+ uses absolute positioning so Column 1 drives outer height; on smaller screens flows naturally */}
+        <div className="flex-1 min-w-0 lg:relative">
+        <div className="lg:absolute lg:inset-0 flex flex-col gap-4 lg:overflow-hidden">
 
-          {/* Tab bar — pinned, never scrolls */}
-          <div className="bg-white rounded-xl border border-stone-200 overflow-hidden flex-shrink-0">
-            <div className="flex">
+          {/* Tab bar — pinned, horizontally scrollable on narrow screens */}
+          <div className="bg-white rounded-xl border border-stone-200 flex-shrink-0 overflow-x-auto">
+            <div className="flex min-w-max">
               {tabs.map(({ key, label }) => (
                 <button
                   key={key}
                   onClick={() => setActiveTab(key)}
                   className={[
-                    'flex-1 py-3 text-sm font-semibold transition-colors',
+                    'flex-1 py-3 px-3 text-sm font-semibold transition-colors whitespace-nowrap',
                     activeTab === key
                       ? 'border-b-2 border-amber-600 text-amber-700'
                       : 'text-stone-500 hover:text-stone-700',
@@ -147,14 +147,14 @@ export function CharacterSheet({ character }: Props) {
           {activeTab === 'combat' && (
             <>
               {/* Combat sub-tab bar — pinned */}
-              <div className="bg-white rounded-xl border border-stone-200 overflow-hidden flex-shrink-0">
-                <div className="flex">
+              <div className="bg-white rounded-xl border border-stone-200 flex-shrink-0 overflow-x-auto">
+                <div className="flex min-w-max">
                   {combatTabs.map(({ key, label }) => (
                     <button
                       key={key}
                       onClick={() => setCombatTab(key)}
                       className={[
-                        'flex-1 py-3 text-sm font-semibold transition-colors',
+                        'flex-1 py-3 px-3 text-sm font-semibold transition-colors whitespace-nowrap',
                         combatTab === key
                           ? 'border-b-2 border-amber-600 text-amber-700'
                           : 'text-stone-500 hover:text-stone-700',
@@ -180,14 +180,14 @@ export function CharacterSheet({ character }: Props) {
           {activeTab === 'powers' && (
             <>
               {/* Powers sub-tab bar — pinned */}
-              <div className="bg-white rounded-xl border border-stone-200 overflow-hidden flex-shrink-0">
-                <div className="flex">
+              <div className="bg-white rounded-xl border border-stone-200 flex-shrink-0 overflow-x-auto">
+                <div className="flex min-w-max">
                   {powersTabs.map(({ key, label }) => (
                     <button
                       key={key}
                       onClick={() => setPowersTab(key)}
                       className={[
-                        'flex-1 py-3 text-sm font-semibold transition-colors',
+                        'flex-1 py-3 px-3 text-sm font-semibold transition-colors whitespace-nowrap',
                         powersTab === key
                           ? 'border-b-2 border-amber-600 text-amber-700'
                           : 'text-stone-500 hover:text-stone-700',
@@ -211,14 +211,14 @@ export function CharacterSheet({ character }: Props) {
           {activeTab === 'features' && (
             <>
               {/* Features sub-tab bar — pinned */}
-              <div className="bg-white rounded-xl border border-stone-200 overflow-hidden flex-shrink-0">
-                <div className="flex">
+              <div className="bg-white rounded-xl border border-stone-200 flex-shrink-0 overflow-x-auto">
+                <div className="flex min-w-max">
                   {featuresTabs.map(({ key, label }) => (
                     <button
                       key={key}
                       onClick={() => setFeaturesTab(key)}
                       className={[
-                        'flex-1 py-3 text-sm font-semibold transition-colors',
+                        'flex-1 py-3 px-3 text-sm font-semibold transition-colors whitespace-nowrap',
                         featuresTab === key
                           ? 'border-b-2 border-amber-600 text-amber-700'
                           : 'text-stone-500 hover:text-stone-700',
@@ -243,14 +243,14 @@ export function CharacterSheet({ character }: Props) {
           {activeTab === 'inventory' && (
             <>
               {/* Inventory sub-tab bar — pinned */}
-              <div className="bg-white rounded-xl border border-stone-200 overflow-hidden flex-shrink-0">
-                <div className="flex">
+              <div className="bg-white rounded-xl border border-stone-200 flex-shrink-0 overflow-x-auto">
+                <div className="flex min-w-max">
                   {inventoryTabs.map(({ key, label }) => (
                     <button
                       key={key}
                       onClick={() => setInventoryTab(key)}
                       className={[
-                        'flex-1 py-3 text-sm font-semibold transition-colors',
+                        'flex-1 py-3 px-3 text-sm font-semibold transition-colors whitespace-nowrap',
                         inventoryTab === key
                           ? 'border-b-2 border-amber-600 text-amber-700'
                           : 'text-stone-500 hover:text-stone-700',
