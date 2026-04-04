@@ -17,6 +17,10 @@ import { githzerai } from './githzerai';
 import { minotaur } from './minotaur';
 import { shardmind } from './shardmind';
 import { wilden } from './wilden';
+// HotF (Heroes of the Feywild) races
+import { hamadryad } from './hamadryad';
+import { pixie } from './pixie';
+import { satyr } from './satyr';
 import type { RaceData } from '../../types/gameData';
 
 const OFFICIAL_RACES: RaceData[] = [
@@ -39,6 +43,10 @@ const OFFICIAL_RACES: RaceData[] = [
   minotaur,
   shardmind,
   wilden,
+  // HotF (Heroes of the Feywild)
+  hamadryad,
+  pixie,
+  satyr,
 ];
 
 // Mutable array that includes official + homebrew races

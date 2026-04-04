@@ -2,8 +2,6 @@ import type { Character } from '../../types/character';
 import type { PowerData } from '../../types/gameData';
 import { getClassById } from '../../data/classes';
 import { getPowerById, getPowersByClass } from '../../data/powers';
-import { characterRepository } from '../../db/characterRepository';
-import { useCharactersStore } from '../../store/useCharactersStore';
 
 interface Props {
   character: Character;
@@ -179,25 +177,18 @@ function BuildChoiceDetail({ classId, choice }: { classId: string; choice: strin
   );
 }
 
-function ClassPowerCard({ power, character, onPin }: { power: PowerData; character: Character; onPin: (id: string) => void }) {
+function ClassPowerCard({ power }: { power: PowerData }) {
   const usageColor = power.usage === 'at-will'
     ? 'bg-emerald-700'
     : power.usage === 'encounter'
       ? 'bg-red-700'
       : 'bg-stone-800';
 
-  const inTray = (character.quickTrayPowerIds ?? []).includes(power.id);
-
   return (
     <div className="rounded-xl border border-stone-200 overflow-hidden">
       <div className={`${usageColor} px-4 py-2 flex items-center justify-between`}>
         <span className="text-sm font-bold text-white">{power.name}</span>
         <div className="flex items-center gap-2">
-          {inTray ? (
-            <span className="w-6 h-6 flex items-center justify-center rounded-full bg-white/30 text-white text-xs leading-none" title="In quick tray">&#10003;</span>
-          ) : (
-            <button onClick={() => onPin(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors text-xs leading-none" title="Pin to quick tray">&#9889;</button>
-          )}
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/20 text-white font-medium capitalize">{power.usage}</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/20 text-white font-medium capitalize">{power.actionType.replace('-', ' ')}</span>
         </div>
@@ -239,7 +230,6 @@ const BUILD_CHOICE_MAP: Record<string, { featureName: string; field: keyof Chara
 
 export function ClassFeaturesPanel({ character }: Props) {
   const cls = getClassById(character.classId);
-  const loadCharacters = useCharactersStore((s) => s.loadCharacters);
 
   if (!cls) return <p className="p-4 text-stone-400 italic">No class selected.</p>;
 
@@ -276,17 +266,6 @@ export function ClassFeaturesPanel({ character }: Props) {
       if (p) { autoGrantedPowers.push(p); seen.add(id); }
     }
   }
-
-  const patch = async (updates: Partial<Character>) => {
-    await characterRepository.patch(character.id, updates);
-    loadCharacters();
-  };
-
-  const addToQuickTray = (powerId: string) => {
-    const tray = character.quickTrayPowerIds ?? [];
-    if (tray.includes(powerId)) return;
-    patch({ quickTrayPowerIds: [...tray, powerId] });
-  };
 
   return (
     <div className="p-4 space-y-3">
@@ -361,7 +340,7 @@ export function ClassFeaturesPanel({ character }: Props) {
             </p>
           </div>
           {autoGrantedPowers.map((power) => (
-            <ClassPowerCard key={power.id} power={power} character={character} onPin={addToQuickTray} />
+            <ClassPowerCard key={power.id} power={power} />
           ))}
         </>
       )}

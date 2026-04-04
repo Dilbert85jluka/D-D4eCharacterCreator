@@ -274,4 +274,65 @@ export const RACIAL_POWERS: PowerData[] = [
     flavor: 'Like a predator on the hunt, you pursue your quarry with relentless focus.',
     special: 'Aspect of the Hunter. You choose this power after an extended rest when you adopt the Aspect of the Hunter.',
   },
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // HotF (HEROES OF THE FEYWILD) RACIAL POWERS
+  // ────────────────────────────────────────────────────────────────────────────
+
+  // ── Hamadryad ──────────────────────────────────────────────────────────────
+  {
+    id: 'racial-hamadryad-aspects',
+    name: 'Hamadryad Aspects',
+    classId: 'racial',
+    level: 0,
+    usage: 'encounter',
+    actionType: 'minor',
+    range: 'Personal',
+    keywords: [],
+    effect: 'Choose one of the following aspects: Spellbinding Beauty — every enemy that can see you grants combat advantage to you until the end of your next turn. Wooden Form — you gain resist 5 to all damage until the end of your next turn. Level 11: Resist 10. Level 21: Resist 15.',
+    flavor: 'You call upon the dual nature of your fey heritage, adopting the aspect of beauty or resilience.',
+  },
+
+  // ── Pixie ──────────────────────────────────────────────────────────────────
+  {
+    id: 'racial-pixie-dust',
+    name: 'Pixie Dust',
+    classId: 'racial',
+    level: 0,
+    usage: 'encounter',
+    actionType: 'move',
+    range: 'Ranged 5',
+    keywords: [],
+    target: 'One ally',
+    effect: 'The target can fly up to 6 squares as a free action.',
+    flavor: 'You sprinkle a shower of sparkling pixie dust, granting an ally the gift of flight.',
+  },
+  {
+    id: 'racial-shrink',
+    name: 'Shrink',
+    classId: 'racial',
+    level: 0,
+    usage: 'encounter',
+    actionType: 'minor',
+    range: 'Melee 1',
+    keywords: [],
+    target: 'One object that is sized for a Medium or Small creature, is not inside a container, does not contain anything, and is not held, worn, or carried by anyone other than you.',
+    effect: 'The target shrinks to a size appropriate for a Tiny creature\'s use. The new size ends at the end of your next extended rest unless the shrunken target is on your person. The size also ends if you or another pixie uses this power on the shrunken target. While shrunk, the target keeps its game statistics, such as damage dice and weight. A shrunken weapon, however, becomes an improvised one-handed weapon for a non-Tiny creature.',
+    flavor: 'With a wave of your hand, you reduce an object to pixie proportions.',
+  },
+
+  // ── Satyr ──────────────────────────────────────────────────────────────────
+  {
+    id: 'racial-lure-of-enchantment',
+    name: 'Lure of Enchantment',
+    classId: 'racial',
+    level: 0,
+    usage: 'encounter',
+    actionType: 'free',
+    range: 'Personal',
+    keywords: ['Charm'],
+    trigger: 'You hit an enemy with an attack.',
+    effect: 'You slide the enemy up to 3 squares, but not into hindering terrain. The enemy grants combat advantage until the end of your next turn.',
+    flavor: 'Your fey charm beguiles your foe, drawing them where you wish.',
+  },
 ];

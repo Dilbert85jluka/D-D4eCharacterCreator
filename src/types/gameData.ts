@@ -29,7 +29,7 @@ export interface SubraceData {
 export interface RaceData {
   id: string;
   name: string;
-  size: 'Small' | 'Medium';
+  size: 'Tiny' | 'Small' | 'Medium';
   speed: number;
   vision: 'Normal' | 'Low-light' | 'Darkvision';
   languages: string[];

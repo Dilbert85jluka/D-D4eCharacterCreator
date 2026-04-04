@@ -186,6 +186,37 @@ export function PowersPanel({ character }: Props) {
     return getPowerById(powerId) ?? null;
   })();
 
+  // ── Generic level 0 class powers (covers all classes not handled above) ──
+  const genericClassPowers: PowerData[] = (() => {
+    const handled = new Set<string>();
+    for (const p of classCantrips) handled.add(p.id);
+    if (pactBoonPower) handled.add(pactBoonPower.id);
+    if (monkFlurryPower) handled.add(monkFlurryPower.id);
+    if (fighterCombatPower) handled.add(fighterCombatPower.id);
+
+    const powers: PowerData[] = [];
+    const seen = new Set<string>();
+    for (const p of getPowersByClass(character.classId)) {
+      if (p.level !== 0 || handled.has(p.id) || seen.has(p.id)) continue;
+      // Build-specific filtering
+      if (p.pactBoon && p.pactBoon !== character.warlockPact) continue;
+      if ((p as any).feralMight && (p as any).feralMight !== character.barbarianFeralMight) continue;
+      if ((p as any).censure && (p as any).censure !== character.avengerCensure) continue;
+      if ((p as any).sorcererSource && (p as any).sorcererSource !== character.sorcererSpellSource) continue;
+      powers.push(p);
+      seen.add(p.id);
+    }
+    // Homebrew classPowerIds
+    const cls = getClassById(character.classId);
+    for (const id of cls?.classPowerIds ?? []) {
+      if (!handled.has(id) && !seen.has(id)) {
+        const p = getPowerById(id);
+        if (p) { powers.push(p); seen.add(id); }
+      }
+    }
+    return powers;
+  })();
+
   // ── Feat-granted powers (e.g. deity Channel Divinity feats) ──────────────
   const featGrantedPowers: PowerData[] = [];
   for (const featId of character.selectedFeatIds) {
@@ -765,6 +796,22 @@ export function PowersPanel({ character }: Props) {
                   <PowerCard power={fighterCombatPower} abilityModifiers={abilityMods} />
                 </div>
               )}
+              {/* Generic level 0 class powers (at-will) — covers all classes */}
+              {genericClassPowers.filter((p) => p.usage === 'at-will').map((power) => (
+                <div key={power.id}>
+                  <div className="flex items-center justify-between mb-0.5 px-1">
+                    <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Class</span>
+                    <div className="flex items-center gap-1">
+                      {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      ) : (
+                        <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      )}
+                    </div>
+                  </div>
+                  <PowerCard power={power} abilityModifiers={abilityMods} />
+                </div>
+              ))}
               {powersForTab.map(({ sp, power }) => {
                 if (!power) return null;
                 const mt = isFullDisciplinePower(power) ? extractMovementTechnique(power) : null;
@@ -999,6 +1046,31 @@ export function PowersPanel({ character }: Props) {
               );
             }
             return renderMcEmptySlot(mcSlot);
+          })}
+
+          {/* Generic level 0 class encounter powers — covers all classes */}
+          {tab === 'encounter' && genericClassPowers.filter((p) => p.usage === 'encounter').map((power) => {
+            const isUsed = character.usedEncounterPowers.includes(power.id);
+            return (
+              <div key={power.id}>
+                <div className="flex items-center justify-between mb-0.5 px-1">
+                  <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Class</span>
+                  <div className="flex items-center gap-1">
+                    {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                    ) : (
+                      <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                    )}
+                  </div>
+                </div>
+                <PowerCard
+                  power={power}
+                  used={isUsed}
+                  onToggleUsed={() => toggleUsed(power.id, power.usage)}
+                  abilityModifiers={abilityMods}
+                />
+              </div>
+            );
           })}
 
           {/* Feat-granted encounter powers (e.g. deity Channel Divinity) — auto-granted, no remove */}
