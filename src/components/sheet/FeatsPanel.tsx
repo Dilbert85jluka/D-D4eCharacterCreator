@@ -28,6 +28,7 @@ export function FeatsPanel({ character }: Props) {
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
   const [showPicker, setShowPicker] = useState(false);
   const [search, setSearch] = useState('');
+  const [eligibleOnly, setEligibleOnly] = useState(true);
 
   // MC choice modals — store the featId awaiting a choice
   const [mcSkillModal, setMcSkillModal] = useState<string | null>(null);
@@ -216,18 +217,22 @@ export function FeatsPanel({ character }: Props) {
     }
   }
 
-  // All feats not yet selected (excluding auto-grants), filtered by search — eligibility checked per-card
+  // Combined feat IDs seen by prerequisite checker (selected + auto-granted)
+  const allFeatIds = [...character.selectedFeatIds, ...autoGrantedIds];
+
+  // All feats not yet selected (excluding auto-grants), filtered by search + optional eligibility filter
   const pickerFeats = FEATS.filter(
     (f) =>
       (!character.selectedFeatIds.includes(f.id) || isFeatRepeatable(f)) &&
       !autoGrantedIds.includes(f.id) &&
+      (!eligibleOnly || featMeetsPrerequisites(
+        f, character.raceId, character.classId, character.trainedSkills,
+        allFeatIds, character.level, finalAbilityScores, character.deity,
+      )) &&
       (search.trim() === '' ||
         f.name.toLowerCase().includes(search.toLowerCase()) ||
         f.benefit.toLowerCase().includes(search.toLowerCase())),
-  );
-
-  // Combined feat IDs seen by prerequisite checker (selected + auto-granted)
-  const allFeatIds = [...character.selectedFeatIds, ...autoGrantedIds];
+  ).sort((a, b) => a.name.localeCompare(b.name));
 
   // Helper: class skills available for an MC feat's skill modal
   const getMcSkillOptions = (featId: string) => {
@@ -466,15 +471,24 @@ export function FeatsPanel({ character }: Props) {
               >×</button>
             </div>
 
-            <div className="px-4 py-3 border-b border-stone-100 flex-shrink-0">
+            <div className="px-4 py-3 border-b border-stone-100 flex-shrink-0 flex gap-2">
               <input
                 type="text"
                 placeholder="Search feats…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-amber-400"
+                className="flex-1 border border-stone-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-amber-400 min-h-[44px]"
                 autoFocus
               />
+              <button
+                onClick={() => setEligibleOnly(!eligibleOnly)}
+                className={[
+                  'px-3 py-2 rounded-lg border text-sm font-medium min-h-[44px] transition-colors whitespace-nowrap',
+                  eligibleOnly ? 'bg-amber-600 text-white border-amber-700' : 'bg-white text-stone-700 border-stone-300',
+                ].join(' ')}
+              >
+                Eligible only
+              </button>
             </div>
 
             <div className="overflow-y-auto flex-1 p-3 space-y-2">

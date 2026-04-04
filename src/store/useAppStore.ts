@@ -41,13 +41,15 @@ export const useAppStore = create<AppState>()(
     {
       name: 'dnd4e-app-nav',
       storage: createJSONStorage(() => sessionStorage),
-      // Persist the view + character for sheet and portrait views.
-      // Wizard progress is lost on refresh anyway, so always fall back to home.
+      // Persist the view + character across refresh.
       // Refreshing on the portrait page returns to the sheet.
+      // Wizard state is persisted separately in localStorage.
       partialize: (state) => ({
         currentView:
           state.currentView === 'sheet' || state.currentView === 'portrait'
             ? 'sheet'
+            : state.currentView === 'wizard'
+            ? 'wizard'
             : state.currentView === 'monsters'
             ? 'monsters'
             : state.currentView === 'campaigns'

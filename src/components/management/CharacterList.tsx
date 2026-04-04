@@ -1,12 +1,26 @@
 import { useCharactersStore } from '../../store/useCharactersStore';
 import { useAppStore } from '../../store/useAppStore';
+import { useWizardStore } from '../../store/useWizardStore';
 import { CharacterListItem } from './CharacterListItem';
 import { EmptyState } from './EmptyState';
 import { Button } from '../ui/Button';
+import { getRaceById } from '../../data/races';
+import { getClassById } from '../../data/classes';
 
 export function CharacterList() {
   const { characters, isLoading } = useCharactersStore();
   const navigate = useAppStore((s) => s.navigate);
+  const wizardStep = useWizardStore((s) => s.currentStep);
+  const wizardName = useWizardStore((s) => s.name);
+  const wizardRaceId = useWizardStore((s) => s.raceId);
+  const wizardClassId = useWizardStore((s) => s.classId);
+  const resetWizard = useWizardStore((s) => s.resetWizard);
+
+  // A draft exists if the user has progressed past step 1 or filled in meaningful data
+  const hasDraft = wizardRaceId || wizardClassId || wizardName;
+  const draftRace = wizardRaceId ? getRaceById(wizardRaceId) : undefined;
+  const draftClass = wizardClassId ? getClassById(wizardClassId) : undefined;
+  const draftLabel = [wizardName, draftRace?.name, draftClass?.name].filter(Boolean).join(' · ') || 'In progress';
 
   if (isLoading) {
     return (
@@ -200,6 +214,30 @@ export function CharacterList() {
             </Button>
           )}
         </div>
+
+        {/* Resume draft banner */}
+        {hasDraft && (
+          <div className="mb-4 bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-amber-900 font-semibold text-sm">Draft in progress — Step {wizardStep}/10</p>
+              <p className="text-amber-700 text-xs mt-0.5 truncate">{draftLabel}</p>
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <button
+                onClick={() => { resetWizard(); }}
+                className="px-3 py-2 text-xs font-medium text-stone-600 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 min-h-[44px] transition-colors"
+              >
+                Discard
+              </button>
+              <button
+                onClick={() => navigate('wizard')}
+                className="px-4 py-2 text-xs font-bold text-white bg-amber-600 border border-amber-700 rounded-lg hover:bg-amber-700 min-h-[44px] transition-colors"
+              >
+                Resume
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* List */}
         {characters.length === 0 ? (

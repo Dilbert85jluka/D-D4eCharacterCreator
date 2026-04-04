@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import type { Ability, AbilityScores, Character, EquipmentItem, Alignment, WizardSpellbook, RitualBook } from '../types/character';
 import { defaultAbilityScores, totalPointsSpent, POINT_BUY_BUDGET, POINT_BUY_COSTS, ABILITY_MIN, ABILITY_MAX } from '../utils/abilityScores';
@@ -224,7 +225,9 @@ const initialState = {
   levelingMode: 'milestone' as 'milestone' | 'xp',
 };
 
-export const useWizardStore = create<WizardState>((set, get) => ({
+export const useWizardStore = create<WizardState>()(
+  persist(
+  (set, get) => ({
   ...initialState,
 
   setStep: (step) => set({ currentStep: step }),
@@ -641,4 +644,64 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   },
 
   resetWizard: () => set({ ...initialState, baseAbilityScores: { ...DEFAULT_SCORES } }),
-}));
+}),
+    {
+      name: 'dnd4e-wizard-draft',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        currentStep: state.currentStep,
+        name: state.name,
+        playerName: state.playerName,
+        gender: state.gender,
+        age: state.age,
+        alignment: state.alignment,
+        deity: state.deity,
+        background: state.background,
+        height: state.height,
+        weight: state.weight,
+        build: state.build,
+        eyeColor: state.eyeColor,
+        hairColor: state.hairColor,
+        raceId: state.raceId,
+        subraceId: state.subraceId,
+        humanAbilityBonus: state.humanAbilityBonus,
+        racialAbilityBonusChoice: state.racialAbilityBonusChoice,
+        bonusLanguage: state.bonusLanguage,
+        classId: state.classId,
+        arcaneImplement: state.arcaneImplement,
+        warlockPact: state.warlockPact,
+        fighterCombatStyle: state.fighterCombatStyle,
+        avengerCensure: state.avengerCensure,
+        barbarianFeralMight: state.barbarianFeralMight,
+        bardVirtue: state.bardVirtue,
+        druidPrimalAspect: state.druidPrimalAspect,
+        invokerCovenant: state.invokerCovenant,
+        shamanSpirit: state.shamanSpirit,
+        sorcererSpellSource: state.sorcererSpellSource,
+        wardenGuardianMight: state.wardenGuardianMight,
+        ardentMantle: state.ardentMantle,
+        battlemindOption: state.battlemindOption,
+        monkTradition: state.monkTradition,
+        psionDiscipline: state.psionDiscipline,
+        psionStartingRitualId: state.psionStartingRitualId,
+        runepriestArtistry: state.runepriestArtistry,
+        seekerBond: state.seekerBond,
+        baseAbilityScores: state.baseAbilityScores,
+        trainedSkills: state.trainedSkills,
+        mandatorySkillChoicePick: state.mandatorySkillChoicePick,
+        bonusSkillTrained: state.bonusSkillTrained,
+        selectedPowerIds: state.selectedPowerIds,
+        dilettanteClassId: state.dilettanteClassId,
+        dilettantePowerId: state.dilettantePowerId,
+        selectedFeatIds: state.selectedFeatIds,
+        mcFeatSkillChoices: state.mcFeatSkillChoices,
+        mcFeatProficiencyChoices: state.mcFeatProficiencyChoices,
+        equipment: state.equipment,
+        goldPieces: state.goldPieces,
+        customHp: state.customHp,
+        wizardStartingRitualIds: state.wizardStartingRitualIds,
+        levelingMode: state.levelingMode,
+      }),
+    },
+  ),
+);

@@ -65,7 +65,7 @@ export function Step7_Feats() {
     if (feat.multiclassFor && !meetsPrereqs(feat)) return false;
     if (availableOnly && !meetsPrereqs(feat)) return false;
     return true;
-  });
+  }).sort((a, b) => a.name.localeCompare(b.name));
 
   const handleFeatClick = (feat: FeatData) => {
     const isSelected = selectedFeatIds.includes(feat.id);
