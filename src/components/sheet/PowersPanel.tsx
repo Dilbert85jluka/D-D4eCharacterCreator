@@ -96,6 +96,7 @@ export function PowersPanel({ character }: Props) {
   const [showPicker, setShowPicker] = useState(false);
   const [mcPickerSlot, setMcPickerSlot] = useState<McSlot | null>(null);
   const [showDilettantePicker, setShowDilettantePicker] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
 
   const cls       = getClassById(character.classId);
@@ -598,24 +599,36 @@ export function PowersPanel({ character }: Props) {
           <span className={`text-[10px] font-bold ${badgeColor} text-white px-1.5 py-0.5 rounded`}>
             {slotLabel}
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             {(character.quickTrayPowerIds ?? []).includes(sp.powerId) ? (
               <span
-                className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300"
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300"
                 title="In quick tray"
               >✓</span>
             ) : (
               <button
                 onClick={() => addToQuickTray(sp.powerId)}
-                className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200"
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200"
                 title="Pin to quick tray"
               >⚡</button>
             )}
-            <button
-              onClick={() => removePower(sp.powerId)}
-              className="w-6 h-6 flex items-center justify-center rounded-full bg-stone-100 text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm leading-none border border-stone-200"
-              title="Remove power"
-            >×</button>
+            {confirmingRemove === sp.powerId ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { removePower(sp.powerId); setConfirmingRemove(null); }}
+                  className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-bold min-h-[44px] min-w-[60px] transition-colors hover:bg-red-700"
+                >Yes</button>
+                <button
+                  onClick={() => setConfirmingRemove(null)}
+                  className="px-4 py-2 rounded-lg bg-stone-200 text-stone-700 text-sm font-bold min-h-[44px] min-w-[60px] transition-colors hover:bg-stone-300"
+                >No</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmingRemove(sp.powerId)}
+                className="px-4 py-2 rounded-lg bg-stone-100 text-stone-500 hover:text-red-600 hover:bg-red-50 transition-colors text-sm font-semibold min-h-[44px] border border-stone-200"
+              >Remove</button>
+            )}
           </div>
         </div>
         <PowerCard
@@ -739,9 +752,9 @@ export function PowersPanel({ character }: Props) {
                     <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Class</span>
                     <div className="flex items-center gap-1">
                       {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
-                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                        <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                       ) : (
-                        <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                        <button onClick={() => addToQuickTray(power.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                       )}
                     </div>
                   </div>
@@ -755,9 +768,9 @@ export function PowersPanel({ character }: Props) {
                     <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Class</span>
                     <div className="flex items-center gap-1">
                       {(character.quickTrayPowerIds ?? []).includes(pactBoonPower.id) ? (
-                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                        <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                       ) : (
-                        <button onClick={() => addToQuickTray(pactBoonPower.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                        <button onClick={() => addToQuickTray(pactBoonPower.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                       )}
                     </div>
                   </div>
@@ -771,9 +784,9 @@ export function PowersPanel({ character }: Props) {
                     <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Class</span>
                     <div className="flex items-center gap-1">
                       {(character.quickTrayPowerIds ?? []).includes(monkFlurryPower.id) ? (
-                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                        <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                       ) : (
-                        <button onClick={() => addToQuickTray(monkFlurryPower.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                        <button onClick={() => addToQuickTray(monkFlurryPower.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                       )}
                     </div>
                   </div>
@@ -787,9 +800,9 @@ export function PowersPanel({ character }: Props) {
                     <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Class</span>
                     <div className="flex items-center gap-1">
                       {(character.quickTrayPowerIds ?? []).includes(fighterCombatPower.id) ? (
-                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                        <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                       ) : (
-                        <button onClick={() => addToQuickTray(fighterCombatPower.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                        <button onClick={() => addToQuickTray(fighterCombatPower.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                       )}
                     </div>
                   </div>
@@ -803,9 +816,9 @@ export function PowersPanel({ character }: Props) {
                     <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Class</span>
                     <div className="flex items-center gap-1">
                       {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
-                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                        <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                       ) : (
-                        <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                        <button onClick={() => addToQuickTray(power.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                       )}
                     </div>
                   </div>
@@ -823,9 +836,9 @@ export function PowersPanel({ character }: Props) {
                       <div className="flex items-center justify-between mb-0.5 px-1">
                         <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Lvl {power.level}</span>
                         {(character.quickTrayPowerIds ?? []).includes(mt.id) ? (
-                          <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                          <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                         ) : (
-                          <button onClick={() => addToQuickTray(mt.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                          <button onClick={() => addToQuickTray(mt.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                         )}
                       </div>
                       <PowerCard power={mt} abilityModifiers={abilityMods} />
@@ -908,9 +921,9 @@ export function PowersPanel({ character }: Props) {
                     <span className="text-[10px] font-bold bg-emerald-700 text-white px-1.5 py-0.5 rounded">Race</span>
                     <div className="flex items-center gap-1">
                       {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
-                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                        <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                       ) : (
-                        <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                        <button onClick={() => addToQuickTray(power.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                       )}
                     </div>
                   </div>
@@ -925,9 +938,9 @@ export function PowersPanel({ character }: Props) {
                     <span className="text-[10px] font-bold bg-indigo-700 text-white px-1.5 py-0.5 rounded">Implement</span>
                     <div className="flex items-center gap-1">
                       {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
-                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                        <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                       ) : (
-                        <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                        <button onClick={() => addToQuickTray(power.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                       )}
                     </div>
                   </div>
@@ -942,9 +955,9 @@ export function PowersPanel({ character }: Props) {
                     <span className="text-[10px] font-bold bg-cyan-700 text-white px-1.5 py-0.5 rounded">Item</span>
                     <div className="flex items-center gap-1">
                       {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
-                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                        <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                       ) : (
-                        <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                        <button onClick={() => addToQuickTray(power.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                       )}
                     </div>
                   </div>
@@ -972,9 +985,9 @@ export function PowersPanel({ character }: Props) {
                     <div className="flex items-center justify-between mb-0.5 px-1">
                       <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Lvl {filled.power.level}</span>
                       {(character.quickTrayPowerIds ?? []).includes(mt.id) ? (
-                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                        <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                       ) : (
-                        <button onClick={() => addToQuickTray(mt.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                        <button onClick={() => addToQuickTray(mt.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                       )}
                     </div>
                     <PowerCard
@@ -1024,9 +1037,9 @@ export function PowersPanel({ character }: Props) {
                   <div className="flex items-center justify-between mb-0.5 px-1">
                     <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Lvl {power.level}</span>
                     {(character.quickTrayPowerIds ?? []).includes(mt.id) ? (
-                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                     ) : (
-                      <button onClick={() => addToQuickTray(mt.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      <button onClick={() => addToQuickTray(mt.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                     )}
                   </div>
                   <PowerCard power={mt} used={isUsed} onToggleUsed={() => toggleUsed(sp.powerId, power.usage)} abilityModifiers={abilityMods} />
@@ -1057,9 +1070,9 @@ export function PowersPanel({ character }: Props) {
                   <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Class</span>
                   <div className="flex items-center gap-1">
                     {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
-                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                     ) : (
-                      <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      <button onClick={() => addToQuickTray(power.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                     )}
                   </div>
                 </div>
@@ -1083,13 +1096,13 @@ export function PowersPanel({ character }: Props) {
                   <div className="flex items-center gap-1">
                     {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
                       <span
-                        className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300"
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300"
                         title="In quick tray"
                       >✓</span>
                     ) : (
                       <button
                         onClick={() => addToQuickTray(power.id)}
-                        className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200"
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200"
                         title="Pin to quick tray"
                       >⚡</button>
                     )}
@@ -1115,13 +1128,13 @@ export function PowersPanel({ character }: Props) {
                   <div className="flex items-center gap-1">
                     {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
                       <span
-                        className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300"
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300"
                         title="In quick tray"
                       >✓</span>
                     ) : (
                       <button
                         onClick={() => addToQuickTray(power.id)}
-                        className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200"
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200"
                         title="Pin to quick tray"
                       >⚡</button>
                     )}
@@ -1147,13 +1160,13 @@ export function PowersPanel({ character }: Props) {
                   <div className="flex items-center gap-1">
                     {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
                       <span
-                        className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300"
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300"
                         title="In quick tray"
                       >✓</span>
                     ) : (
                       <button
                         onClick={() => addToQuickTray(power.id)}
-                        className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200"
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200"
                         title="Pin to quick tray"
                       >⚡</button>
                     )}
@@ -1178,9 +1191,9 @@ export function PowersPanel({ character }: Props) {
                   <span className="text-[10px] font-bold bg-orange-700 text-white px-1.5 py-0.5 rounded">Weapon</span>
                   <div className="flex items-center gap-1">
                     {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
-                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                     ) : (
-                      <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      <button onClick={() => addToQuickTray(power.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                     )}
                   </div>
                 </div>
@@ -1198,9 +1211,9 @@ export function PowersPanel({ character }: Props) {
                   <span className="text-[10px] font-bold bg-indigo-700 text-white px-1.5 py-0.5 rounded">Implement</span>
                   <div className="flex items-center gap-1">
                     {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
-                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                     ) : (
-                      <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      <button onClick={() => addToQuickTray(power.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                     )}
                   </div>
                 </div>
@@ -1218,9 +1231,9 @@ export function PowersPanel({ character }: Props) {
                   <span className="text-[10px] font-bold bg-cyan-700 text-white px-1.5 py-0.5 rounded">Item</span>
                   <div className="flex items-center gap-1">
                     {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
-                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                     ) : (
-                      <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      <button onClick={() => addToQuickTray(power.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                     )}
                   </div>
                 </div>
@@ -1251,9 +1264,9 @@ export function PowersPanel({ character }: Props) {
                   <span className="text-[10px] font-bold bg-emerald-700 text-white px-1.5 py-0.5 rounded">Race</span>
                   <div className="flex items-center gap-1">
                     {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
-                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                     ) : (
-                      <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      <button onClick={() => addToQuickTray(power.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                     )}
                   </div>
                 </div>
@@ -1272,13 +1285,13 @@ export function PowersPanel({ character }: Props) {
                   <div className="flex items-center gap-1">
                     {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
                       <span
-                        className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300"
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300"
                         title="In quick tray"
                       >✓</span>
                     ) : (
                       <button
                         onClick={() => addToQuickTray(power.id)}
-                        className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200"
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200"
                         title="Pin to quick tray"
                       >⚡</button>
                     )}
@@ -1303,9 +1316,9 @@ export function PowersPanel({ character }: Props) {
                   <span className="text-[10px] font-bold bg-orange-700 text-white px-1.5 py-0.5 rounded">Weapon</span>
                   <div className="flex items-center gap-1">
                     {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
-                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                     ) : (
-                      <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      <button onClick={() => addToQuickTray(power.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                     )}
                   </div>
                 </div>
@@ -1323,9 +1336,9 @@ export function PowersPanel({ character }: Props) {
                   <span className="text-[10px] font-bold bg-indigo-700 text-white px-1.5 py-0.5 rounded">Implement</span>
                   <div className="flex items-center gap-1">
                     {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
-                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                     ) : (
-                      <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      <button onClick={() => addToQuickTray(power.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                     )}
                   </div>
                 </div>
@@ -1343,9 +1356,9 @@ export function PowersPanel({ character }: Props) {
                   <span className="text-[10px] font-bold bg-cyan-700 text-white px-1.5 py-0.5 rounded">Item</span>
                   <div className="flex items-center gap-1">
                     {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
-                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                      <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                     ) : (
-                      <button onClick={() => addToQuickTray(power.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                      <button onClick={() => addToQuickTray(power.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                     )}
                   </div>
                 </div>
@@ -1409,9 +1422,9 @@ export function PowersPanel({ character }: Props) {
                           <div className="flex items-center justify-between mb-0.5 px-1">
                             <span className="text-[10px] font-bold bg-teal-700 text-white px-1.5 py-0.5 rounded">Lv {filled.power.level}</span>
                             {(character.quickTrayPowerIds ?? []).includes(mt.id) ? (
-                              <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300" title="In quick tray">✓</span>
+                              <span className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300" title="In quick tray">✓</span>
                             ) : (
-                              <button onClick={() => addToQuickTray(mt.id)} className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
+                              <button onClick={() => addToQuickTray(mt.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                             )}
                           </div>
                           <PowerCard power={mt} abilityModifiers={abilityMods} />
