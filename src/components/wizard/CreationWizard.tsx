@@ -4,6 +4,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { getClassById } from '../../data/classes';
 import { getRaceById } from '../../data/races';
 import { getPowerById } from '../../data/powers';
+import { ABILITIES } from '../../utils/abilityScores';
 import { WizardNav } from './WizardNav';
 import { Step1_Basics } from './steps/Step1_Basics';
 import { Step2_Race } from './steps/Step2_Race';
@@ -63,7 +64,19 @@ function canProceed(step: number, wizard: ReturnType<typeof useWizardStore.getSt
       if (wizard.classId === 'seeker') return wizard.seekerBond !== '';
       return true;
     }
-    case 4: return true;
+    case 4: {
+      const m = wizard.abilityScoreMethod ?? 'point-buy';
+      // All methods require all 6 abilities to have a value > 0
+      const allAssigned = ABILITIES.every((ab) => wizard.baseAbilityScores[ab] > 0);
+      if (!allAssigned) return false;
+      if (m === 'point-buy') return wizard.pointBuyStartingSet; // must be in adjust phase
+      if (m === 'standard-array') {
+        const stdArr = [16, 14, 13, 12, 11, 10];
+        return ABILITIES.every((ab) => stdArr.includes(wizard.baseAbilityScores[ab]));
+      }
+      if (m === 'rolled') return wizard.activeRollGroup >= 0;
+      return true;
+    }
     case 5: {
       const cls = getClassById(wizard.classId);
       return wizard.trainedSkills.length >= (cls?.trainedSkillCount ?? 0);

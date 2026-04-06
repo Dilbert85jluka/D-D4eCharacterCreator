@@ -284,13 +284,13 @@ export function ActionsByTypePanel({ character }: Props) {
               <div className="flex items-center justify-end mb-0.5 px-1">
                 {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
                   <span
-                    className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs leading-none border border-amber-300"
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300"
                     title="In quick tray"
                   >✓</span>
                 ) : (
                   <button
                     onClick={() => addToQuickTray(power.id)}
-                    className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-xs leading-none border border-amber-200"
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200"
                     title="Pin to quick tray"
                   >⚡</button>
                 )}

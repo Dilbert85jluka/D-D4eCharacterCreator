@@ -449,7 +449,12 @@ Feat-granted powers are collected in:
 - **ChannelDivinityPanel** — merged into CD pool, shares per-encounter use
 
 ### Ability Scores
-Point-buy with 22-point budget. Standard array or custom allocation.
+Three methods supported in wizard Step 4:
+1. **Customizing Scores (Point Buy):** Two-phase flow — Phase 1: assign starting values from pool [10, 10, 10, 10, 10, 8] via dropdowns (each value used once). Phase 2: +/- buttons to spend 22 points (costs: 8=0, 9=1, 10=2, 11=3, 12=4, 13=5, 14=5, 15=8, 16=9, 17=12, 18=16). `pointBuyStartingSet` flag tracks phase transition.
+2. **Standard Array:** Assign values [16, 14, 13, 12, 11, 10] to abilities via dropdowns. All start unassigned (0/"--").
+3. **Rolling Scores:** Roll 4d6 drop lowest for 6 scores. Multiple roll groups supported; assign via dropdowns; apply chosen group.
+
+All methods start with `baseAbilityScores` at 0 (unassigned). `canProceed` Step 4 requires all 6 abilities > 0; point buy additionally requires `pointBuyStartingSet === true`.
 Racial bonuses applied on top of base scores.
 
 ### Defenses
@@ -828,6 +833,10 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Wizard draft auto-save: `useWizardStore` persisted to `localStorage` (key: `dnd4e-wizard-draft`) via Zustand `persist` middleware. All wizard form state saved automatically on every change. `useAppStore` also persists the `'wizard'` view so refreshing returns to the wizard. `resetWizard()` clears the persisted draft. CharacterList shows a "Draft in progress — Step N/10" banner with Resume/Discard buttons when a draft exists (detected by non-empty name, raceId, or classId).
 - [x] Equipment search in wizard: Step8_Equipment now has a search bar that filters weapons, armor, and gear by name. Search clears when switching between equipment tabs.
 - [x] Responsive character sheet layout: 3-column layout now activates at `lg:` (1024px+) instead of `md:` (768px). On tablets (768-1023px), columns 1+2 sit side by side and column 3 goes full-width below. All tab bars (main tabs + sub-tabs) use `overflow-x-auto` + `min-w-max` + `whitespace-nowrap` for horizontal scrolling on narrow screens instead of crushing text. Column 3 absolute positioning only activates at `lg:` so it flows naturally on smaller screens.
+- [x] Three ability score methods in wizard Step 4: Point Buy (two-phase: dropdown assignment from pool [10,10,10,10,10,8] then +/- point spend with 22 budget), Standard Array (assign [16,14,13,12,11,10] via dropdowns, all start unassigned), Rolling Scores (4d6 drop lowest, multiple groups, assign+apply). All methods start with `baseAbilityScores` at 0. `pointBuyStartingSet` flag on wizard store tracks point-buy phase. `canProceed` Step 4 enforces all scores assigned + point-buy in adjust phase. `abilityScoreMethod` field on wizard store (`'point-buy' | 'standard-array' | 'rolled'`). Class key ability recommendation shown. Racial bonuses displayed on all panels.
+- [x] Bard starting rituals (Bardic Training): Bards get a ritual book with 2 level 1 rituals chosen during Step 8 (Equipment). `bardStartingRitualIds: string[]` on wizard store (max 2, persisted). Violet-themed picker in Step8_Equipment.tsx shows all level 1 rituals including bard-only ones (Glib Limerick, Traveler's Chant) with "Bard Only" badge. `toggleBardStartingRitual` action. `buildCharacter()` creates a `RitualBook` entry (same as psion pattern). Resets on class switch. Mirrors existing wizard starting rituals (3 rituals, teal) and psion (1 ritual, picker in Step 3).
+- [x] Ritual Caster free feat banner for all ritual-casting classes: Step7_Feats.tsx now shows the "Class Feature — Free Feat: Ritual Caster" banner for all 6 classes with Ritual Casting (wizard, bard, cleric, druid, invoker, psion) with class-specific description text, not just wizard.
+- [x] Feat picker default filter state: "Eligible only" button in Step7_Feats defaults to OFF (`availableOnly = false`) — all feats shown on load with ineligible ones greyed out/disabled. Clicking the button (turns amber) hides ineligible feats entirely. Button styling correctly reflects filter state: amber = filter active, white = filter inactive.
 
 ---
 

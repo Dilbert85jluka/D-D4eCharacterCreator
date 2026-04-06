@@ -57,5 +57,5 @@ export function totalPointsSpent(scores: AbilityScores): number {
 }
 
 export function defaultAbilityScores(): AbilityScores {
-  return { str: 10, con: 10, dex: 10, int: 10, wis: 10, cha: 10 };
+  return { str: 10, con: 10, dex: 10, int: 10, wis: 10, cha: 8 };
 }

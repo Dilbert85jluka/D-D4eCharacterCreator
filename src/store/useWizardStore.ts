@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import type { Ability, AbilityScores, Character, EquipmentItem, Alignment, WizardSpellbook, RitualBook } from '../types/character';
-import { defaultAbilityScores, totalPointsSpent, POINT_BUY_BUDGET, POINT_BUY_COSTS, ABILITY_MIN, ABILITY_MAX } from '../utils/abilityScores';
+import { totalPointsSpent, POINT_BUY_BUDGET, POINT_BUY_COSTS, ABILITY_MIN, ABILITY_MAX } from '../utils/abilityScores';
 import { getClassById } from '../data/classes';
 import { getRaceById } from '../data/races';
 import { getStartingGoldByClass } from '../data/equipment';
@@ -13,7 +13,6 @@ import { getPowerById } from '../data/powers';
 import { usesPowerPoints, getMaxPowerPoints } from '../utils/psionics';
 import { getRitualById } from '../data/rituals';
 
-const DEFAULT_SCORES: AbilityScores = defaultAbilityScores();
 const TOTAL_STEPS = 10;
 
 interface WizardState {
@@ -66,7 +65,12 @@ interface WizardState {
   seekerBond: 'bloodbond' | 'spiritbond' | '';
 
   // Step 4
+  abilityScoreMethod: 'point-buy' | 'standard-array' | 'rolled';
+  pointBuyStartingSet: boolean;
   baseAbilityScores: AbilityScores;
+  // Rolled scores state
+  rolledGroups: { rolls: number[][]; assignments: Record<number, Ability | ''> }[];
+  activeRollGroup: number;
 
   // Step 5
   trainedSkills: string[];
@@ -89,6 +93,9 @@ interface WizardState {
 
   // Wizard spellbook — starting mastered rituals (class feature, 3 at level 1)
   wizardStartingRitualIds: string[];
+
+  // Bard ritual book — starting mastered rituals (Bardic Training, 2 at level 1)
+  bardStartingRitualIds: string[];
 
   // Step 9 - Hit Points
   customHp: number | null; // null = use auto-calculated
@@ -141,7 +148,15 @@ interface WizardState {
   setRunepriestArtistry: (v: 'defiant' | 'wrathful' | '') => void;
   setSeekerBond: (v: 'bloodbond' | 'spiritbond' | '') => void;
 
+  setAbilityScoreMethod: (method: 'point-buy' | 'standard-array' | 'rolled') => void;
   setAbilityScore: (ability: Ability, value: number) => void;
+  setStandardArrayAssignment: (ability: Ability, value: number) => void;
+  addRollGroup: () => void;
+  deleteRollGroup: (index: number) => void;
+  rerollGroup: (index: number) => void;
+  setRollAssignment: (groupIndex: number, rollIndex: number, ability: Ability | '') => void;
+  applyRollGroup: (groupIndex: number) => void;
+  resetRollGroup: (groupIndex: number) => void;
 
   toggleSkill: (skillId: string) => void;
   setMandatorySkillChoicePick: (skillId: string) => void;
@@ -165,6 +180,7 @@ interface WizardState {
   setCustomHp: (hp: number | null) => void;
 
   toggleWizardStartingRitual: (ritualId: string) => void;
+  toggleBardStartingRitual: (ritualId: string) => void;
 
   buildCharacter: () => Omit<Character, 'id' | 'createdAt' | 'updatedAt'>;
   resetWizard: () => void;
@@ -208,7 +224,11 @@ const initialState = {
   psionStartingRitualId: '' as string,
   runepriestArtistry: '' as 'defiant' | 'wrathful' | '',
   seekerBond: '' as 'bloodbond' | 'spiritbond' | '',
-  baseAbilityScores: { ...DEFAULT_SCORES },
+  abilityScoreMethod: 'point-buy' as 'point-buy' | 'standard-array' | 'rolled',
+  pointBuyStartingSet: false,
+  baseAbilityScores: { str: 0, con: 0, dex: 0, int: 0, wis: 0, cha: 0 } as AbilityScores,
+  rolledGroups: [] as { rolls: number[][]; assignments: Record<number, Ability | ''> }[],
+  activeRollGroup: -1,
   trainedSkills: [] as string[],
   mandatorySkillChoicePick: '',
   bonusSkillTrained: '',
@@ -222,6 +242,7 @@ const initialState = {
   goldPieces: 100,
   customHp: null as number | null,
   wizardStartingRitualIds: [] as string[],
+  bardStartingRitualIds: [] as string[],
   levelingMode: 'milestone' as 'milestone' | 'xp',
 };
 
@@ -313,13 +334,16 @@ export const useWizardStore = create<WizardState>()(
       ...(classId !== 'psion' ? { psionDiscipline: '' as const, psionStartingRitualId: '' } : {}),
       ...(classId !== 'runepriest' ? { runepriestArtistry: '' as const } : {}),
       ...(classId !== 'seeker' ? { seekerBond: '' as const } : {}),
-      // Reset wizard starting rituals
+      // Reset starting rituals
       wizardStartingRitualIds: [],
+      bardStartingRitualIds: [],
     });
-    // Reset ability scores only if switching class
-    if (cls && !get().classId) {
-      set({ baseAbilityScores: { ...DEFAULT_SCORES } });
-    }
+  },
+
+  setAbilityScoreMethod: (method) => {
+    // All methods start with scores at 0 (unassigned) — user assigns starting values first
+    const scores = { str: 0, con: 0, dex: 0, int: 0, wis: 0, cha: 0 } as AbilityScores;
+    set({ abilityScoreMethod: method, baseAbilityScores: scores, pointBuyStartingSet: false });
   },
 
   setAbilityScore: (ability, value) => {
@@ -330,6 +354,93 @@ export const useWizardStore = create<WizardState>()(
     if (spent <= POINT_BUY_BUDGET && POINT_BUY_COSTS[clamped] !== undefined) {
       set({ baseAbilityScores: newScores });
     }
+  },
+
+  setStandardArrayAssignment: (ability, value) => {
+    const scores = { ...get().baseAbilityScores };
+    // Clear any other ability that already has this value (swap to 0 placeholder)
+    for (const ab of ['str', 'con', 'dex', 'int', 'wis', 'cha'] as Ability[]) {
+      if (ab !== ability && scores[ab] === value) scores[ab] = 0;
+    }
+    scores[ability] = value;
+    set({ baseAbilityScores: scores });
+  },
+
+  addRollGroup: () => {
+    const roll4d6drop1 = (): number[] => {
+      const dice = Array.from({ length: 4 }, () => Math.floor(Math.random() * 6) + 1);
+      dice.sort((a, b) => b - a);
+      return dice;
+    };
+    const rolls = Array.from({ length: 6 }, () => roll4d6drop1());
+    const assignments: Record<number, Ability | ''> = { 0: '', 1: '', 2: '', 3: '', 4: '', 5: '' };
+    set((s) => ({ rolledGroups: [...s.rolledGroups, { rolls, assignments }] }));
+  },
+
+  deleteRollGroup: (index) => {
+    set((s) => {
+      const groups = s.rolledGroups.filter((_, i) => i !== index);
+      const active = s.activeRollGroup === index ? -1 : s.activeRollGroup > index ? s.activeRollGroup - 1 : s.activeRollGroup;
+      return { rolledGroups: groups, activeRollGroup: active };
+    });
+  },
+
+  rerollGroup: (index) => {
+    const roll4d6drop1 = (): number[] => {
+      const dice = Array.from({ length: 4 }, () => Math.floor(Math.random() * 6) + 1);
+      dice.sort((a, b) => b - a);
+      return dice;
+    };
+    set((s) => {
+      const groups = [...s.rolledGroups];
+      groups[index] = {
+        rolls: Array.from({ length: 6 }, () => roll4d6drop1()),
+        assignments: { 0: '', 1: '', 2: '', 3: '', 4: '', 5: '' },
+      };
+      return { rolledGroups: groups, activeRollGroup: s.activeRollGroup === index ? -1 : s.activeRollGroup };
+    });
+  },
+
+  setRollAssignment: (groupIndex, rollIndex, ability) => {
+    set((s) => {
+      const groups = [...s.rolledGroups];
+      const group = { ...groups[groupIndex], assignments: { ...groups[groupIndex].assignments } };
+      // Clear any other roll that's assigned to this ability
+      if (ability) {
+        for (let i = 0; i < 6; i++) {
+          if (group.assignments[i] === ability) group.assignments[i] = '';
+        }
+      }
+      group.assignments[rollIndex] = ability;
+      groups[groupIndex] = group;
+      return { rolledGroups: groups };
+    });
+  },
+
+  applyRollGroup: (groupIndex) => {
+    const group = get().rolledGroups[groupIndex];
+    if (!group) return;
+    const scores = { str: 0, con: 0, dex: 0, int: 0, wis: 0, cha: 0 } as AbilityScores;
+    for (let i = 0; i < 6; i++) {
+      const ability = group.assignments[i];
+      if (ability) {
+        const dice = group.rolls[i];
+        scores[ability] = dice[0] + dice[1] + dice[2]; // top 3
+      }
+    }
+    set({ baseAbilityScores: scores, activeRollGroup: groupIndex });
+  },
+
+  resetRollGroup: (groupIndex) => {
+    set((s) => {
+      const groups = [...s.rolledGroups];
+      groups[groupIndex] = {
+        ...groups[groupIndex],
+        assignments: { 0: '', 1: '', 2: '', 3: '', 4: '', 5: '' },
+      };
+      const active = s.activeRollGroup === groupIndex ? -1 : s.activeRollGroup;
+      return { rolledGroups: groups, activeRollGroup: active, baseAbilityScores: { str: 0, con: 0, dex: 0, int: 0, wis: 0, cha: 0 } as AbilityScores };
+    });
   },
 
   toggleSkill: (skillId) => {
@@ -482,6 +593,16 @@ export const useWizardStore = create<WizardState>()(
       return { wizardStartingRitualIds: [...current, ritualId] };
     }),
 
+  toggleBardStartingRitual: (ritualId) =>
+    set((s) => {
+      const current = s.bardStartingRitualIds;
+      if (current.includes(ritualId)) {
+        return { bardStartingRitualIds: current.filter((id) => id !== ritualId) };
+      }
+      if (current.length >= 2) return s; // max 2 for bards
+      return { bardStartingRitualIds: [...current, ritualId] };
+    }),
+
   buildCharacter: () => {
     const s = get();
     const cls = getClassById(s.classId);
@@ -607,6 +728,21 @@ export const useWizardStore = create<WizardState>()(
             return [book];
           }
         }
+        // Bard gets a free ritual book with two chosen level 1 rituals (Bardic Training)
+        if (s.classId === 'bard' && s.bardStartingRitualIds.length > 0) {
+          const rituals = s.bardStartingRitualIds
+            .map((rid) => getRitualById(rid))
+            .filter((r): r is NonNullable<typeof r> => !!r)
+            .map((r) => ({ ritualId: r.id, name: r.name, level: r.level, mastered: true }));
+          if (rituals.length > 0) {
+            const book: RitualBook = {
+              id: uuidv4(),
+              name: 'Ritual Book',
+              rituals,
+            };
+            return [book];
+          }
+        }
         return [];
       })(),
       subraceId: s.subraceId || undefined,
@@ -643,7 +779,7 @@ export const useWizardStore = create<WizardState>()(
     };
   },
 
-  resetWizard: () => set({ ...initialState, baseAbilityScores: { ...DEFAULT_SCORES } }),
+  resetWizard: () => set({ ...initialState }),
 }),
     {
       name: 'dnd4e-wizard-draft',
@@ -686,7 +822,11 @@ export const useWizardStore = create<WizardState>()(
         psionStartingRitualId: state.psionStartingRitualId,
         runepriestArtistry: state.runepriestArtistry,
         seekerBond: state.seekerBond,
+        abilityScoreMethod: state.abilityScoreMethod,
+        pointBuyStartingSet: state.pointBuyStartingSet,
         baseAbilityScores: state.baseAbilityScores,
+        rolledGroups: state.rolledGroups,
+        activeRollGroup: state.activeRollGroup,
         trainedSkills: state.trainedSkills,
         mandatorySkillChoicePick: state.mandatorySkillChoicePick,
         bonusSkillTrained: state.bonusSkillTrained,
@@ -700,6 +840,7 @@ export const useWizardStore = create<WizardState>()(
         goldPieces: state.goldPieces,
         customHp: state.customHp,
         wizardStartingRitualIds: state.wizardStartingRitualIds,
+        bardStartingRitualIds: state.bardStartingRitualIds,
         levelingMode: state.levelingMode,
       }),
     },

@@ -14,16 +14,23 @@ export function Step8_Equipment() {
     equipment, goldPieces, addEquipment, removeEquipment, removeEquipmentByInstance,
     updateEquipmentQuantity, spendGold, refundGold,
     wizardStartingRitualIds, toggleWizardStartingRitual,
+    bardStartingRitualIds, toggleBardStartingRitual,
   } = useWizardStore();
   const [tab, setTab] = useState<Tab>('weapons');
   const [search, setSearch] = useState('');
   const [ritualSearch, setRitualSearch] = useState('');
 
   const isWizard = classId === 'wizard';
+  const isBard = classId === 'bard';
   const level1Rituals = getRituals().filter((r) => r.level === 1);
+  // Bards can also pick bard-prerequisite rituals
+  const bardLevel1Rituals = getRituals().filter((r) => r.level === 1 && (!r.prerequisite || r.prerequisite === 'Bard'));
   const filteredStartingRituals = ritualSearch
     ? level1Rituals.filter((r) => r.name.toLowerCase().includes(ritualSearch.toLowerCase()))
     : level1Rituals;
+  const filteredBardRituals = ritualSearch
+    ? bardLevel1Rituals.filter((r) => r.name.toLowerCase().includes(ritualSearch.toLowerCase()))
+    : bardLevel1Rituals;
 
   const addItem = (id: string, name: string, cost: number, slot?: string) => {
     if (cost > goldPieces) return; // can't afford
@@ -135,6 +142,83 @@ export function Step8_Equipment() {
                         <span className="text-xs text-teal-600 bg-teal-100 px-1.5 py-0.5 rounded font-medium">
                           {ritual.category}
                         </span>
+                      </div>
+                      <p className="text-xs text-stone-500 mt-0.5">
+                        {ritual.castingTime} · {ritual.keySkill}
+                        {ritual.componentCost > 0 ? ` · ${ritual.componentCost} gp component` : ''}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Bard starting rituals */}
+      {isBard && (
+        <div className="mb-6 p-4 bg-violet-50 border border-violet-200 rounded-xl">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h3 className="text-sm font-bold text-violet-800">📖 Bardic Training — Starting Rituals</h3>
+              <p className="text-xs text-stone-500 mt-0.5">
+                Choose 2 level 1 rituals to master. These are free — they don't cost gold.
+              </p>
+            </div>
+            <div className={[
+              'text-sm font-bold px-3 py-1.5 rounded-lg',
+              bardStartingRitualIds.length >= 2 ? 'bg-violet-700 text-white' : 'bg-violet-100 text-violet-700',
+            ].join(' ')}>
+              {bardStartingRitualIds.length} / 2
+            </div>
+          </div>
+          <input
+            type="text"
+            placeholder="Search rituals..."
+            value={ritualSearch}
+            onChange={(e) => setRitualSearch(e.target.value)}
+            className="w-full border border-violet-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 mb-3 min-h-[44px] bg-white"
+          />
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {filteredBardRituals.length === 0 && (
+              <p className="text-stone-400 text-sm text-center py-4">No rituals match your search.</p>
+            )}
+            {filteredBardRituals.map((ritual) => {
+              const isPicked  = bardStartingRitualIds.includes(ritual.id);
+              const canToggle = isPicked || bardStartingRitualIds.length < 2;
+              return (
+                <button
+                  key={ritual.id}
+                  onClick={() => toggleBardStartingRitual(ritual.id)}
+                  disabled={!canToggle}
+                  className={[
+                    'w-full text-left p-3 rounded-xl border transition-all min-h-[44px]',
+                    isPicked
+                      ? 'bg-violet-50 border-violet-400 ring-1 ring-violet-300'
+                      : canToggle
+                        ? 'bg-white border-stone-200 hover:border-violet-300'
+                        : 'bg-stone-50 border-stone-200 opacity-50',
+                  ].join(' ')}
+                >
+                  <div className="flex items-start gap-2">
+                    <div className={[
+                      'w-5 h-5 mt-0.5 rounded border-2 flex-shrink-0 flex items-center justify-center',
+                      isPicked ? 'bg-violet-600 border-violet-600' : 'border-stone-300',
+                    ].join(' ')}>
+                      {isPicked && <span className="text-white text-xs font-bold">✓</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-stone-800 text-sm">{ritual.name}</span>
+                        <span className="text-xs text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded font-medium">
+                          {ritual.category}
+                        </span>
+                        {ritual.prerequisite === 'Bard' && (
+                          <span className="text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded font-medium">
+                            Bard Only
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-stone-500 mt-0.5">
                         {ritual.castingTime} · {ritual.keySkill}

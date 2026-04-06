@@ -17,7 +17,7 @@ export function Step7_Feats() {
   } = useWizardStore();
 
   const [search, setSearch]               = useState('');
-  const [availableOnly, setAvailableOnly] = useState(true);
+  const [availableOnly, setAvailableOnly] = useState(false);
 
   // MC choice modals — store the featId awaiting a choice
   const [mcSkillModal, setMcSkillModal] = useState<string | null>(null);
@@ -127,13 +127,18 @@ export function Step7_Feats() {
       </div>
 
       {/* Auto-granted class feature feats */}
-      {isWizard && (
+      {autoGrantedIds.length > 0 && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl">
           <p className="text-xs font-bold text-blue-700 uppercase tracking-wide mb-1">Class Feature — Free Feat</p>
           <p className="text-sm font-semibold text-stone-800">Ritual Caster</p>
           <p className="text-xs text-stone-600 mt-0.5">
-            Wizards gain Ritual Caster as a bonus feat from their Ritual Casting class feature.
-            This does not cost a feat slot.
+            {classId === 'wizard' && 'Wizards gain Ritual Caster as a bonus feat from their Ritual Casting class feature.'}
+            {classId === 'bard' && 'Bards gain Ritual Caster as a bonus feat from their Bardic Training class feature.'}
+            {classId === 'cleric' && 'Clerics gain Ritual Caster as a bonus feat from their Ritual Casting class feature.'}
+            {classId === 'druid' && 'Druids gain Ritual Caster as a bonus feat from their Ritual Casting class feature.'}
+            {classId === 'invoker' && 'Invokers gain Ritual Caster as a bonus feat from their Ritual Casting class feature.'}
+            {classId === 'psion' && 'Psions gain Ritual Caster as a bonus feat from their Ritual Casting class feature.'}
+            {' '}This does not cost a feat slot.
           </p>
         </div>
       )}
@@ -159,7 +164,7 @@ export function Step7_Feats() {
           onClick={() => setAvailableOnly(!availableOnly)}
           className={[
             'px-3 py-2 rounded-lg border text-sm font-medium min-h-[44px] transition-colors',
-            !availableOnly ? 'bg-amber-600 text-white border-amber-700' : 'bg-white text-stone-700 border-stone-300',
+            availableOnly ? 'bg-amber-600 text-white border-amber-700' : 'bg-white text-stone-700 border-stone-300',
           ].join(' ')}
         >
           Eligible only
