@@ -10,6 +10,7 @@ import { Badge } from '../ui/Badge';
 import { featsEarnedByLevel } from '../../data/advancement';
 import { SUPERIOR_IMPLEMENTS } from '../../data/equipment/superiorImplements';
 import { MissingHomebrewPlaceholder, isHomebrew } from '../homebrew/HomebrewBadge';
+import { useReadOnly } from './ReadOnlyContext';
 
 interface Props {
   character: Character;
@@ -25,6 +26,7 @@ function expectedFeatCount(character: Character): number {
 }
 
 export function FeatsPanel({ character }: Props) {
+  const readOnly = useReadOnly();
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
   const [showPicker, setShowPicker] = useState(false);
   const [search, setSearch] = useState('');
@@ -256,7 +258,7 @@ export function FeatsPanel({ character }: Props) {
               {!atLimit && ` · ${remaining} to choose`}
             </p>
           </div>
-          {!atLimit && (
+          {!readOnly && !atLimit && (
             <button
               onClick={() => { setShowPicker(true); setSearch(''); }}
               className="text-xs px-2 py-1 rounded bg-amber-600 text-white hover:bg-amber-500 font-semibold transition-colors min-h-[30px]"
@@ -325,11 +327,13 @@ export function FeatsPanel({ character }: Props) {
                       </Badge>
                     )}
                   </div>
-                  <button
-                    onClick={() => removeFeat(feat.id, isSit ? sitInstanceIdx : undefined)}
-                    className="text-stone-300 hover:text-red-500 transition-colors text-xl leading-none flex-shrink-0"
-                    title="Remove feat"
-                  >×</button>
+                  {!readOnly && (
+                    <button
+                      onClick={() => removeFeat(feat.id, isSit ? sitInstanceIdx : undefined)}
+                      className="text-stone-300 hover:text-red-500 transition-colors text-xl leading-none flex-shrink-0"
+                      title="Remove feat"
+                    >×</button>
+                  )}
                 </div>
                 {Object.keys(feat.prerequisites).length > 0 && (
                   <p className="text-[11px] text-stone-400 mt-0.5">
@@ -394,6 +398,7 @@ export function FeatsPanel({ character }: Props) {
                       <select
                         value={sitCurrentChoice ?? ''}
                         onChange={(e) => setSuperiorImplementChoice(sitInstanceIdx, e.target.value)}
+                        disabled={readOnly}
                         className="mt-1 w-full border border-stone-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 min-h-[44px]"
                       >
                         <option value="">— None selected —</option>
@@ -440,7 +445,7 @@ export function FeatsPanel({ character }: Props) {
           ))}
 
           {/* Prompt when slots remain */}
-          {!atLimit && feats.length > 0 && (
+          {!readOnly && !atLimit && feats.length > 0 && (
             <button
               onClick={() => { setShowPicker(true); setSearch(''); }}
               className="w-full py-2 border-2 border-dashed border-amber-200 rounded-lg text-sm text-amber-600 hover:border-amber-400 hover:bg-amber-50 transition-colors"
@@ -452,7 +457,7 @@ export function FeatsPanel({ character }: Props) {
       </div>
 
       {/* Feat picker modal */}
-      {showPicker && (
+      {!readOnly && showPicker && (
         <div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-3 pb-3 sm:pb-0"
           onClick={(e) => { if (e.target === e.currentTarget) setShowPicker(false); }}

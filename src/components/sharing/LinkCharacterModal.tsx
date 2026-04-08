@@ -51,6 +51,7 @@ export function LinkCharacterModal({ isOpen, onClose, campaignId, userId }: Link
         deity: character.deity || '',
         player_name: character.playerName || '',
         portrait_url: character.portrait || null,
+        character_data: { ...character, portrait: undefined },
       });
 
       showToast(`Linked "${character.name}" to campaign`, 'success');

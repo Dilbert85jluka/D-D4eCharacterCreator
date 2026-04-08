@@ -6,6 +6,7 @@ import { useCharactersStore } from '../../store/useCharactersStore';
 import { getPowerById } from '../../data/powers';
 import type { Character } from '../../types/character';
 import type { PowerData } from '../../types/gameData';
+import { useReadOnly } from './ReadOnlyContext';
 
 interface Props {
   character: Character;
@@ -117,6 +118,7 @@ function DisciplinePowerCard({
   badgeLabel: string;
   abilityModifiers?: Record<Ability, number>;
 }) {
+  const readOnly = useReadOnly();
   return (
     <div className={[
       'rounded-xl border overflow-hidden transition-opacity',
@@ -142,10 +144,10 @@ function DisciplinePowerCard({
       <div className="bg-white px-4 pb-3">
         <button
           onClick={onUse}
-          disabled={used}
+          disabled={readOnly || used}
           className={[
             'w-full py-2 rounded-lg text-sm font-bold transition-colors',
-            used
+            (readOnly || used)
               ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
               : 'bg-indigo-700 hover:bg-indigo-600 active:bg-indigo-800 text-white',
           ].join(' ')}

@@ -1,6 +1,7 @@
 import type { Character } from '../../types/character';
 import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
+import { useReadOnly } from './ReadOnlyContext';
 
 interface Props {
   character: Character;
@@ -15,6 +16,7 @@ const COINS: { key: CoinKey; label: string; abbr: string; textColor: string; bg:
 ];
 
 export function CurrencyPanel({ character }: Props) {
+  const readOnly = useReadOnly();
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
 
   const patch = async (changes: Partial<Character>) => {
@@ -48,17 +50,21 @@ export function CurrencyPanel({ character }: Props) {
             <span className="text-xs text-stone-400 w-5 flex-shrink-0">{abbr}</span>
 
             {/* Subtract 10 */}
-            <button
-              onClick={() => adjust(key, -10)}
-              className="w-9 h-9 rounded-lg bg-white border border-stone-300 text-stone-500 text-xs font-bold hover:bg-stone-50 hover:border-stone-400 transition-colors flex-shrink-0 flex items-center justify-center"
-              title="Subtract 10"
-            >−10</button>
+            {!readOnly && (
+              <button
+                onClick={() => adjust(key, -10)}
+                className="w-9 h-9 rounded-lg bg-white border border-stone-300 text-stone-500 text-xs font-bold hover:bg-stone-50 hover:border-stone-400 transition-colors flex-shrink-0 flex items-center justify-center"
+                title="Subtract 10"
+              >−10</button>
+            )}
 
             {/* Subtract 1 */}
-            <button
-              onClick={() => adjust(key, -1)}
-              className="w-9 h-9 rounded-lg bg-white border border-stone-300 text-stone-600 text-lg font-bold hover:bg-stone-50 hover:border-stone-400 transition-colors flex-shrink-0 flex items-center justify-center"
-            >−</button>
+            {!readOnly && (
+              <button
+                onClick={() => adjust(key, -1)}
+                className="w-9 h-9 rounded-lg bg-white border border-stone-300 text-stone-600 text-lg font-bold hover:bg-stone-50 hover:border-stone-400 transition-colors flex-shrink-0 flex items-center justify-center"
+              >−</button>
+            )}
 
             {/* Editable amount */}
             <input
@@ -66,21 +72,26 @@ export function CurrencyPanel({ character }: Props) {
               min={0}
               value={character[key] as number}
               onChange={(e) => setValue(key, e.target.value)}
+              disabled={readOnly}
               className="flex-1 text-center font-bold text-stone-800 text-base bg-white border border-stone-200 rounded-lg px-2 py-1.5 outline-none focus:border-amber-400 min-w-0"
             />
 
             {/* Add 1 */}
-            <button
-              onClick={() => adjust(key, 1)}
-              className="w-9 h-9 rounded-lg bg-white border border-stone-300 text-stone-600 text-lg font-bold hover:bg-stone-50 hover:border-stone-400 transition-colors flex-shrink-0 flex items-center justify-center"
-            >+</button>
+            {!readOnly && (
+              <button
+                onClick={() => adjust(key, 1)}
+                className="w-9 h-9 rounded-lg bg-white border border-stone-300 text-stone-600 text-lg font-bold hover:bg-stone-50 hover:border-stone-400 transition-colors flex-shrink-0 flex items-center justify-center"
+              >+</button>
+            )}
 
             {/* Add 10 */}
-            <button
-              onClick={() => adjust(key, 10)}
-              className="w-9 h-9 rounded-lg bg-white border border-stone-300 text-stone-500 text-xs font-bold hover:bg-stone-50 hover:border-stone-400 transition-colors flex-shrink-0 flex items-center justify-center"
-              title="Add 10"
-            >+10</button>
+            {!readOnly && (
+              <button
+                onClick={() => adjust(key, 10)}
+                className="w-9 h-9 rounded-lg bg-white border border-stone-300 text-stone-500 text-xs font-bold hover:bg-stone-50 hover:border-stone-400 transition-colors flex-shrink-0 flex items-center justify-center"
+                title="Add 10"
+              >+10</button>
+            )}
           </div>
         ))}
       </div>

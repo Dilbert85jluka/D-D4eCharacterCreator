@@ -5,6 +5,7 @@ import type { RitualData } from '../../types/gameData';
 import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
 import { useAppStore } from '../../store/useAppStore';
+import { useReadOnly } from './ReadOnlyContext';
 
 const BOOK_COST = 50;
 const MAX_PAGES = 128;
@@ -343,6 +344,7 @@ function AddToBookModal({ book, goldPieces, onClose, onAdd }: AddToBookModalProp
 // ── Main Panel ───────────────────────────────────────────────────────────────
 
 export function RitualsPanel({ character }: Props) {
+  const readOnly = useReadOnly();
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
   const showToast       = useAppStore((s) => s.showToast);
 
@@ -508,12 +510,14 @@ export function RitualsPanel({ character }: Props) {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold text-stone-700 uppercase tracking-wide">Ritual Scrolls</h2>
-          <button
-            onClick={() => setShowBuyScroll(true)}
-            className="bg-violet-700 hover:bg-violet-600 active:bg-violet-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-          >
-            + Buy Scroll
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => setShowBuyScroll(true)}
+              className="bg-violet-700 hover:bg-violet-600 active:bg-violet-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            >
+              + Buy Scroll
+            </button>
+          )}
         </div>
 
         {scrolls.length === 0 ? (
@@ -555,21 +559,23 @@ export function RitualsPanel({ character }: Props) {
                       )}
                     </div>
                     {/* Action column: Use + Remove */}
-                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0 ml-1">
-                      <button
-                        onClick={() => removeScroll(scroll.id)}
-                        className="text-stone-400 hover:text-red-500 text-lg leading-none transition-colors"
-                        aria-label="Remove scroll"
-                        title="Discard scroll"
-                      >×</button>
-                      <button
-                        onClick={() => handleUseScroll(scroll)}
-                        className="text-xs bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white font-semibold px-2 py-1 rounded-lg transition-colors whitespace-nowrap"
-                        title={scroll.componentCost === 0 ? 'Cast (no component cost)' : `Cast — deducts ${scroll.componentCost} gp`}
-                      >
-                        {scroll.componentCost === 0 ? 'Use (free)' : `Use (${scroll.componentCost} gp)`}
-                      </button>
-                    </div>
+                    {!readOnly && (
+                      <div className="flex flex-col items-end gap-1.5 flex-shrink-0 ml-1">
+                        <button
+                          onClick={() => removeScroll(scroll.id)}
+                          className="text-stone-400 hover:text-red-500 text-lg leading-none transition-colors"
+                          aria-label="Remove scroll"
+                          title="Discard scroll"
+                        >×</button>
+                        <button
+                          onClick={() => handleUseScroll(scroll)}
+                          className="text-xs bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white font-semibold px-2 py-1 rounded-lg transition-colors whitespace-nowrap"
+                          title={scroll.componentCost === 0 ? 'Cast (no component cost)' : `Cast — deducts ${scroll.componentCost} gp`}
+                        >
+                          {scroll.componentCost === 0 ? 'Use (free)' : `Use (${scroll.componentCost} gp)`}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -582,12 +588,14 @@ export function RitualsPanel({ character }: Props) {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold text-stone-700 uppercase tracking-wide">Ritual Books</h2>
-          <button
-            onClick={() => setShowBuyBook(true)}
-            className="bg-amber-700 hover:bg-amber-600 active:bg-amber-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-          >
-            + Buy Book ({BOOK_COST} gp)
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => setShowBuyBook(true)}
+              className="bg-amber-700 hover:bg-amber-600 active:bg-amber-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            >
+              + Buy Book ({BOOK_COST} gp)
+            </button>
+          )}
         </div>
 
         {books.length === 0 ? (
@@ -606,30 +614,32 @@ export function RitualsPanel({ character }: Props) {
                       <span className="font-semibold text-sm text-stone-800">{book.name}</span>
                       <PageBar used={used} max={MAX_PAGES} />
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => setAddToBookId(book.id)}
-                        className="text-xs bg-amber-700 hover:bg-amber-600 text-white px-2.5 py-1 rounded-lg font-semibold transition-colors"
-                      >
-                        + Add Ritual
-                      </button>
-                      {isConfirmingDelete ? (
-                        <span className="flex items-center gap-1 text-xs">
-                          <span className="text-stone-600">Delete?</span>
-                          <button onClick={() => setConfirmDeleteId(null)} className="text-stone-500 hover:text-stone-700 font-semibold px-1">Cancel</button>
-                          <button onClick={() => deleteBook(book.id)} className="text-red-600 hover:text-red-800 font-bold px-1">Delete</button>
-                        </span>
-                      ) : (
+                    {!readOnly && (
+                      <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => setConfirmDeleteId(book.id)}
-                          className="text-stone-400 hover:text-red-500 transition-colors text-sm px-1"
-                          aria-label="Delete book"
-                          title="Delete book"
+                          onClick={() => setAddToBookId(book.id)}
+                          className="text-xs bg-amber-700 hover:bg-amber-600 text-white px-2.5 py-1 rounded-lg font-semibold transition-colors"
                         >
-                          🗑
+                          + Add Ritual
                         </button>
-                      )}
-                    </div>
+                        {isConfirmingDelete ? (
+                          <span className="flex items-center gap-1 text-xs">
+                            <span className="text-stone-600">Delete?</span>
+                            <button onClick={() => setConfirmDeleteId(null)} className="text-stone-500 hover:text-stone-700 font-semibold px-1">Cancel</button>
+                            <button onClick={() => deleteBook(book.id)} className="text-red-600 hover:text-red-800 font-bold px-1">Delete</button>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDeleteId(book.id)}
+                            className="text-stone-400 hover:text-red-500 transition-colors text-sm px-1"
+                            aria-label="Delete book"
+                            title="Delete book"
+                          >
+                            🗑
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Ritual entries */}
@@ -662,38 +672,40 @@ export function RitualsPanel({ character }: Props) {
                                 </>
                               )}
                             </div>
-                            <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
-                              {/* Mastered toggle */}
-                              <button
-                                onClick={() => handleToggleMastered(book.id, entry.ritualId, entry.mastered ?? false)}
-                                className={`text-xs font-semibold px-2 py-1 rounded-lg transition-colors ${
-                                  entry.mastered
-                                    ? 'bg-amber-500 hover:bg-amber-400 text-white'
-                                    : 'bg-stone-100 hover:bg-stone-200 text-stone-500'
-                                }`}
-                                title={entry.mastered ? 'Mastered — click to unmark' : 'Mark as mastered'}
-                              >
-                                {entry.mastered ? '★ Mastered' : '☆ Master'}
-                              </button>
-
-                              {/* Use button — only when mastered */}
-                              {entry.mastered && rd && (
+                            {!readOnly && (
+                              <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                                {/* Mastered toggle */}
                                 <button
-                                  onClick={() => handleUseBookRitual(entry, rd)}
-                                  className="text-xs bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white font-semibold px-2 py-1 rounded-lg transition-colors whitespace-nowrap"
-                                  title={rd.componentCost === 0 ? 'Cast (special cost — see component note)' : `Cast — deducts ${rd.componentCost} gp`}
+                                  onClick={() => handleToggleMastered(book.id, entry.ritualId, entry.mastered ?? false)}
+                                  className={`text-xs font-semibold px-2 py-1 rounded-lg transition-colors ${
+                                    entry.mastered
+                                      ? 'bg-amber-500 hover:bg-amber-400 text-white'
+                                      : 'bg-stone-100 hover:bg-stone-200 text-stone-500'
+                                  }`}
+                                  title={entry.mastered ? 'Mastered — click to unmark' : 'Mark as mastered'}
                                 >
-                                  {rd.componentCost === 0 ? 'Use (special)' : `Use (${rd.componentCost} gp)`}
+                                  {entry.mastered ? '★ Mastered' : '☆ Master'}
                                 </button>
-                              )}
 
-                              {/* Remove */}
-                              <button
-                                onClick={() => removeRitualFromBook(book.id, entry.ritualId)}
-                                className="text-stone-300 hover:text-red-400 text-lg leading-none transition-colors"
-                                aria-label="Remove ritual from book"
-                              >×</button>
-                            </div>
+                                {/* Use button — only when mastered */}
+                                {entry.mastered && rd && (
+                                  <button
+                                    onClick={() => handleUseBookRitual(entry, rd)}
+                                    className="text-xs bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white font-semibold px-2 py-1 rounded-lg transition-colors whitespace-nowrap"
+                                    title={rd.componentCost === 0 ? 'Cast (special cost — see component note)' : `Cast — deducts ${rd.componentCost} gp`}
+                                  >
+                                    {rd.componentCost === 0 ? 'Use (special)' : `Use (${rd.componentCost} gp)`}
+                                  </button>
+                                )}
+
+                                {/* Remove */}
+                                <button
+                                  onClick={() => removeRitualFromBook(book.id, entry.ritualId)}
+                                  className="text-stone-300 hover:text-red-400 text-lg leading-none transition-colors"
+                                  aria-label="Remove ritual from book"
+                                >×</button>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -707,21 +719,21 @@ export function RitualsPanel({ character }: Props) {
       </section>
 
       {/* ── Modals ──────────────────────────────────────────────────────── */}
-      {showBuyScroll && (
+      {!readOnly && showBuyScroll && (
         <BuyScrollModal
           goldPieces={character.goldPieces}
           onClose={() => setShowBuyScroll(false)}
           onBuy={handleBuyScroll}
         />
       )}
-      {showBuyBook && (
+      {!readOnly && showBuyBook && (
         <BuyBookModal
           goldPieces={character.goldPieces}
           onClose={() => setShowBuyBook(false)}
           onBuy={handleBuyBook}
         />
       )}
-      {addToBook && (
+      {!readOnly && addToBook && (
         <AddToBookModal
           book={addToBook}
           goldPieces={character.goldPieces}

@@ -520,7 +520,8 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 
 | File | Purpose |
 |---|---|
-| CharacterSheet.tsx | Main tab container — 6 top-level tabs with sub-tab routing |
+| ReadOnlyContext.ts | `ReadOnlyContext` + `useReadOnly()` hook — consumed by 11 panels to hide/disable edit controls when `readOnly` prop is true |
+| CharacterSheet.tsx | Main tab container — 6 top-level tabs with sub-tab routing; accepts `readOnly` prop, wraps in `ReadOnlyContext.Provider` |
 | SheetHeader.tsx | Character header bar — portrait, name, speed+level badges, rest buttons, initiative & saving throw rolls, and left-justified info rows (race/class/tier, player identity, alignment/deity/leveling, role badge/initiative) |
 | AbilityBlock.tsx | Six ability scores with +/- adjusters, hover breakdown panel, click-to-roll |
 | DefensesBlock.tsx | AC, Fort, Ref, Will in 2×2 grid |
@@ -632,7 +633,7 @@ const patch = async (changes: Partial<Character>) => {
 
 **Supabase URL:** configured in `.env.local` (`VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`)
 **Auth:** Magic link (email, no passwords). `useAuthStore` manages session + profile. Login is mandatory — `App.tsx` gates all views behind auth check. Supabase Redirect URLs must include both production (`https://dnd4ebuilder.com`) and dev (`http://localhost:5173`) URLs.
-**Database:** 7 tables — `profiles`, `shared_campaigns` (has `campaign_content JSONB` + `homebrew_content JSONB` columns), `campaign_members`, `character_summaries`, `user_characters`, `user_campaigns`, `user_homebrew`
+**Database:** 7 tables — `profiles`, `shared_campaigns` (has `campaign_content JSONB` + `homebrew_content JSONB` columns), `campaign_members`, `character_summaries` (has `character_data JSONB` column for full character sheet sync), `user_characters`, `user_campaigns`, `user_homebrew`
 **Realtime:** Subscriptions on `character_summaries`, `campaign_members`, and `shared_campaigns` (content updates) for live updates.
 
 ### Key Files
@@ -640,7 +641,7 @@ const patch = async (changes: Partial<Character>) => {
 | File | Purpose |
 |---|---|
 | `src/lib/supabase.ts` | Supabase client singleton |
-| `src/lib/sharingService.ts` | All CRUD: create/join/leave campaign, link/unlink character, invite codes |
+| `src/lib/sharingService.ts` | All CRUD: create/join/leave campaign, link/unlink character, invite codes, `getCharacterData()` for read-only sheet |
 | `src/lib/summarySync.ts` | `extractSummary()` builds payload from Character + maxHp; `createSyncDebouncer()` |
 | `src/lib/characterCloudService.ts` | Cloud backup: `pushCharacterToCloud()`, `pullAllCharactersFromCloud()`, `deleteCloudCharacter()` |
 | `src/lib/campaignCloudService.ts` | Cloud backup: `pushCampaignToCloud()`, `pullAllCampaignsFromCloud()`, `deleteCloudCampaign()` |
@@ -674,8 +675,11 @@ const patch = async (changes: Partial<Character>) => {
 
 `useCharacterSync(character)` hook in SheetPage.tsx:
 - Checks if character is linked to any campaign (Supabase query on mount)
-- Watches: name, classId, raceId, level, currentHp, maxHp, paragonPath, epicDestiny, alignment, deity, playerName, portrait
+- Watches: `character.updatedAt` (triggers on any character change, not just specific fields)
 - On change: debounced 2s → calls `upsertCharacterSummary()` → Supabase upsert
+- Summary includes full `character_data` JSONB (portrait stripped to keep <50KB) alongside the 12-field summary
+- `extractSummary()` in `summarySync.ts` builds both the lightweight summary fields and the full character JSON
+- `getCharacterData()` in `sharingService.ts` fetches character_data + portrait_url for read-only sheet viewing
 - Gracefully handles offline (silent fail, retries on next change)
 
 ### Cloud Character + Campaign Backup (Cross-Device Sync)
@@ -837,6 +841,7 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Bard starting rituals (Bardic Training): Bards get a ritual book with 2 level 1 rituals chosen during Step 8 (Equipment). `bardStartingRitualIds: string[]` on wizard store (max 2, persisted). Violet-themed picker in Step8_Equipment.tsx shows all level 1 rituals including bard-only ones (Glib Limerick, Traveler's Chant) with "Bard Only" badge. `toggleBardStartingRitual` action. `buildCharacter()` creates a `RitualBook` entry (same as psion pattern). Resets on class switch. Mirrors existing wizard starting rituals (3 rituals, teal) and psion (1 ritual, picker in Step 3).
 - [x] Ritual Caster free feat banner for all ritual-casting classes: Step7_Feats.tsx now shows the "Class Feature — Free Feat: Ritual Caster" banner for all 6 classes with Ritual Casting (wizard, bard, cleric, druid, invoker, psion) with class-specific description text, not just wizard.
 - [x] Feat picker default filter state: "Eligible only" button in Step7_Feats defaults to OFF (`availableOnly = false`) — all feats shown on load with ineligible ones greyed out/disabled. Clicking the button (turns amber) hides ineligible feats entirely. Button styling correctly reflects filter state: amber = filter active, white = filter inactive.
+- [x] Read-only character sheet in campaign view: Clicking a character in the Party Roster (SharedCampaignView or CampaignManagementPage) opens a full read-only `CharacterSheet` in a modal overlay. `ReadOnlyContext` (`src/components/sheet/ReadOnlyContext.ts`) provides `useReadOnly()` hook consumed by 11 panel components to hide/disable edit controls (buttons, inputs, pickers, modals). `character_data JSONB` column on `character_summaries` stores full Character JSON (portrait stripped to keep <50KB); portrait restored from separate `portrait_url` field. `extractSummary()` now includes `character_data`. `useCharacterSync` watches `character.updatedAt` for full-data sync. `useSharingStore` provides `viewingCharacter`/`viewingCharacterLoading` state + `fetchCharacterData()`/`clearViewingCharacter()` actions. `CharacterSheet` accepts `readOnly` prop; hides QuickTrayPanel and DiceRoller FAB when read-only. Panels guarded: SheetHeader (Level Up, Rest buttons), HitPointsBlock (+/- buttons, HP input), PowersPanel (add/remove/choose, usage toggles, augment controls), FeatsPanel (add/remove, picker), EquipmentPanel (add/remove/equip, tier selectors), CurrencyPanel (+/- buttons, inputs), NotesPanel (textarea), RitualsPanel (buy/add/remove), SpellbookPanel (buy/add/prepare/rename/delete), ActionsByTypePanel (pin buttons, usage toggles), ChannelDivinityPanel (Use toggles), DisciplinePowersPanel (Use toggles).
 
 ---
 

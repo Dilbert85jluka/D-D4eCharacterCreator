@@ -3,6 +3,7 @@ import type { Character } from '../../types/character';
 import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
 import { LANGUAGES } from '../../data/languages';
+import { useReadOnly } from './ReadOnlyContext';
 
 interface Props {
   character: Character;
@@ -14,6 +15,7 @@ function resolveLanguageName(entry: string): string {
 }
 
 export function NotesPanel({ character }: Props) {
+  const readOnly = useReadOnly();
   const [activeTab, setActiveTab] = useState<'notes' | 'profile'>('notes');
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
 
@@ -51,6 +53,7 @@ export function NotesPanel({ character }: Props) {
             placeholder="Character notes, session log, important NPCs, quest details..."
             value={character.notes}
             onChange={(e) => updateNotes(e.target.value)}
+            disabled={readOnly}
           />
         )}
 

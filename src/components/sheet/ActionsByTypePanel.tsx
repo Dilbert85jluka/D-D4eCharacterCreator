@@ -19,6 +19,7 @@ import { isFullDisciplinePower, extractMovementTechnique } from '../../utils/ful
 import { PowerCard } from '../wizard/shared/PowerCard';
 import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
+import { useReadOnly } from './ReadOnlyContext';
 
 interface Props {
   character: Character;
@@ -201,6 +202,7 @@ function groupByActionTab(powers: PowerData[]): Record<ActionTab, PowerData[]> {
 }
 
 export function ActionsByTypePanel({ character }: Props) {
+  const readOnly = useReadOnly();
   const [activeTab, setActiveTab] = useState<ActionTab>('standard');
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
   const derived = useCharacterDerived(character);
@@ -281,24 +283,26 @@ export function ActionsByTypePanel({ character }: Props) {
         ) : (
           currentPowers.map((power) => (
             <div key={power.id}>
-              <div className="flex items-center justify-end mb-0.5 px-1">
-                {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
-                  <span
-                    className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300"
-                    title="In quick tray"
-                  >✓</span>
-                ) : (
-                  <button
-                    onClick={() => addToQuickTray(power.id)}
-                    className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200"
-                    title="Pin to quick tray"
-                  >⚡</button>
-                )}
-              </div>
+              {!readOnly && (
+                <div className="flex items-center justify-end mb-0.5 px-1">
+                  {(character.quickTrayPowerIds ?? []).includes(power.id) ? (
+                    <span
+                      className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300"
+                      title="In quick tray"
+                    >✓</span>
+                  ) : (
+                    <button
+                      onClick={() => addToQuickTray(power.id)}
+                      className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200"
+                      title="Pin to quick tray"
+                    >⚡</button>
+                  )}
+                </div>
+              )}
               <PowerCard
                 power={power}
                 used={isUsed(power)}
-                onToggleUsed={() => toggleUsed(power.id, power.usage)}
+                onToggleUsed={readOnly ? undefined : () => toggleUsed(power.id, power.usage)}
                 abilityModifiers={abilityMods}
               />
             </div>

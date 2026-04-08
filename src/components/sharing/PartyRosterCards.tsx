@@ -25,9 +25,11 @@ interface MemberCardProps {
   summary: CharacterSummary | null;
   isDm: boolean;
   isCurrentUser: boolean;
+  onCharacterClick?: (summary: CharacterSummary) => void;
+  onLinkClick?: () => void;
 }
 
-export function MemberCard({ member, summary, isDm, isCurrentUser }: MemberCardProps) {
+export function MemberCard({ member, summary, isDm, isCurrentUser, onCharacterClick, onLinkClick }: MemberCardProps) {
   const displayName = member.profile?.display_name || member.profile?.email || 'Unknown';
 
   return (
@@ -50,7 +52,17 @@ export function MemberCard({ member, summary, isDm, isCurrentUser }: MemberCardP
 
       {/* Character summary or placeholder */}
       {summary ? (
-        <CharacterCard summary={summary} />
+        <CharacterCard
+          summary={summary}
+          onClick={onCharacterClick ? () => onCharacterClick(summary) : undefined}
+        />
+      ) : isCurrentUser && onLinkClick ? (
+        <button
+          onClick={onLinkClick}
+          className="text-sm text-amber-600 hover:text-amber-700 font-medium py-2 cursor-pointer transition-colors"
+        >
+          + Link a character
+        </button>
       ) : (
         <div className="text-sm text-stone-400 italic py-2">
           No character linked
@@ -64,9 +76,10 @@ export function MemberCard({ member, summary, isDm, isCurrentUser }: MemberCardP
 
 interface CharacterCardProps {
   summary: CharacterSummary;
+  onClick?: () => void;
 }
 
-export function CharacterCard({ summary }: CharacterCardProps) {
+export function CharacterCard({ summary, onClick }: CharacterCardProps) {
   const race = getRaceById(summary.race_id);
   const cls = getClassById(summary.class_id);
   const raceName = race?.name || 'Unknown';
@@ -78,7 +91,15 @@ export function CharacterCard({ summary }: CharacterCardProps) {
   const colorKey = getHpColorKey(summary.current_hp, summary.max_hp);
 
   return (
-    <div className="flex items-center gap-3">
+    <div
+      className={[
+        'flex items-center gap-3',
+        onClick ? 'cursor-pointer hover:bg-amber-50 rounded-lg p-1 -m-1 transition-colors' : '',
+      ].join(' ')}
+      onClick={onClick || undefined}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       {/* Portrait */}
       <div className="w-12 h-12 rounded-xl bg-amber-100 border border-amber-200 flex-shrink-0 flex items-center justify-center text-xl overflow-hidden">
         {summary.portrait_url ? (
@@ -117,6 +138,13 @@ export function CharacterCard({ summary }: CharacterCardProps) {
           </div>
         )}
       </div>
+
+      {/* View indicator */}
+      {onClick && (
+        <svg className="w-4 h-4 text-stone-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+        </svg>
+      )}
     </div>
   );
 }

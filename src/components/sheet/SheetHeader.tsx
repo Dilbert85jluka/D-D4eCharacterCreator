@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import type { Character, DerivedStats } from '../../types/character';
+import { useReadOnly } from './ReadOnlyContext';
 
 import { getRaceById } from '../../data/races';
 import { getClassById } from '../../data/classes';
@@ -27,6 +28,7 @@ function getTier(level: number): string {
 }
 
 export function SheetHeader({ character, derived }: Props) {
+  const readOnly = useReadOnly();
   const race            = getRaceById(character.raceId);
   const cls             = getClassById(character.classId);
   const multiclassId    = getMulticlassId(character.selectedFeatIds);
@@ -224,7 +226,7 @@ export function SheetHeader({ character, derived }: Props) {
                   <div className="bg-amber-600 px-3 py-1.5 rounded-lg text-sm font-bold">
                     Level {character.level}
                   </div>
-                  {character.level < 30 && (
+                  {!readOnly && character.level < 30 && (
                     <button
                       onClick={() => setShowLevelUp(true)}
                       className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors"
@@ -235,6 +237,7 @@ export function SheetHeader({ character, derived }: Props) {
                   )}
                 </div>
                 {/* Rest buttons */}
+                {!readOnly && (
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => setRestModal('short')}
@@ -251,6 +254,7 @@ export function SheetHeader({ character, derived }: Props) {
                     Extended Rest
                   </button>
                 </div>
+                )}
 
                 {/* Initiative + Saving Throw — spread apart so result cards don't overlap */}
                 <div className="flex items-center justify-between min-w-[24rem]">

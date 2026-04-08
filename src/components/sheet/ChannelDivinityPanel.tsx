@@ -9,6 +9,7 @@ import type { PowerData } from '../../types/gameData';
 import { useCharacterDerived } from '../../hooks/useCharacterDerived';
 import { substituteMods } from '../../utils/powerText';
 import type { Ability } from '../../types/character';
+import { useReadOnly } from './ReadOnlyContext';
 
 interface Props {
   character: Character;
@@ -108,6 +109,7 @@ function EncounterPowerCard({
   onUse: () => void;
   abilityModifiers?: Record<Ability, number>;
 }) {
+  const readOnly = useReadOnly();
   return (
     <div className={[
       'rounded-xl border overflow-hidden transition-opacity',
@@ -133,12 +135,12 @@ function EncounterPowerCard({
       <div className="bg-white px-4 pb-3">
         <button
           onClick={onUse}
-          disabled={cdExpended}
+          disabled={readOnly || cdExpended}
           className={[
             'w-full py-2 rounded-lg text-sm font-bold transition-colors',
             used
               ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
-              : cdExpended
+              : (readOnly || cdExpended)
               ? 'bg-stone-100 text-stone-400 cursor-not-allowed border border-stone-200'
               : 'bg-violet-700 hover:bg-violet-600 active:bg-violet-800 text-white',
           ].join(' ')}
@@ -166,6 +168,7 @@ function ClassFeatureEncounterCard({
   onUse: () => void;
   abilityModifiers?: Record<Ability, number>;
 }) {
+  const readOnly = useReadOnly();
   return (
     <div className={[
       'rounded-xl border overflow-hidden transition-opacity',
@@ -191,10 +194,10 @@ function ClassFeatureEncounterCard({
       <div className="bg-white px-4 pb-3">
         <button
           onClick={onUse}
-          disabled={used}
+          disabled={readOnly || used}
           className={[
             'w-full py-2 rounded-lg text-sm font-bold transition-colors',
-            used
+            (readOnly || used)
               ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
               : 'bg-blue-700 hover:bg-blue-600 active:bg-blue-800 text-white',
           ].join(' ')}
@@ -228,6 +231,7 @@ function AtWillPowerCard({ power, abilityModifiers }: { power: PowerData; abilit
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function ChannelDivinityPanel({ character }: Props) {
+  const readOnly = useReadOnly();
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
   const derived = useCharacterDerived(character);
   const abilityMods = derived.abilityModifiers;

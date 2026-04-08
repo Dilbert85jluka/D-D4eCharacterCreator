@@ -65,17 +65,8 @@ export function useCharacterSync(character: Character | undefined) {
       }
     });
   }, [
-    character?.name,
-    character?.classId,
-    character?.raceId,
-    character?.level,
-    character?.currentHp,
-    character?.paragonPath,
-    character?.epicDestiny,
-    character?.alignment,
-    character?.deity,
-    character?.playerName,
-    character?.portrait,
+    // Sync full character data on any change — updatedAt is bumped on every patch
+    character?.updatedAt,
     derived.maxHp,
     user?.id,
   ]);

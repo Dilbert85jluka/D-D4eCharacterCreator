@@ -28,14 +28,16 @@ import { QuickTrayPanel } from './QuickTrayPanel';
 import { DiceRollerModal } from '../dice/DiceRollerModal';
 import { RitualsPanel } from './RitualsPanel';
 import { SpellbookPanel } from './SpellbookPanel';
+import { ReadOnlyContext } from './ReadOnlyContext';
 
 type Tab = 'combat' | 'powers' | 'features' | 'paragon' | 'inventory' | 'notes';
 
 interface Props {
   character: Character;
+  readOnly?: boolean;
 }
 
-export function CharacterSheet({ character }: Props) {
+export function CharacterSheet({ character, readOnly = false }: Props) {
   const derived = useCharacterDerived(character);
   const [activeTab, setActiveTab] = useState<Tab>('combat');
   const [showDiceRoller, setShowDiceRoller] = useState(false);
@@ -97,6 +99,7 @@ export function CharacterSheet({ character }: Props) {
   ];
 
   return (
+    <ReadOnlyContext.Provider value={readOnly}>
     <div className="bg-parchment-100 min-h-screen pb-8">
       <SheetHeader character={character} derived={derived} />
 
@@ -280,21 +283,27 @@ export function CharacterSheet({ character }: Props) {
       </div>
 
       {/* ── Quick Access Powers Tray ── */}
-      <div className="max-w-6xl mx-auto px-3 mt-4">
-        <QuickTrayPanel character={character} />
-      </div>
+      {!readOnly && (
+        <div className="max-w-6xl mx-auto px-3 mt-4">
+          <QuickTrayPanel character={character} />
+        </div>
+      )}
 
       {/* ── Floating Dice Roller FAB ── */}
-      <button
-        onClick={() => setShowDiceRoller(true)}
-        className="fixed bottom-6 right-6 z-40 w-16 h-16 rounded-full bg-amber-700 hover:bg-amber-600 active:bg-amber-800 text-white shadow-lg flex items-center justify-center text-2xl transition-colors"
-        title="Dice Roller"
-        aria-label="Open dice roller"
-      >
-        🎲
-      </button>
-
-      <DiceRollerModal isOpen={showDiceRoller} onClose={() => setShowDiceRoller(false)} />
+      {!readOnly && (
+        <>
+          <button
+            onClick={() => setShowDiceRoller(true)}
+            className="fixed bottom-6 right-6 z-40 w-16 h-16 rounded-full bg-amber-700 hover:bg-amber-600 active:bg-amber-800 text-white shadow-lg flex items-center justify-center text-2xl transition-colors"
+            title="Dice Roller"
+            aria-label="Open dice roller"
+          >
+            🎲
+          </button>
+          <DiceRollerModal isOpen={showDiceRoller} onClose={() => setShowDiceRoller(false)} />
+        </>
+      )}
     </div>
+    </ReadOnlyContext.Provider>
   );
 }

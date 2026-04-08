@@ -27,6 +27,7 @@ export function extractSummary(
     deity: character.deity || '',
     player_name: character.playerName || '',
     portrait_url: character.portrait || null,
+    character_data: { ...character, portrait: undefined } as CharacterSummary['character_data'],
   };
 }
 

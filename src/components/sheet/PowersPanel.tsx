@@ -24,6 +24,7 @@ import { MAGIC_ITEMS } from '../../data/equipment/magicItems';
 import { parseMagicItemPower } from '../../utils/magicItemPowers';
 import { isFullDisciplinePower, extractMovementTechnique } from '../../utils/fullDiscipline';
 import { MissingHomebrewPlaceholder, isHomebrew } from '../homebrew/HomebrewBadge';
+import { useReadOnly } from './ReadOnlyContext';
 
 interface Props {
   character: Character;
@@ -92,6 +93,7 @@ interface McSlot {
 }
 
 export function PowersPanel({ character }: Props) {
+  const readOnly = useReadOnly();
   const [tab, setTab]           = useState<Tab>('at-will');
   const [showPicker, setShowPicker] = useState(false);
   const [mcPickerSlot, setMcPickerSlot] = useState<McSlot | null>(null);
@@ -416,6 +418,7 @@ export function PowersPanel({ character }: Props) {
   };
 
   const toggleUsed = async (powerId: string, usage: PowerUsage) => {
+    if (readOnly) return;
     if (usage === 'at-will') return;
     if (usage === 'encounter') {
       const usedEncounterPowers = character.usedEncounterPowers.includes(powerId)
@@ -471,6 +474,7 @@ export function PowersPanel({ character }: Props) {
 
   /** Spend PP for a psionic augment. Each click just deducts the cost. */
   const spendAugment = async (cost: number) => {
+    if (readOnly) return;
     const newPP = Math.max(0, currentPP - cost);
     await patch({ currentPowerPoints: newPP });
   };
@@ -612,7 +616,7 @@ export function PowersPanel({ character }: Props) {
                 title="Pin to quick tray"
               >⚡</button>
             )}
-            {confirmingRemove === sp.powerId ? (
+            {!readOnly && (confirmingRemove === sp.powerId ? (
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => { removePower(sp.powerId); setConfirmingRemove(null); }}
@@ -628,19 +632,19 @@ export function PowersPanel({ character }: Props) {
                 onClick={() => setConfirmingRemove(sp.powerId)}
                 className="px-4 py-2 rounded-lg bg-stone-100 text-stone-500 hover:text-red-600 hover:bg-red-50 transition-colors text-sm font-semibold min-h-[44px] border border-stone-200"
               >Remove</button>
-            )}
+            ))}
           </div>
         </div>
         <PowerCard
           power={power}
           used={isUsed}
           onToggleUsed={
-            power.usage !== 'at-will'
+            power.usage !== 'at-will' && !readOnly
               ? () => toggleUsed(sp.powerId, power.usage)
               : undefined
           }
           abilityModifiers={abilityMods}
-          {...psionicAugmentProps}
+          {...(readOnly ? {} : psionicAugmentProps)}
         />
       </div>
     );
@@ -659,12 +663,14 @@ export function PowersPanel({ character }: Props) {
           Level ≤ {mcSlot.maxLevel} · Secondary class slot
         </p>
       </div>
-      <button
-        onClick={() => setMcPickerSlot(mcSlot)}
-        className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-3 py-1.5 rounded-lg transition-colors min-h-[36px] flex-shrink-0"
-      >
-        Choose
-      </button>
+      {!readOnly && (
+        <button
+          onClick={() => setMcPickerSlot(mcSlot)}
+          className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-3 py-1.5 rounded-lg transition-colors min-h-[36px] flex-shrink-0"
+        >
+          Choose
+        </button>
+      )}
     </div>
   );
 
@@ -686,7 +692,7 @@ export function PowersPanel({ character }: Props) {
         {/* Panel header */}
         <div className="bg-amber-800 px-4 py-2 flex items-center justify-between">
           <h3 className="text-white font-bold text-sm uppercase tracking-wide">Powers</h3>
-          {!atLimit && pickerPowers.length > 0 && (
+          {!readOnly && !atLimit && pickerPowers.length > 0 && (
             <button
               onClick={() => setShowPicker(true)}
               className="text-xs px-2 py-1 rounded bg-amber-600 text-white hover:bg-amber-500 font-semibold transition-colors min-h-[30px]"
@@ -846,7 +852,7 @@ export function PowersPanel({ character }: Props) {
                   </div>
                 );
               })}
-              {primaryCount('at-will') < primaryMax['at-will'] && availablePowers.length > 0 &&
+              {!readOnly && primaryCount('at-will') < primaryMax['at-will'] && availablePowers.length > 0 &&
                 Array.from({ length: primaryMax['at-will'] - primaryCount('at-will') }).map((_, i) => (
                   <div
                     key={`at-will-empty-${i}`}
@@ -886,12 +892,14 @@ export function PowersPanel({ character }: Props) {
                             {dilettanteSourceCls?.name ?? 'Other Class'}
                           </span>
                         </div>
-                        <button
-                          onClick={() => setShowDilettantePicker(true)}
-                          className="text-[10px] font-semibold px-2 py-1 rounded bg-violet-100 text-violet-700 hover:bg-violet-200 transition-colors min-h-[28px]"
-                        >
-                          Replace
-                        </button>
+                        {!readOnly && (
+                          <button
+                            onClick={() => setShowDilettantePicker(true)}
+                            className="text-[10px] font-semibold px-2 py-1 rounded bg-violet-100 text-violet-700 hover:bg-violet-200 transition-colors min-h-[28px]"
+                          >
+                            Replace
+                          </button>
+                        )}
                       </div>
                       <PowerCard power={dilettantePower} />
                     </div>
@@ -903,12 +911,14 @@ export function PowersPanel({ character }: Props) {
                         </p>
                         <p className="text-xs text-stone-400 mt-0.5">Level 1 at-will from {dilettanteSourceCls?.name ?? 'another class'}</p>
                       </div>
-                      <button
-                        onClick={() => setShowDilettantePicker(true)}
-                        className="text-xs bg-violet-600 hover:bg-violet-500 text-white font-semibold px-3 py-1.5 rounded-lg transition-colors min-h-[36px] flex-shrink-0"
-                      >
-                        Choose
-                      </button>
+                      {!readOnly && (
+                        <button
+                          onClick={() => setShowDilettantePicker(true)}
+                          className="text-xs bg-violet-600 hover:bg-violet-500 text-white font-semibold px-3 py-1.5 rounded-lg transition-colors min-h-[36px] flex-shrink-0"
+                        >
+                          Choose
+                        </button>
+                      )}
                     </div>
                   )}
                 </>
@@ -1000,7 +1010,7 @@ export function PowersPanel({ character }: Props) {
                 </div>
               );
             }
-            if (atLimit || availablePowers.length === 0) return null;
+            if (readOnly || atLimit || availablePowers.length === 0) return null;
             return (
               <div
                 key={`empty-${slotLvl}`}
@@ -1432,7 +1442,7 @@ export function PowersPanel({ character }: Props) {
                       </div>
                     );
                   }
-                  if (atLimit || availableUtilityPowers.length === 0) return null;
+                  if (readOnly || atLimit || availableUtilityPowers.length === 0) return null;
                   return (
                     <div
                       key={`utility-empty-${slotLvl}`}
@@ -1474,7 +1484,7 @@ export function PowersPanel({ character }: Props) {
             <MissingHomebrewPlaceholder
               key={id}
               label="Power"
-              onRemove={() => removePower(id)}
+              onRemove={readOnly ? undefined : () => removePower(id)}
             />
           ))}
 
@@ -1482,7 +1492,7 @@ export function PowersPanel({ character }: Props) {
       </div>
 
       {/* ── Primary / Utility power picker modal ──────────────────────────────── */}
-      {showPicker && pickerPowers.length > 0 && !atLimit && (
+      {!readOnly && showPicker && pickerPowers.length > 0 && !atLimit && (
         <div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-3 pb-3 sm:pb-0"
           onClick={(e) => { if (e.target === e.currentTarget) setShowPicker(false); }}
@@ -1538,7 +1548,7 @@ export function PowersPanel({ character }: Props) {
       )}
 
       {/* ── MC power picker modal ────────────────────────────────────────────── */}
-      {mcPickerSlot && (() => {
+      {!readOnly && mcPickerSlot && (() => {
         const mcAvailable = getMcAvailablePowers(mcPickerSlot);
         const mcByLevel = new Map<number, PowerData[]>();
         for (const p of mcAvailable) {
@@ -1597,7 +1607,7 @@ export function PowersPanel({ character }: Props) {
       })()}
 
       {/* ── Dilettante power picker modal ──────────────────────────────────────── */}
-      {showDilettantePicker && isHalfElf && dilettanteClassId && (() => {
+      {!readOnly && showDilettantePicker && isHalfElf && dilettanteClassId && (() => {
         const dilAvailable = getPowersByClass(dilettanteClassId, 'at-will', 1)
           .filter((p) => !p.cantrip && !p.pactBoon && p.id !== dilettantePowerId);
         return (

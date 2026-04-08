@@ -1,5 +1,6 @@
 /** Shared data types for Supabase multi-user campaign sharing */
 
+import type { Character } from './character';
 import type { HomebrewItem } from './homebrew';
 
 export interface Profile {
@@ -66,5 +67,6 @@ export interface CharacterSummary {
   deity: string;
   player_name: string;
   portrait_url: string | null;
+  character_data: Character | null;
   updated_at: string;
 }

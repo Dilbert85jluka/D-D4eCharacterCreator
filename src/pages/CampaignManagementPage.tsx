@@ -21,7 +21,10 @@ import { useSharingStore } from '../store/useSharingStore';
 import { SharedCampaignView } from '../components/sharing/SharedCampaignView';
 import { JoinCampaignModal } from '../components/sharing/JoinCampaignModal';
 import { ShareCampaignModal } from '../components/sharing/ShareCampaignModal';
+import { LinkCharacterModal } from '../components/sharing/LinkCharacterModal';
 import { MemberCard } from '../components/sharing/PartyRosterCards';
+import type { CharacterSummary } from '../types/sharing';
+import { CharacterSheet } from '../components/sheet/CharacterSheet';
 import { useRealtimeCampaign } from '../hooks/useRealtimeCampaign';
 import { useCampaignContentSync } from '../hooks/useCampaignContentSync';
 import { extractPublicContent, pushCampaignContent } from '../lib/campaignContentSync';
@@ -103,9 +106,13 @@ export function CampaignManagementPage() {
   const {
     sharedCampaigns, loadSharedCampaigns, createCampaign: createSharedCampaign,
     activeCampaignMembers, activeCampaignSummaries, loadCampaignDetail,
+    unlinkCharacter,
+    viewingCharacter, viewingCharacterLoading, fetchCharacterData, clearViewingCharacter,
   } = useSharingStore();
+  const [viewingSummaryId, setViewingSummaryId] = useState<string | null>(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showDmLinkModal, setShowDmLinkModal] = useState(false);
   const [shareInviteCode, setShareInviteCode] = useState("");
   const [shareCampaignName, setShareCampaignName] = useState("");
   useEffect(() => { if (user) loadSharedCampaigns(user.id); }, [user, loadSharedCampaigns]);
@@ -200,6 +207,26 @@ export function CampaignManagementPage() {
       campaignDraft.publicNotes !== orig.publicNotes ||
       JSON.stringify(campaignDraft.characterIds) !== JSON.stringify(orig.characterIds);
   })();
+
+  // DM's own linked character in the shared campaign
+  const dmCharacterSummary = activeCampaignSummaries.find((s) => s.user_id === user?.id);
+
+  const handleDmCharacterClick = (summary: CharacterSummary) => {
+    const sharedId = activeCampaign?.sharedCampaignId;
+    if (!sharedId) return;
+    setViewingSummaryId(summary.id);
+    fetchCharacterData(summary.id, sharedId);
+  };
+
+  const handleCloseViewer = () => {
+    setViewingSummaryId(null);
+    clearViewingCharacter();
+  };
+
+  const handleDmUnlink = async () => {
+    if (!dmCharacterSummary || !activeCampaign?.sharedCampaignId) return;
+    await unlinkCharacter(dmCharacterSummary.id, activeCampaign.sharedCampaignId);
+  };
 
   const handleSaveCampaign = async () => {
     const name = campaignDraft.name.trim();
@@ -1425,10 +1452,22 @@ export function CampaignManagementPage() {
                                 summary={summary || null}
                                 isDm={member.role === 'dm'}
                                 isCurrentUser={member.user_id === user?.id}
+                                onCharacterClick={handleDmCharacterClick}
+                                onLinkClick={member.user_id === user?.id ? () => setShowDmLinkModal(true) : undefined}
                               />
                             );
                           })}
                         </div>
+                      )}
+
+                      {/* DM link/unlink actions */}
+                      {dmCharacterSummary && (
+                        <button
+                          onClick={handleDmUnlink}
+                          className="mt-3 text-xs text-stone-400 hover:text-red-600 transition-colors"
+                        >
+                          Unlink your character
+                        </button>
                       )}
                     </section>
                   )}
@@ -2429,6 +2468,40 @@ export function CampaignManagementPage() {
       {/* Join Campaign Modal */}
       <JoinCampaignModal isOpen={showJoinModal} onClose={() => setShowJoinModal(false)} />
       <ShareCampaignModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} inviteCode={shareInviteCode} campaignName={shareCampaignName} />
+
+      {/* DM Link Character Modal */}
+      {user && activeCampaign?.sharedCampaignId && (
+        <LinkCharacterModal
+          isOpen={showDmLinkModal}
+          onClose={() => setShowDmLinkModal(false)}
+          campaignId={activeCampaign.sharedCampaignId}
+          userId={user.id}
+        />
+      )}
+
+      {/* Read-only character sheet viewer (DM view) */}
+      {viewingSummaryId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40" onClick={handleCloseViewer} />
+          <div className="relative bg-parchment-100 rounded-2xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto mx-4">
+            <button
+              onClick={handleCloseViewer}
+              className="absolute top-4 right-4 z-10 bg-white/80 hover:bg-white text-stone-500 hover:text-stone-700 rounded-full text-2xl min-h-[44px] min-w-[44px] flex items-center justify-center shadow-sm transition-colors"
+            >
+              &times;
+            </button>
+            {viewingCharacterLoading ? (
+              <div className="flex items-center justify-center py-16 text-stone-400">Loading character sheet...</div>
+            ) : viewingCharacter ? (
+              <CharacterSheet character={viewingCharacter} readOnly />
+            ) : (
+              <div className="flex items-center justify-center py-16 text-stone-400 text-sm px-6 text-center">
+                Character data not available. The player may not have synced recently.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   );

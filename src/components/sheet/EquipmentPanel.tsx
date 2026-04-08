@@ -15,6 +15,7 @@ import { CONSUMABLES } from '../../data/equipment/consumables';
 import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
 import { MissingHomebrewPlaceholder, isHomebrew } from '../homebrew/HomebrewBadge';
+import { useReadOnly } from './ReadOnlyContext';
 
 interface Props {
   character: Character;
@@ -37,6 +38,7 @@ const SLOT_LABELS: Record<string, string> = {
 const itemKey = (e: EquipmentItem) => e.instanceId ?? e.itemId;
 
 export function EquipmentPanel({ character, derived }: Props) {
+  const readOnly = useReadOnly();
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
   const [activeSection, setActiveSection] = useState<SectionTab>('weapons');
   const [showPicker, setShowPicker] = useState(false);
@@ -523,6 +525,7 @@ export function EquipmentPanel({ character, derived }: Props) {
 
   // Inline remove-confirmation controls
   const RemoveConfirm = ({ itemK, name }: { itemK: string; name: string }) =>
+    readOnly ? null :
     pendingRemove === itemK ? (
       <div className="flex items-center gap-1.5 flex-shrink-0">
         <span className="text-xs text-red-600 font-medium whitespace-nowrap">Remove?</span>
@@ -547,12 +550,14 @@ export function EquipmentPanel({ character, derived }: Props) {
   const EmptySection = ({ tab }: { tab: SectionTab }) => (
     <div className="text-center py-10">
       <p className="text-stone-400 text-sm mb-3">No {SECTION_LABELS[tab].toLowerCase()} in your inventory.</p>
-      <button
-        onClick={() => openPicker(tab)}
-        className="text-xs bg-amber-600 hover:bg-amber-500 text-white font-semibold px-4 py-2 rounded-lg transition-colors"
-      >
-        + Add {SECTION_LABELS[tab]}
-      </button>
+      {!readOnly && (
+        <button
+          onClick={() => openPicker(tab)}
+          className="text-xs bg-amber-600 hover:bg-amber-500 text-white font-semibold px-4 py-2 rounded-lg transition-colors"
+        >
+          + Add {SECTION_LABELS[tab]}
+        </button>
+      )}
     </div>
   );
 
@@ -564,12 +569,14 @@ export function EquipmentPanel({ character, derived }: Props) {
         {/* Panel header */}
         <div className="bg-amber-800 px-4 py-2 flex items-center justify-between">
           <h3 className="text-white font-bold text-sm uppercase tracking-wide">Equipment</h3>
-          <button
-            onClick={() => openPicker(activeSection)}
-            className="text-xs px-2 py-1 rounded bg-amber-600 text-white hover:bg-amber-500 font-semibold transition-colors min-h-[30px]"
-          >
-            + Add {SECTION_LABELS[activeSection]}
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => openPicker(activeSection)}
+              className="text-xs px-2 py-1 rounded bg-amber-600 text-white hover:bg-amber-500 font-semibold transition-colors min-h-[30px]"
+            >
+              + Add {SECTION_LABELS[activeSection]}
+            </button>
+          )}
         </div>
 
         {/* Sub-tab bar */}
@@ -649,7 +656,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                         </div>
                         {pendingRemove !== key && (() => {
                           const check = canEquip(key);
-                          const blocked = !item.equipped && !check.allowed;
+                          const blocked = readOnly || (!item.equipped && !check.allowed);
                           return (
                             <button
                               onClick={(e) => { e.stopPropagation(); if (!blocked) toggleEquip(key); }}
@@ -760,8 +767,9 @@ export function EquipmentPanel({ character, derived }: Props) {
                         </div>
                         {pendingRemove !== key && (
                           <button
-                            onClick={(e) => { e.stopPropagation(); toggleEquip(key); }}
-                            className={equipBtnCls(item.equipped)}
+                            onClick={(e) => { e.stopPropagation(); if (!readOnly) toggleEquip(key); }}
+                            disabled={readOnly}
+                            className={readOnly ? blockedBtnCls : equipBtnCls(item.equipped)}
                           >
                             {item.equipped ? 'Unequip' : 'Equip'}
                           </button>
@@ -826,6 +834,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                               <select
                                 value={item.magicImplementTier ?? ''}
                                 onChange={(e) => setMagicImplementTier(key, parseInt(e.target.value))}
+                                disabled={readOnly}
                                 className="mt-1 w-full text-sm border border-stone-200 rounded-lg px-3 py-2 bg-white"
                               >
                                 {mi.tiers.map(t => {
@@ -904,7 +913,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                         </div>
                         {pendingRemove !== key && (() => {
                           const check = canEquip(key);
-                          const blocked = !item.equipped && !check.allowed;
+                          const blocked = readOnly || (!item.equipped && !check.allowed);
                           return (
                             <button
                               onClick={() => !blocked && toggleEquip(key)}
@@ -972,6 +981,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                                 <select
                                   value={item.itemId}
                                   onChange={(e) => setBaseArmorType(key, e.target.value)}
+                                  disabled={readOnly}
                                   className="mt-1 w-full text-sm border border-stone-200 rounded-lg px-3 py-2 bg-white"
                                 >
                                   {compatBases.map(base => (
@@ -994,6 +1004,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                                 <select
                                   value={item.masterworkId ?? ''}
                                   onChange={(e) => setMasterwork(key, e.target.value || undefined)}
+                                  disabled={readOnly}
                                   className="mt-1 w-full text-sm border border-stone-200 rounded-lg px-3 py-2 bg-white"
                                 >
                                   <option value="">None (base {a.name})</option>
@@ -1018,6 +1029,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                               <select
                                 value={item.magicArmorTier ?? ''}
                                 onChange={(e) => setMagicArmorTier(key, parseInt(e.target.value))}
+                                disabled={readOnly}
                                 className="mt-1 w-full text-sm border border-stone-200 rounded-lg px-3 py-2 bg-white"
                               >
                                 {ma.tiers.map(t => {
@@ -1142,7 +1154,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                                   </div>
                                   {pendingRemove !== key && (() => {
                                     const check = canEquip(key);
-                                    const blocked = !item.equipped && !check.allowed;
+                                    const blocked = readOnly || (!item.equipped && !check.allowed);
                                     return (
                                       <button
                                         onClick={(e) => { e.stopPropagation(); if (!blocked) toggleEquip(key); }}
@@ -1193,6 +1205,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                                           className="text-xs border border-stone-300 rounded px-2 py-1"
                                           value={item.magicItemTier ?? m.tiers[0].level}
                                           onClick={(e) => e.stopPropagation()}
+                                          disabled={readOnly}
                                           onChange={(e) => {
                                             const newTier = Number(e.target.value);
                                             patch({
@@ -1253,7 +1266,7 @@ export function EquipmentPanel({ character, derived }: Props) {
                           </p>
                         )}
                       </div>
-                      {pendingRemove !== key && (
+                      {!readOnly && pendingRemove !== key && (
                         <button
                           onClick={() => useConsumable(item, c)}
                           disabled={!canUse}
@@ -1303,13 +1316,15 @@ export function EquipmentPanel({ character, derived }: Props) {
                       </div>
                       {pendingRemove !== key && (
                         <div className="flex items-center gap-1 flex-shrink-0">
-                          <button
-                            onClick={() => decrementGear(item)}
-                            className="w-7 h-7 flex items-center justify-center rounded-lg border border-stone-300 text-stone-600 hover:border-red-400 hover:text-red-600 font-bold text-base transition-colors"
-                            title="Remove one"
-                          >−</button>
+                          {!readOnly && (
+                            <button
+                              onClick={() => decrementGear(item)}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg border border-stone-300 text-stone-600 hover:border-red-400 hover:text-red-600 font-bold text-base transition-colors"
+                              title="Remove one"
+                            >−</button>
+                          )}
                           <span className="text-sm font-semibold text-stone-700 w-7 text-center">{item.quantity}</span>
-                          {g && (
+                          {!readOnly && g && (
                             <button
                               onClick={() => addGear(g)}
                               className="w-7 h-7 flex items-center justify-center rounded-lg border border-stone-300 text-stone-600 hover:border-amber-400 hover:text-amber-700 font-bold text-base transition-colors"
@@ -1328,7 +1343,7 @@ export function EquipmentPanel({ character, derived }: Props) {
       </div>
 
       {/* ── Add Item Picker Modal ───────────────────────────────────────────── */}
-      {showPicker && (
+      {!readOnly && showPicker && (
         <div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-3 pb-3 sm:pb-0"
           onClick={(e) => { if (e.target === e.currentTarget) setShowPicker(false); }}

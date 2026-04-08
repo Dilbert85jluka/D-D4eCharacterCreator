@@ -6,7 +6,8 @@ import { useRealtimeCampaign } from '../../hooks/useRealtimeCampaign';
 import { ShareCampaignModal } from './ShareCampaignModal';
 import { LinkCharacterModal } from './LinkCharacterModal';
 import { MemberCard } from './PartyRosterCards';
-import type { PublicSession } from '../../types/sharing';
+import { CharacterSheet } from '../sheet/CharacterSheet';
+import type { CharacterSummary, PublicSession } from '../../types/sharing';
 import { RichTextDisplay } from '../ui/RichTextDisplay';
 
 interface SharedCampaignViewProps {
@@ -27,6 +28,10 @@ export function SharedCampaignView({ campaignId }: SharedCampaignViewProps) {
     leaveCampaign,
     deleteCampaign,
     loadSharedCampaigns,
+    viewingCharacter,
+    viewingCharacterLoading,
+    fetchCharacterData,
+    clearViewingCharacter,
   } = useSharingStore();
 
   const [loading, setLoading] = useState(true);
@@ -35,6 +40,7 @@ export function SharedCampaignView({ campaignId }: SharedCampaignViewProps) {
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
+  const [viewingSummaryId, setViewingSummaryId] = useState<string | null>(null);
 
   const campaign = sharedCampaigns.find((c) => c.id === campaignId);
   const isDm = campaign?.created_by === user?.id;
@@ -79,6 +85,16 @@ export function SharedCampaignView({ campaignId }: SharedCampaignViewProps) {
     } catch {
       showToast('Failed to delete campaign', 'error');
     }
+  };
+
+  const handleCharacterClick = (summary: CharacterSummary) => {
+    setViewingSummaryId(summary.id);
+    fetchCharacterData(summary.id, campaignId);
+  };
+
+  const handleCloseViewer = () => {
+    setViewingSummaryId(null);
+    clearViewingCharacter();
   };
 
   const toggleSession = (id: string) => {
@@ -181,6 +197,8 @@ export function SharedCampaignView({ campaignId }: SharedCampaignViewProps) {
                 summary={summary || null}
                 isDm={member.role === 'dm'}
                 isCurrentUser={member.user_id === user?.id}
+                onCharacterClick={handleCharacterClick}
+                onLinkClick={member.user_id === user?.id ? () => setShowLinkModal(true) : undefined}
               />
             );
           })}
@@ -282,6 +300,30 @@ export function SharedCampaignView({ campaignId }: SharedCampaignViewProps) {
           campaignId={campaignId}
           userId={user.id}
         />
+      )}
+
+      {/* Read-only character sheet viewer */}
+      {viewingSummaryId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40" onClick={handleCloseViewer} />
+          <div className="relative bg-parchment-100 rounded-2xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto mx-4">
+            <button
+              onClick={handleCloseViewer}
+              className="absolute top-4 right-4 z-10 bg-white/80 hover:bg-white text-stone-500 hover:text-stone-700 rounded-full text-2xl min-h-[44px] min-w-[44px] flex items-center justify-center shadow-sm transition-colors"
+            >
+              &times;
+            </button>
+            {viewingCharacterLoading ? (
+              <div className="flex items-center justify-center py-16 text-stone-400">Loading character sheet...</div>
+            ) : viewingCharacter ? (
+              <CharacterSheet character={viewingCharacter} readOnly />
+            ) : (
+              <div className="flex items-center justify-center py-16 text-stone-400 text-sm px-6 text-center">
+                Character data not available. The player may not have synced recently.
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

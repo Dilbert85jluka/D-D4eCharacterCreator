@@ -6,6 +6,7 @@ import { getClassById } from '../../data/classes';
 import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
 import { useAppStore } from '../../store/useAppStore';
+import { useReadOnly } from './ReadOnlyContext';
 import {
   getAllSpellbookPowerIds,
   getAllSpellbookRitualIds,
@@ -241,6 +242,7 @@ interface SpellbookPowerRowProps {
   usedToday: boolean;
 }
 function SpellbookPowerRow({ power, isPrepared, canPrepare, isWizard, onTogglePrepare, usedToday }: SpellbookPowerRowProps) {
+  const readOnly = useReadOnly();
   const [expanded, setExpanded] = useState(false);
   const rowBg = isPrepared ? 'bg-emerald-50 border-emerald-200' : 'bg-stone-50 border-stone-200';
   return (
@@ -287,7 +289,7 @@ function SpellbookPowerRow({ power, isPrepared, canPrepare, isWizard, onTogglePr
         {isWizard && (
           <button
             onClick={onTogglePrepare}
-            disabled={!isPrepared && !canPrepare}
+            disabled={readOnly || (!isPrepared && !canPrepare)}
             className={[
               'flex-shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors min-h-[36px] whitespace-nowrap',
               isPrepared
@@ -311,6 +313,7 @@ function SpellbookPowerRow({ power, isPrepared, canPrepare, isWizard, onTogglePr
 
 // ── Main SpellbookPanel ────────────────────────────────────────────────────────
 export function SpellbookPanel({ character }: Props) {
+  const readOnly = useReadOnly();
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
   const showToast       = useAppStore((s) => s.showToast);
 
@@ -526,7 +529,7 @@ export function SpellbookPanel({ character }: Props) {
               ? 'A wizard should always have their spellbook! Something went wrong.'
               : 'Purchase a blank spellbook to record your daily and utility powers.'}
           </p>
-          {!isWizard && (
+          {!readOnly && !isWizard && (
             <>
               {confirmBuy ? (
                 <div className="space-y-2">
@@ -581,12 +584,14 @@ export function SpellbookPanel({ character }: Props) {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => setShowBuyBook(true)}
-          className="text-xs bg-indigo-700 hover:bg-indigo-600 text-white font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
-        >
-          + Buy Book ({SPELLBOOK_COST} gp)
-        </button>
+        {!readOnly && (
+          <button
+            onClick={() => setShowBuyBook(true)}
+            className="text-xs bg-indigo-700 hover:bg-indigo-600 text-white font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
+          >
+            + Buy Book ({SPELLBOOK_COST} gp)
+          </button>
+        )}
       </div>
 
       {/* ── Pending ritual grants banner (wizard) ───────────────────────── */}
@@ -660,7 +665,7 @@ export function SpellbookPanel({ character }: Props) {
                 </>
               )}
 
-              {!isEditingThis && (
+              {!readOnly && !isEditingThis && (
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button
                     onClick={() => { setEditingBookId(book.id); setEditingName(book.name); }}
@@ -758,7 +763,7 @@ export function SpellbookPanel({ character }: Props) {
                   <p className="text-xs font-bold text-stone-500 uppercase tracking-wide">
                     Mastered Rituals
                   </p>
-                  {canAddRitual && (
+                  {!readOnly && canAddRitual && (
                     <button
                       onClick={() => setAddRitualToBookId(book.id)}
                       className="text-xs bg-violet-700 hover:bg-violet-600 text-white font-semibold px-2 py-1 rounded-lg transition-colors"
@@ -794,19 +799,21 @@ export function SpellbookPanel({ character }: Props) {
                             <p className="text-xs text-stone-600 mt-1.5 leading-relaxed">{rd.description}</p>
                             {rd.skillCheckTable && <SkillCheckTable table={rd.skillCheckTable} skill={rd.keySkill} />}
                           </div>
-                          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                            <button
-                              onClick={() => handleRemoveRitualFromBook(book.id, rd.id)}
-                              className="text-stone-300 hover:text-red-400 text-lg leading-none transition-colors"
-                              title="Remove from spellbook"
-                            >×</button>
-                            <button
-                              onClick={() => handleUseMasteredRitual(rd)}
-                              className="text-xs bg-emerald-700 hover:bg-emerald-600 text-white font-semibold px-2 py-1 rounded-lg transition-colors whitespace-nowrap"
-                            >
-                              {rd.componentCost === 0 ? 'Use (special)' : `Use (${rd.componentCost} gp)`}
-                            </button>
-                          </div>
+                          {!readOnly && (
+                            <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                              <button
+                                onClick={() => handleRemoveRitualFromBook(book.id, rd.id)}
+                                className="text-stone-300 hover:text-red-400 text-lg leading-none transition-colors"
+                                title="Remove from spellbook"
+                              >×</button>
+                              <button
+                                onClick={() => handleUseMasteredRitual(rd)}
+                                className="text-xs bg-emerald-700 hover:bg-emerald-600 text-white font-semibold px-2 py-1 rounded-lg transition-colors whitespace-nowrap"
+                              >
+                                {rd.componentCost === 0 ? 'Use (special)' : `Use (${rd.componentCost} gp)`}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -820,7 +827,7 @@ export function SpellbookPanel({ character }: Props) {
       })}
 
       {/* ── Modals ─────────────────────────────────────────────────────── */}
-      {showBuyBook && (
+      {!readOnly && showBuyBook && (
         <BuySpellbookModal
           goldPieces={character.goldPieces}
           onClose={() => setShowBuyBook(false)}
@@ -830,7 +837,7 @@ export function SpellbookPanel({ character }: Props) {
           }}
         />
       )}
-      {addRitualToBook && (
+      {!readOnly && addRitualToBook && (
         <AddRitualToBookModal
           book={addRitualToBook}
           allMasteredRitualIds={new Set(allMasteredRitualIds)}

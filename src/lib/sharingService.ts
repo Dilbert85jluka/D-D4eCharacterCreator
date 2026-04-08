@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { SharedCampaign, CampaignMember, CharacterSummary, Profile } from '../types/sharing';
+import type { Character } from '../types/character';
 
 /** Generate a unique 6-char invite code via Supabase RPC */
 export async function generateInviteCode(): Promise<string> {
@@ -160,6 +161,25 @@ export async function removeCharacterFromCampaign(
     .eq('campaign_id', campaignId);
 
   if (error) throw new Error(`Failed to remove character: ${error.message}`);
+}
+
+/** Fetch full character data for a campaign member's linked character */
+export async function getCharacterData(summaryId: string, campaignId: string): Promise<Character | null> {
+  const { data, error } = await supabase
+    .from('character_summaries')
+    .select('character_data, portrait_url')
+    .eq('id', summaryId)
+    .eq('campaign_id', campaignId)
+    .single();
+
+  if (error || !data?.character_data) return null;
+
+  const charData = data.character_data as Character;
+  // Restore portrait from portrait_url since we stripped it from character_data
+  if (data.portrait_url && !charData.portrait) {
+    charData.portrait = data.portrait_url;
+  }
+  return charData;
 }
 
 /** Delete a shared campaign (DM only — cascades) */

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { SharedCampaign, CampaignMember, CharacterSummary, Profile } from '../types/sharing';
-// SharedCampaign is used in state + updateSharedCampaign action
+import type { Character } from '../types/character';
 import * as sharing from '../lib/sharingService';
 
 interface SharingState {
@@ -21,6 +21,12 @@ interface SharingState {
   unlinkCharacter: (characterId: string, campaignId: string) => Promise<void>;
   leaveCampaign: (campaignId: string, userId: string) => Promise<void>;
   deleteCampaign: (campaignId: string) => Promise<void>;
+
+  // Read-only character viewer
+  viewingCharacter: Character | null;
+  viewingCharacterLoading: boolean;
+  fetchCharacterData: (summaryId: string, campaignId: string) => Promise<void>;
+  clearViewingCharacter: () => void;
 
   // Realtime update handlers
   addMember: (member: CampaignMember & { profile: Profile }) => void;
@@ -123,6 +129,24 @@ export const useSharingStore = create<SharingState>((set, get) => ({
       activeCampaignMembers: state.activeCampaignId === campaignId ? [] : state.activeCampaignMembers,
       activeCampaignSummaries: state.activeCampaignId === campaignId ? [] : state.activeCampaignSummaries,
     }));
+  },
+
+  // Read-only character viewer
+  viewingCharacter: null,
+  viewingCharacterLoading: false,
+
+  fetchCharacterData: async (summaryId: string, campaignId: string) => {
+    set({ viewingCharacterLoading: true });
+    try {
+      const charData = await sharing.getCharacterData(summaryId, campaignId);
+      set({ viewingCharacter: charData });
+    } finally {
+      set({ viewingCharacterLoading: false });
+    }
+  },
+
+  clearViewingCharacter: () => {
+    set({ viewingCharacter: null });
   },
 
   // Realtime update handlers — called from subscription hooks

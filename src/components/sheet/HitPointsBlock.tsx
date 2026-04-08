@@ -5,6 +5,7 @@ import { usesPowerPoints, getMaxPowerPoints } from '../../utils/psionics';
 import { IMPLEMENTS } from '../../data/equipment/implements';
 import { SUPERIOR_IMPLEMENTS } from '../../data/equipment/superiorImplements';
 import { MAGIC_IMPLEMENTS } from '../../data/equipment/magicImplements';
+import { useReadOnly } from './ReadOnlyContext';
 
 interface Props {
   character: Character;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function HitPointsBlock({ character, derived }: Props) {
+  const readOnly = useReadOnly();
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
 
   const patch = async (changes: Partial<Character>) => {
@@ -43,20 +45,25 @@ export function HitPointsBlock({ character, derived }: Props) {
           <div className="flex-1">
             <label className="text-xs text-stone-400 font-semibold uppercase">Current HP</label>
             <div className="flex items-center gap-2 mt-1">
+              {!readOnly && (
               <button
                 onClick={() => patch({ currentHp: Math.max(character.currentHp - 1, 0) })}
                 className="w-10 h-10 rounded-lg bg-red-100 text-red-700 font-bold text-lg hover:bg-red-200 transition-colors"
               >−</button>
+              )}
               <input
                 type="number"
                 value={character.currentHp}
                 onChange={(e) => patch({ currentHp: Math.max(0, Math.min(parseInt(e.target.value) || 0, derived.maxHp + 50)) })}
+                disabled={readOnly}
                 className="w-16 text-center text-2xl font-bold border-b-2 border-stone-300 focus:border-amber-500 outline-none"
               />
+              {!readOnly && (
               <button
                 onClick={() => patch({ currentHp: Math.min(character.currentHp + 1, derived.maxHp) })}
                 className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 font-bold text-lg hover:bg-emerald-200 transition-colors"
               >+</button>
+              )}
             </div>
           </div>
           <div className="text-right">
@@ -70,11 +77,15 @@ export function HitPointsBlock({ character, derived }: Props) {
         <div className="flex items-center justify-between bg-stone-50 rounded-lg px-3 py-2">
           <span className="text-xs text-stone-500 font-semibold uppercase">Temp HP</span>
           <div className="flex items-center gap-2">
+            {!readOnly && (
             <button onClick={() => patch({ temporaryHp: Math.max(0, character.temporaryHp - 1) })}
               className="w-7 h-7 rounded bg-stone-200 text-stone-600 font-bold hover:bg-stone-300">−</button>
+            )}
             <span className="text-lg font-bold text-stone-800 w-8 text-center">{character.temporaryHp}</span>
+            {!readOnly && (
             <button onClick={() => patch({ temporaryHp: character.temporaryHp + 1 })}
               className="w-7 h-7 rounded bg-stone-200 text-stone-600 font-bold hover:bg-stone-300">+</button>
+            )}
           </div>
         </div>
 
@@ -88,6 +99,7 @@ export function HitPointsBlock({ character, derived }: Props) {
             <span className="font-bold text-amber-800">
               {character.currentSurges} / {derived.surgesPerDay}
             </span>
+            {!readOnly && (
             <button
               onClick={spendSurge}
               disabled={character.currentSurges <= 0}
@@ -95,6 +107,7 @@ export function HitPointsBlock({ character, derived }: Props) {
             >
               Spend
             </button>
+            )}
           </div>
         </div>
 
@@ -102,11 +115,15 @@ export function HitPointsBlock({ character, derived }: Props) {
         <div className="flex items-center justify-between bg-stone-50 rounded-lg px-3 py-2">
           <span className="text-xs text-stone-500 font-semibold uppercase">Action Points</span>
           <div className="flex items-center gap-2">
+            {!readOnly && (
             <button onClick={() => patch({ actionPoints: Math.max(0, character.actionPoints - 1) })}
               className="w-7 h-7 rounded bg-stone-200 text-stone-600 font-bold hover:bg-stone-300">−</button>
+            )}
             <span className="text-lg font-bold text-stone-800 w-6 text-center">{character.actionPoints}</span>
+            {!readOnly && (
             <button onClick={() => patch({ actionPoints: character.actionPoints + 1 })}
               className="w-7 h-7 rounded bg-stone-200 text-stone-600 font-bold hover:bg-stone-300">+</button>
+            )}
           </div>
         </div>
 
@@ -121,19 +138,23 @@ export function HitPointsBlock({ character, derived }: Props) {
                 <div className="text-xs text-stone-400">Psionic augmentation</div>
               </div>
               <div className="flex items-center gap-2">
+                {!readOnly && (
                 <button
                   onClick={() => patch({ currentPowerPoints: Math.max(0, currentPP - 1) })}
                   disabled={currentPP <= 0}
                   className="w-7 h-7 rounded bg-violet-200 text-violet-700 font-bold hover:bg-violet-300 disabled:opacity-30 transition-colors"
                 >−</button>
+                )}
                 <span className="font-bold text-violet-800">
                   {currentPP} / {maxPP}
                 </span>
+                {!readOnly && (
                 <button
                   onClick={() => patch({ currentPowerPoints: Math.min(maxPP, currentPP + 1) })}
                   disabled={currentPP >= maxPP}
                   className="w-7 h-7 rounded bg-violet-200 text-violet-700 font-bold hover:bg-violet-300 disabled:opacity-30 transition-colors"
                 >+</button>
+                )}
               </div>
             </div>
           );
