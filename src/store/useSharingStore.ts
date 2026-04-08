@@ -25,6 +25,7 @@ interface SharingState {
   // Read-only character viewer
   viewingCharacter: Character | null;
   viewingCharacterLoading: boolean;
+  viewingCharacterError: string | null;  // non-null = connection/query error (not "no data")
   fetchCharacterData: (summaryId: string, campaignId: string) => Promise<void>;
   clearViewingCharacter: () => void;
 
@@ -134,19 +135,42 @@ export const useSharingStore = create<SharingState>((set, get) => ({
   // Read-only character viewer
   viewingCharacter: null,
   viewingCharacterLoading: false,
+  viewingCharacterError: null,
 
   fetchCharacterData: async (summaryId: string, campaignId: string) => {
-    set({ viewingCharacterLoading: true });
+    set({ viewingCharacterLoading: true, viewingCharacter: null, viewingCharacterError: null });
+
+    type FetchResult = { character: Character | null; error: string | null };
+
+    const attemptFetch = (): Promise<FetchResult> => Promise.race([
+      sharing.getCharacterData(summaryId, campaignId),
+      new Promise<FetchResult>((resolve) =>
+        setTimeout(() => resolve({ character: null, error: 'Connection timed out' }), 10000)
+      ),
+    ]);
+
     try {
-      const charData = await sharing.getCharacterData(summaryId, campaignId);
-      set({ viewingCharacter: charData });
+      let result = await attemptFetch();
+
+      // If first attempt failed, retry once
+      if (result.error) {
+        result = await attemptFetch();
+      }
+
+      if (result.error) {
+        set({ viewingCharacter: null, viewingCharacterError: result.error });
+      } else {
+        set({ viewingCharacter: result.character, viewingCharacterError: null });
+      }
+    } catch {
+      set({ viewingCharacter: null, viewingCharacterError: 'Connection failed' });
     } finally {
       set({ viewingCharacterLoading: false });
     }
   },
 
   clearViewingCharacter: () => {
-    set({ viewingCharacter: null });
+    set({ viewingCharacter: null, viewingCharacterError: null });
   },
 
   // Realtime update handlers — called from subscription hooks

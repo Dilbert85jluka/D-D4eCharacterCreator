@@ -107,7 +107,7 @@ export function CampaignManagementPage() {
     sharedCampaigns, loadSharedCampaigns, createCampaign: createSharedCampaign,
     activeCampaignMembers, activeCampaignSummaries, loadCampaignDetail,
     unlinkCharacter,
-    viewingCharacter, viewingCharacterLoading, fetchCharacterData, clearViewingCharacter,
+    viewingCharacter, viewingCharacterLoading, viewingCharacterError, fetchCharacterData, clearViewingCharacter,
   } = useSharingStore();
   const [viewingSummaryId, setViewingSummaryId] = useState<string | null>(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -1415,6 +1415,53 @@ export function CampaignManagementPage() {
                         })}
                       </div>
                     )}
+
+                    {/* Player-linked characters from shared campaign */}
+                    {activeCampaign?.sharedCampaignId && activeCampaignSummaries.length > 0 && (() => {
+                      // Show characters linked by other players (not the DM)
+                      const playerSummaries = activeCampaignSummaries.filter((s) => s.user_id !== user?.id);
+                      if (playerSummaries.length === 0) return null;
+                      return (
+                        <div className="mt-4">
+                          <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Player Characters</p>
+                          <div className="space-y-2">
+                            {playerSummaries.map((summary) => {
+                              const race = getRaceById(summary.race_id);
+                              const cls = getClassById(summary.class_id);
+                              const memberProfile = activeCampaignMembers.find((m) => m.user_id === summary.user_id);
+                              const playerName = memberProfile?.profile?.display_name || memberProfile?.profile?.email || 'Unknown';
+                              return (
+                                <div
+                                  key={summary.id}
+                                  className={[
+                                    'flex items-center gap-3 p-3 bg-white rounded-xl border border-indigo-100 shadow-sm',
+                                    summary.character_data ? 'cursor-pointer hover:bg-indigo-50 transition-colors' : '',
+                                  ].join(' ')}
+                                  onClick={() => handleDmCharacterClick(summary)}
+                                  role={summary.character_data ? 'button' : undefined}
+                                >
+                                  <div className="w-10 h-10 rounded-xl bg-indigo-100 border border-indigo-200 flex-shrink-0 flex items-center justify-center text-sm overflow-hidden">
+                                    {summary.portrait_url ? (
+                                      <img src={summary.portrait_url} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                      <span className="text-indigo-400">?</span>
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-sm text-stone-800 truncate">{summary.name}</p>
+                                    <p className="text-xs text-stone-400">Lv {summary.level} · {race?.name} {cls?.name}</p>
+                                    <p className="text-xs text-indigo-400">Player: {playerName}</p>
+                                  </div>
+                                  <svg className="w-4 h-4 text-stone-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                  </svg>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </section>
 
                   {/* Party Roster (Online) — only visible when campaign is shared */}
@@ -2495,6 +2542,16 @@ export function CampaignManagementPage() {
               <div className="flex items-center justify-center py-16 text-stone-400">Loading character sheet...</div>
             ) : viewingCharacter ? (
               <CharacterSheet character={viewingCharacter} readOnly />
+            ) : viewingCharacterError ? (
+              <div className="flex flex-col items-center justify-center py-16 text-sm px-6 text-center gap-3">
+                <p className="text-red-500">Failed to load character sheet. Please try again.</p>
+                <button
+                  onClick={() => { if (viewingSummaryId && activeCampaign?.sharedCampaignId) fetchCharacterData(viewingSummaryId, activeCampaign.sharedCampaignId); }}
+                  className="text-amber-600 hover:text-amber-700 font-semibold text-sm transition-colors min-h-[44px]"
+                >
+                  Retry
+                </button>
+              </div>
             ) : (
               <div className="flex items-center justify-center py-16 text-stone-400 text-sm px-6 text-center">
                 Character data not available. The player may not have synced recently.

@@ -30,6 +30,7 @@ export function SharedCampaignView({ campaignId }: SharedCampaignViewProps) {
     loadSharedCampaigns,
     viewingCharacter,
     viewingCharacterLoading,
+    viewingCharacterError,
     fetchCharacterData,
     clearViewingCharacter,
   } = useSharingStore();
@@ -328,6 +329,16 @@ export function SharedCampaignView({ campaignId }: SharedCampaignViewProps) {
               <div className="flex items-center justify-center py-16 text-stone-400">Loading character sheet...</div>
             ) : viewingCharacter ? (
               <CharacterSheet character={viewingCharacter} readOnly />
+            ) : viewingCharacterError ? (
+              <div className="flex flex-col items-center justify-center py-16 text-sm px-6 text-center gap-3">
+                <p className="text-red-500">Failed to load character sheet. Please try again.</p>
+                <button
+                  onClick={() => { if (viewingSummaryId) fetchCharacterData(viewingSummaryId, campaignId); }}
+                  className="text-amber-600 hover:text-amber-700 font-semibold text-sm transition-colors min-h-[44px]"
+                >
+                  Retry
+                </button>
+              </div>
             ) : (
               <div className="flex items-center justify-center py-16 text-stone-400 text-sm px-6 text-center">
                 Character data not available. The player may not have synced recently.
