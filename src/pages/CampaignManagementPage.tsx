@@ -1025,13 +1025,18 @@ export function CampaignManagementPage() {
             </button>
           </div>
 
-          {/* Tree */}
+          {/* Scrollable campaign lists */}
           <div className="flex-1 overflow-y-auto">
+
+            {/* ── Your Campaigns ─────────────────────────────────── */}
+            <div className="px-3 pt-3 pb-1">
+              <p className="text-xs font-bold text-stone-400 uppercase tracking-wider">Your Campaigns</p>
+            </div>
             {campaigns.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full py-16 px-6 text-center">
-                <div className="text-5xl mb-4">🏰</div>
-                <p className="text-stone-500 font-medium mb-1">No campaigns yet</p>
-                <p className="text-stone-400 text-sm mb-5">Create your first campaign to get started.</p>
+              <div className="flex flex-col items-center justify-center py-8 px-6 text-center">
+                <div className="text-4xl mb-3">🏰</div>
+                <p className="text-stone-500 font-medium text-sm mb-1">No campaigns yet</p>
+                <p className="text-stone-400 text-xs mb-4">Create your first campaign to get started.</p>
                 <button
                   onClick={startNewCampaign}
                   className="bg-amber-700 hover:bg-amber-600 text-white font-semibold
@@ -1145,52 +1150,48 @@ export function CampaignManagementPage() {
                 })}
               </ul>
             )}
-          </div>
 
-          {/* ── Shared Campaigns ───────────────────────────────────────── */}
-          {profile && (
-            <div className="border-t border-stone-200 flex-shrink-0">
-              <div className="bg-indigo-900 px-4 py-3 flex items-center justify-between">
-                <h2 className="text-white font-bold text-base">Shared Campaigns</h2>
-                <button
-                  onClick={() => setShowJoinModal(true)}
-                  className="text-indigo-200 hover:text-white text-xs font-semibold
-                             bg-indigo-700 hover:bg-indigo-600 px-3 py-1.5 rounded-lg transition-colors min-h-[36px]"
-                >
-                  Join
-                </button>
-              </div>
-              <div className="overflow-y-auto max-h-48">
+            {/* ── Joined Campaigns ───────────────────────────────── */}
+            {profile && (
+              <div className="mt-2 border-t border-stone-200">
+                <div className="px-3 pt-3 pb-1 flex items-center justify-between">
+                  <p className="text-xs font-bold text-stone-400 uppercase tracking-wider">Joined Campaigns</p>
+                  <button
+                    onClick={() => setShowJoinModal(true)}
+                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors min-h-[28px] px-2"
+                  >
+                    + Join
+                  </button>
+                </div>
                 {(() => {
-                  // Only show campaigns where user is a player (not the DM) — DM campaigns show in the local list
                   const playerCampaigns = sharedCampaigns.filter((sc) => sc.created_by !== user?.id);
                   return playerCampaigns.length === 0 ? (
-                  <div className="px-4 py-4 text-center">
-                    <p className="text-stone-400 text-xs">No shared campaigns joined yet</p>
-                  </div>
-                ) : (
-                  <ul>
-                    {playerCampaigns.map((sc) => (
-                      <li key={sc.id}>
-                        <button
-                          onClick={() => { setMode({ type: 'shared-campaign', sharedCampaignId: sc.id }); setShowEditor(true); }}
-                          className={[
-                            'w-full text-left px-4 py-3 text-sm border-b border-stone-100 transition-colors min-h-[44px]',
-                            mode.type === 'shared-campaign' && mode.sharedCampaignId === sc.id
-                              ? 'bg-indigo-50 text-indigo-800 font-semibold'
-                              : 'text-stone-700 hover:bg-stone-50',
-                          ].join(' ')}
-                        >
-                          <span className="text-indigo-500 mr-1">🌐</span> {sc.name}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                );
+                    <div className="px-4 py-3 text-center">
+                      <p className="text-stone-400 text-xs">No campaigns joined yet</p>
+                    </div>
+                  ) : (
+                    <ul>
+                      {playerCampaigns.map((sc) => (
+                        <li key={sc.id}>
+                          <button
+                            onClick={() => { setMode({ type: 'shared-campaign', sharedCampaignId: sc.id }); setShowEditor(true); }}
+                            className={[
+                              'w-full text-left px-4 py-3 text-sm border-b border-stone-100 transition-colors min-h-[44px]',
+                              mode.type === 'shared-campaign' && mode.sharedCampaignId === sc.id
+                                ? 'bg-indigo-50 text-indigo-800 font-semibold'
+                                : 'text-stone-700 hover:bg-stone-50',
+                            ].join(' ')}
+                          >
+                            <span className="text-indigo-500 mr-1">🌐</span> {sc.name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  );
                 })()}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* ── Editor panel ──────────────────────────────────────────────── */}

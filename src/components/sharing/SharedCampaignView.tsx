@@ -122,6 +122,8 @@ export function SharedCampaignView({ campaignId }: SharedCampaignViewProps) {
     );
   }
 
+  const descriptionText = content?.description || campaign.description;
+
   return (
     <div className="space-y-6 p-4">
       {/* Header */}
@@ -129,11 +131,6 @@ export function SharedCampaignView({ campaignId }: SharedCampaignViewProps) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-xl font-bold text-stone-800 truncate">{campaign.name}</h2>
-            {(content?.description || campaign.description) && (
-              <div className="text-sm text-stone-500 mt-1">
-                <RichTextDisplay content={content?.description || campaign.description} />
-              </div>
-            )}
             {isDm && (
               <p className="text-xs text-amber-700 font-mono mt-2 tracking-wider">
                 Code: {campaign.invite_code}
@@ -152,15 +149,29 @@ export function SharedCampaignView({ campaignId }: SharedCampaignViewProps) {
         </div>
       </div>
 
+      {/* Campaign Description */}
+      <div className="bg-white border border-stone-200 rounded-2xl p-5">
+        <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider mb-2">
+          Campaign Description
+        </h3>
+        {descriptionText ? (
+          <RichTextDisplay content={descriptionText} className="text-sm text-stone-600" />
+        ) : (
+          <p className="text-sm text-stone-400 italic">No description yet.</p>
+        )}
+      </div>
+
       {/* Public Notes (player-visible) */}
-      {content?.publicNotes && (
-        <div className="bg-white border border-stone-200 rounded-2xl p-5">
-          <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider mb-2">
-            Campaign Notes
-          </h3>
+      <div className="bg-white border border-stone-200 rounded-2xl p-5">
+        <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider mb-2">
+          Campaign Notes
+        </h3>
+        {content?.publicNotes ? (
           <RichTextDisplay content={content.publicNotes} className="text-sm text-stone-600" />
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-stone-400 italic">No notes yet.</p>
+        )}
+      </div>
 
       {/* Sessions (player-visible read-only) */}
       {content && content.sessions.length > 0 && (
