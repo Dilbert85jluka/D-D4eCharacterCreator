@@ -4,6 +4,8 @@ import { characterRepository } from '../../db/characterRepository';
 import { useCharactersStore } from '../../store/useCharactersStore';
 import { LANGUAGES } from '../../data/languages';
 import { useReadOnly } from './ReadOnlyContext';
+import { RichTextEditor } from '../ui/RichTextEditor';
+import { RichTextDisplay } from '../ui/RichTextDisplay';
 
 interface Props {
   character: Character;
@@ -48,13 +50,15 @@ export function NotesPanel({ character }: Props) {
 
       <div className="p-3">
         {activeTab === 'notes' && (
-          <textarea
-            className="w-full border border-stone-200 rounded-lg p-3 text-sm text-stone-800 resize-none focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[200px]"
-            placeholder="Character notes, session log, important NPCs, quest details..."
-            value={character.notes}
-            onChange={(e) => updateNotes(e.target.value)}
-            disabled={readOnly}
-          />
+          readOnly ? (
+            <RichTextDisplay content={character.notes} />
+          ) : (
+            <RichTextEditor
+              content={character.notes}
+              onChange={updateNotes}
+              placeholder="Character notes, session log, important NPCs, quest details..."
+            />
+          )
         )}
 
         {activeTab === 'profile' && (
@@ -110,7 +114,7 @@ export function NotesPanel({ character }: Props) {
             {character.background && (
               <div>
                 <p className="text-xs font-bold text-stone-400 uppercase tracking-wide mb-2">Background</p>
-                <p className="text-sm text-stone-700 leading-relaxed">{character.background}</p>
+                <RichTextDisplay content={character.background} className="text-sm text-stone-700 leading-relaxed" />
               </div>
             )}
           </div>

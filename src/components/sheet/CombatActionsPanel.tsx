@@ -23,9 +23,43 @@ function weaponAbilityMod(weapon: WeaponData, mods: Record<Ability, number>): nu
   return weapon.category.toLowerCase().includes('ranged') ? mods.dex : mods.str;
 }
 
-function formatDamage(weapon: WeaponData, abilityMod: number): string {
-  if (abilityMod === 0) return weapon.damage;
-  return `${weapon.damage}${abilityMod > 0 ? '+' : ''}${abilityMod}`;
+function formatDamageTotal(weapon: WeaponData, abilityMod: number, featBonus: number): string {
+  const total = abilityMod + featBonus;
+  if (total === 0) return weapon.damage;
+  return `${weapon.damage}${total > 0 ? '+' : ''}${total}`;
+}
+
+/** Compute feat-based damage bonus for a specific weapon based on character's selected feats. */
+function weaponFeatDamageBonus(weapon: WeaponData, character: Character): { bonus: number; source: string } {
+  const feats = character.selectedFeatIds;
+  const props = weapon.properties.map((p) => p.toLowerCase());
+  const nameLower = weapon.name.toLowerCase();
+  const level = character.level;
+  let bonus = 0;
+  let source = '';
+
+  // Dwarven Weapon Training: +2 damage with axes and hammers
+  if (feats.includes('dwarven-weapon-training') && (props.includes('axe') || props.includes('hammer'))) {
+    bonus += 2;
+    source = 'Dwarven Weapon Training';
+  }
+
+  // Eladrin Soldier: +2 damage with longswords and spears
+  if (feats.includes('eladrin-soldier') && (nameLower === 'longsword' || props.includes('spear'))) {
+    bonus += 2;
+    source = source ? `${source}, Eladrin Soldier` : 'Eladrin Soldier';
+  }
+
+  // Goliath Greatweapon Prowess: +2/+3/+4 damage with two-handed simple/military melee weapons
+  if (feats.includes('goliath-greatweapon-prowess') &&
+      props.includes('two-handed') &&
+      (weapon.category === 'Simple Melee' || weapon.category === 'Military Melee')) {
+    const gwpBonus = level >= 21 ? 4 : level >= 11 ? 3 : 2;
+    bonus += gwpBonus;
+    source = source ? `${source}, Goliath Greatweapon` : 'Goliath Greatweapon';
+  }
+
+  return { bonus, source };
 }
 
 export function CombatActionsPanel({ character, derived }: Props) {
@@ -69,6 +103,7 @@ export function CombatActionsPanel({ character, derived }: Props) {
           const weaponTalentBonus = (character.classId === 'fighter' && proficient) ? 1 : 0;
           const attackBonus = abilityMod + halfLevel + profBonus + weaponTalentBonus;
           const isRanged = weapon.category.toLowerCase().includes('ranged');
+          const featDmg = weaponFeatDamageBonus(weapon, character);
 
           return (
             <div
@@ -127,10 +162,11 @@ export function CombatActionsPanel({ character, derived }: Props) {
                 <div className="text-center">
                   <div className="text-xs text-stone-400 font-medium">Damage</div>
                   <div className="text-base font-bold text-stone-800">
-                    {formatDamage(weapon, abilityMod)}
+                    {formatDamageTotal(weapon, abilityMod, featDmg.bonus)}
                   </div>
                   <div className="text-xs text-stone-400">
                     {weapon.damage} + {isRanged ? 'DEX' : 'STR'} {formatModifier(abilityMod)}
+                    {featDmg.bonus > 0 && <span className="text-amber-600"> +{featDmg.bonus} {featDmg.source}</span>}
                   </div>
                 </div>
               </div>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useWizardStore } from '../../../store/useWizardStore';
 import { DEITIES, DEITY_ALIGNMENT_ORDER } from '../../../data/deities';
 import type { Alignment } from '../../../types/character';
+import { RichTextEditor } from '../../ui/RichTextEditor';
 
 const ALIGNMENTS: Alignment[] = ['Lawful Good', 'Good', 'Unaligned', 'Evil', 'Chaotic Evil'];
 const GENDER_OPTIONS = ['Male', 'Female', 'Other'] as const;
@@ -275,11 +276,10 @@ export function Step1_Basics() {
       <section>
         <p className={sectionHeadingCls}>Background</p>
         <label className={labelCls}>Background / Notes</label>
-        <textarea
-          className={`${inputCls} resize-none h-24`}
+        <RichTextEditor
+          content={background}
+          onChange={setBackground}
           placeholder="Describe your character's background, personality, or notes…"
-          value={background}
-          onChange={(e) => setBackground(e.target.value)}
         />
       </section>
 

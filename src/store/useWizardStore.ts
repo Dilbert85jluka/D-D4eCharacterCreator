@@ -712,6 +712,7 @@ export const useWizardStore = create<WizardState>()(
       currentSurges: (cls?.healingSurgesPerDay ?? 6),
       usedEncounterPowers: [],
       usedDailyPowers: [],
+      secondWindUsed: false,
       // Psionic power points — initialize at max for psionic classes
       currentPowerPoints: usesPowerPoints(s.classId) ? getMaxPowerPoints(1) : undefined,
       ritualScrolls: [],

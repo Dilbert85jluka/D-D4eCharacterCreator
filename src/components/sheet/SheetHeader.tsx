@@ -128,7 +128,7 @@ export function SheetHeader({ character, derived }: Props) {
   const maxPP     = isPsionic ? getMaxPowerPoints(character.level) : 0;
 
   const applyShortRest = async () => {
-    const changes: Partial<Character> = { usedEncounterPowers: [], actionPoints: 1 };
+    const changes: Partial<Character> = { usedEncounterPowers: [], secondWindUsed: false };
     if (isPsionic) {
       changes.currentPowerPoints = maxPP;
     }
@@ -145,6 +145,7 @@ export function SheetHeader({ character, derived }: Props) {
       usedEncounterPowers: [],
       usedDailyPowers: [],
       actionPoints: 1,
+      secondWindUsed: false,
     };
     if (isPsionic) {
       changes.currentPowerPoints = maxPP;

@@ -24,6 +24,7 @@ import { ClassFeaturesPanel } from './ClassFeaturesPanel';
 import { RacialFeaturesPanel } from './RacialFeaturesPanel';
 import { AvailableActionsPanel } from './AvailableActionsPanel';
 import { ActionsByTypePanel } from './ActionsByTypePanel';
+import { StandardActionsPanel } from './StandardActionsPanel';
 import { QuickTrayPanel } from './QuickTrayPanel';
 import { DiceRollerModal } from '../dice/DiceRollerModal';
 import { RitualsPanel } from './RitualsPanel';
@@ -42,10 +43,11 @@ export function CharacterSheet({ character, readOnly = false }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('combat');
   const [showDiceRoller, setShowDiceRoller] = useState(false);
 
-  type CombatTab = 'actions' | 'available-actions' | 'proficiencies';
+  type CombatTab = 'actions' | 'standard-actions' | 'available-actions' | 'proficiencies';
   const [combatTab, setCombatTab] = useState<CombatTab>('actions');
   const combatTabs: { key: CombatTab; label: string }[] = [
     { key: 'actions',           label: 'Available Actions'    },
+    { key: 'standard-actions',  label: 'Standard Actions'     },
     { key: 'available-actions', label: 'Actions Descriptions' },
     { key: 'proficiencies',     label: 'Proficiencies'        },
   ];
@@ -175,6 +177,7 @@ export function CharacterSheet({ character, readOnly = false }: Props) {
                     <ActionsByTypePanel character={character} />
                   </div>
                 )}
+                {combatTab === 'standard-actions'  && <StandardActionsPanel character={character} derived={derived} />}
                 {combatTab === 'available-actions' && <AvailableActionsPanel />}
                 {combatTab === 'proficiencies'     && <ProficienciesPanel character={character} />}
               </div>

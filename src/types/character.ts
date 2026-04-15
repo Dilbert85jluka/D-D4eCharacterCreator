@@ -242,6 +242,7 @@ export interface Character {
   currentSurges: number;
   usedEncounterPowers: string[];
   usedDailyPowers: string[];
+  secondWindUsed?: boolean;
   /** Psionic: current power points remaining. Undefined = full pool (defaults to max). */
   currentPowerPoints?: number;
   /** Quick Access Powers tray — up to 9 power IDs pinned for fast combat reference */

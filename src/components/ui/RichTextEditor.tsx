@@ -48,9 +48,9 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
     },
   });
 
-  // Sync content from parent if it changes externally
+  // Sync content from parent only when the editor is NOT focused (external changes)
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
+    if (editor && !editor.isFocused && content !== editor.getHTML()) {
       editor.commands.setContent(content);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -58,15 +58,19 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
 
   if (!editor) return null;
 
+  const isEmpty = !content || content === '<p></p>';
+
   return (
     <div className="border border-stone-300 rounded-xl overflow-hidden bg-white">
       <Toolbar editor={editor} />
-      <EditorContent editor={editor} />
-      {!content && placeholder && (
-        <div className="px-3 py-2 text-stone-400 text-sm pointer-events-none absolute">
-          {placeholder}
-        </div>
-      )}
+      <div className="relative">
+        <EditorContent editor={editor} />
+        {isEmpty && placeholder && (
+          <div className="absolute top-0 left-0 px-3 py-2 text-stone-400 text-sm pointer-events-none">
+            {placeholder}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
