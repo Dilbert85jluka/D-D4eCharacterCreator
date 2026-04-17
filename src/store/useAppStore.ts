@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-export type AppView = 'home' | 'wizard' | 'sheet' | 'portrait' | 'monsters' | 'campaigns' | 'magicItems' | 'homebrew' | 'login';
+export type AppView = 'home' | 'wizard' | 'sheet' | 'portrait' | 'monsters' | 'campaigns' | 'magicItems' | 'homebrew' | 'login' | 'instructions';
 
 interface Toast {
   message: string;

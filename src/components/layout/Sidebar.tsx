@@ -113,6 +113,20 @@ export function Sidebar() {
             <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">⚙️ Settings</span>
           </div>
 
+          {/* User Instructions */}
+          <button
+            onClick={() => { navigate('instructions'); setSidebarOpen(false); }}
+            className={[
+              'w-full flex items-center gap-4 px-4 rounded-xl transition-colors min-h-[52px] text-left',
+              currentView === 'instructions'
+                ? 'bg-amber-700 text-white'
+                : 'text-amber-100 hover:bg-amber-800',
+            ].join(' ')}
+          >
+            <span className="text-xl leading-none flex-shrink-0">📖</span>
+            <span className="font-medium text-base leading-tight">User Instructions</span>
+          </button>
+
           {/* Import / Export */}
           <button
             onClick={() => { setShowImportExport(true); setSidebarOpen(false); }}

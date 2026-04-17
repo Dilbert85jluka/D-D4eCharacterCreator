@@ -16,6 +16,7 @@ import { MonsterCompendiumPage } from './pages/MonsterCompendiumPage';
 import { CampaignManagementPage } from './pages/CampaignManagementPage';
 import { MagicItemCompendiumPage } from './pages/MagicItemCompendiumPage';
 import { HomebrewWorkshopPage } from './pages/HomebrewWorkshopPage';
+import { InstructionsPage } from './pages/InstructionsPage';
 import { LoginPage } from './components/auth/LoginPage';
 import { useCharacterCloudSync } from './hooks/useCharacterCloudSync';
 import { useCampaignCloudSync } from './hooks/useCampaignCloudSync';
@@ -85,8 +86,9 @@ export default function App() {
         {currentView === 'monsters'  && <MonsterCompendiumPage />}
         {currentView === 'campaigns' && <CampaignManagementPage />}
         {currentView === 'magicItems' && <MagicItemCompendiumPage />}
-        {currentView === 'homebrew'  && <HomebrewWorkshopPage />}
-        {currentView === 'login'     && <LoginPage />}
+        {currentView === 'homebrew'     && <HomebrewWorkshopPage />}
+        {currentView === 'instructions' && <InstructionsPage />}
+        {currentView === 'login'        && <LoginPage />}
       </main>
 
       {/* Toast notifications */}
