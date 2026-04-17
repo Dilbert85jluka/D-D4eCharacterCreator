@@ -231,7 +231,14 @@ const BUILD_CHOICE_MAP: Record<string, { featureName: string; field: keyof Chara
 export function ClassFeaturesPanel({ character }: Props) {
   const cls = getClassById(character.classId);
 
-  if (!cls) return <p className="p-4 text-stone-400 italic">No class selected.</p>;
+  if (!cls) return (
+    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+      <div className="bg-amber-800 px-4 py-2">
+        <h3 className="text-white font-bold text-sm uppercase tracking-wide">Class Features</h3>
+      </div>
+      <p className="p-4 text-stone-400 italic">No class selected.</p>
+    </div>
+  );
 
   const buildChoice = BUILD_CHOICE_MAP[cls.id];
 
@@ -268,10 +275,12 @@ export function ClassFeaturesPanel({ character }: Props) {
   }
 
   return (
-    <div className="p-4 space-y-3">
-      <p className="text-xs text-stone-500 italic">
-        Class features granted by the {cls.name} class.
-      </p>
+    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+      <div className="bg-amber-800 px-4 py-2">
+        <h3 className="text-white font-bold text-sm uppercase tracking-wide">Class Features</h3>
+        <p className="text-amber-300 text-xs mt-0.5">Granted by the {cls.name} class</p>
+      </div>
+      <div className="p-4 space-y-3">
 
       {cls.features.map((feature) => {
         const isImplementFeature = cls.id === 'wizard' && feature.name === 'Arcane Implement Proficiency';
@@ -344,6 +353,7 @@ export function ClassFeaturesPanel({ character }: Props) {
           ))}
         </>
       )}
+      </div>
     </div>
   );
 }

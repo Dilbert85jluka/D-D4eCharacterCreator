@@ -54,7 +54,7 @@ src/
 │   ├── auth/                  # LoginPage.tsx — magic link email sign-in
 │   ├── sharing/               # ShareCampaignModal, JoinCampaignModal, LinkCharacterModal, SharedCampaignView, PartyRosterCards
 │   ├── dice/                  # DiceRollerModal.tsx — floating dice roller (d2–d20 + d%)
-│   ├── sheet/                 # Character sheet panels (22 files — see below)
+│   ├── sheet/                 # Character sheet panels (23 files — see below)
 │   ├── ui/                    # Button, Card, Badge, Modal, RichTextEditor, RichTextDisplay (primitive components)
 │   └── wizard/                # CreationWizard, WizardNav, 10 step components, PowerCard
 ├── data/
@@ -500,16 +500,16 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 
 ### Tab Structure
 
-**Main tabs (CharacterSheet.tsx):** Actions · Powers · Features · Paragon · Inventory · Notes
+**Main tabs (CharacterSheet.tsx):** Actions · Powers · Feats · Features · Paragon · Inventory
 
 | Main Tab | Sub-tabs |
 |---|---|
-| Actions | Available Actions · Standard Actions · Actions Descriptions · Proficiencies |
-| Powers | Powers · Channel Divinity\* · Discipline Powers\*\*\*\*\* · Implement Mastery\*\* · Eldritch Pact\*\*\* · Feats |
-| Features | Class Features · Racial Features |
+| Actions | Available Actions · Actions Descriptions |
+| Powers | Powers · Channel Divinity\* · Discipline Powers\*\*\*\*\* · Implement Mastery\*\* · Eldritch Pact\*\*\* (sub-tab bar hidden when only the base Powers tab is present) |
+| Feats | (no sub-tabs) |
+| Features | Class Features · Racial Features · Proficiencies · Profile · Notes |
 | Paragon | (no sub-tabs) |
 | Inventory | Coin Purse · Equipment · Rituals · Spellbooks\*\*\*\* |
-| Notes | Notes · Profile |
 
 \* Channel Divinity: cleric + paladin only
 \*\* Implement Mastery: wizard only
@@ -523,30 +523,31 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 |---|---|
 | ReadOnlyContext.ts | `ReadOnlyContext` + `useReadOnly()` hook — consumed by 11 panels to hide/disable edit controls when `readOnly` prop is true |
 | CharacterSheet.tsx | Main tab container — 6 top-level tabs with sub-tab routing; accepts `readOnly` prop, wraps in `ReadOnlyContext.Provider` |
-| SheetHeader.tsx | Character header bar — portrait, name, speed+level badges, rest buttons, initiative & saving throw rolls, and left-justified info rows (race/class/tier, player identity, alignment/deity/leveling, role badge/initiative) |
+| SheetHeader.tsx | Character header bar — mobile-first layout. Top row: portrait + name + ▼/▲ Info toggle button. Collapsible info section (race/class/tier, role/size/initiative/vision, player identity, alignment/deity/leveling, XP bar) — default expanded, collapses to save vertical space. Action buttons row (always visible, `flex-wrap`): Speed badge, Level badge, Level Up, Short Rest, Extended Rest, Initiative, Saving Throw. Roll result boxes drop upward (`bottom-full`) to avoid overlapping content below; rolling one clears the other's result so they never overlap. |
 | AbilityBlock.tsx | Six ability scores with +/- adjusters, hover breakdown panel, click-to-roll |
 | DefensesBlock.tsx | AC, Fort, Ref, Will in 2×2 grid |
 | HitPointsBlock.tsx | HP/bloodied/surge tracker with rest buttons; Power Points row for psionic classes |
-| SkillsPanel.tsx | All 17 skills with trained/untrained indicators |
+| SkillsPanel.tsx | All 17 skills with trained/untrained indicators. Click a skill to roll d20 + bonus; result card renders **inline above the rolled skill** (tracked by `skillId`) so you never lose sight of what you rolled — auto-dismisses after 4 seconds or click × to clear. |
 | CombatActionsPanel.tsx | Weapon attack cards from equipped weapons (Actions → Available Actions, top section); Fighter Weapon Talent +1 attack bonus applied when proficient; feat-based weapon damage bonuses (Dwarven Weapon Training +2 axes/hammers, Eladrin Soldier +2 longswords/spears, Goliath Greatweapon Prowess +2/+3/+4 two-handed melee) shown in damage breakdown |
-| ActionsByTypePanel.tsx | Read-only power cards grouped by action type with 5 sub-tabs: Standard, Minor, Move, Immediate (interrupt + reaction), Free. Powers collected from selectedPowers + level 0 class powers + dilettante + racial powers + feat-granted powers + equipment powers. Encounter/daily powers toggleable (used/available) with circle button, synced to DB. No remove button. (Actions → Available Actions, below weapon cards) |
+| ActionsByTypePanel.tsx | Read-only power cards grouped by action type with 5 sub-tabs: Standard, Minor, Move, Immediate (interrupt + reaction), Free. Powers collected from selectedPowers + level 0 class powers + dilettante + racial powers + feat-granted powers + equipment powers. Encounter/daily powers toggleable (used/available) with circle button, synced to DB. No remove button. Rendered inside a "POWER ACTIONS" header card in `CharacterSheet.tsx` (Actions → Available Actions, below Combat Actions and Second Wind). |
 | AvailableActionsPanel.tsx | PHB p.289 "Actions in Combat" reference table — 7 category tabs: Standard, Move, Minor, Free, Immediate Interrupts, Immediate Reactions, Opportunity (Actions → Actions Descriptions) |
-| StandardActionsPanel.tsx | Second Wind encounter action card with usage toggle circle (Actions → Standard Actions). Shows healing surge value, +2 defense bonus, surges remaining. Dwarf auto-shows "Minor Action" via Dwarven Resilience. `secondWindUsed?: boolean` on Character, reset on short/extended rest. |
-| ProficienciesPanel.tsx | Shows all proficiencies (armor, weapons, shields, implements) sourced from class + feats + MC feat choices (Actions → Proficiencies) |
+| StandardActionsPanel.tsx | Second Wind encounter action card with usage toggle circle. Rendered inline between Combat Actions and Power Actions on the Available Actions tab (no longer has its own sub-tab). Shows healing surge value, +2 defense bonus, surges remaining. Dwarf auto-shows "Minor Action" via Dwarven Resilience. `secondWindUsed?: boolean` on Character, reset on short/extended rest. |
+| ProficienciesPanel.tsx | Shows all proficiencies (armor, weapons, shields, implements) sourced from class + feats + MC feat choices (Features → Proficiencies) |
 | PowersPanel.tsx | At-will / Encounter / Daily tabs with picker modal. Utility powers appear within encounter/daily tabs. Auto-shows wizard cantrip and warlock pact boon (no remove button). Racial powers shown with emerald "Race" badge, ⚡ pin, usage toggle. |
 | ChannelDivinityPanel.tsx | Channel Divinity powers for cleric/paladin; Encounter/At-Will sub-tabs |
 | DisciplinePowersPanel.tsx | Psion discipline powers + Ardent mantle powers + Battlemind psionic study/defense powers; encounter powers per discipline/mantle/study; Battlemind also shows 3 Psionic Defense at-will powers (teal-themed, no Use button); individually tracked; dynamic labels ("Discipline Powers" for psion, "Ardent Powers" for ardent, "Battlemind Powers" for battlemind) |
 | ArcaneImplementMasteryPanel.tsx | Shows all 3 implement options; chosen one highlighted; full encounter power text |
 | EldritchPactPanel.tsx | Shows all 3 pact options; chosen one highlighted amber; pact lore + boon trigger/effect |
-| ClassFeaturesPanel.tsx | All class features for chosen class; enhanced detail for wizard implement + warlock pact choices (Features → Class Features) |
-| RacialFeaturesPanel.tsx | Racial traits with source badges + conditional indicators, racial stat summary, racial power cards, subrace support (Features → Racial Features) |
-| FeatsPanel.tsx | Feats list with picker modal — uses `featsEarnedByLevel()` for correct budget; "Eligible only" toggle (default ON); alphabetical sort |
+| ClassFeaturesPanel.tsx | All class features for chosen class; enhanced detail for wizard implement + warlock pact choices. Wrapped in the standard maroon (amber-800) "CLASS FEATURES" header card with the class name as the subtitle (Features → Class Features). |
+| RacialFeaturesPanel.tsx | Racial traits with source badges + conditional indicators, racial stat summary, racial power cards, subrace support. Wrapped in the standard maroon "RACIAL FEATURES" header card. Racial Summary uses the same card-grid layout as Profile → Appearance: `grid grid-cols-2 gap-2` of `bg-stone-50` cards; single-value rows span 1 column, multi-value rows span both (Features → Racial Features). |
+| FeatsPanel.tsx | Feats list with picker modal — uses `featsEarnedByLevel()` for correct budget; "Eligible only" toggle (default ON); alphabetical sort. Top-level tab (Feats), no longer a sub-tab under Powers. |
 | ParagonPanel.tsx | Paragon Path tab: locked state (< L11), selected path details, alternate paths |
 | EquipmentPanel.tsx | Multi-tab equipment (weapons/implements/armor/magic/consumables/gear) with collapsible sub-groups in picker |
 | CurrencyPanel.tsx | Gold/silver/copper |
 | RitualsPanel.tsx | Ritual scroll shop + ritual book; BuyScrollModal; AddToBookModal; skill check table display |
 | SpellbookPanel.tsx | Wizard multi-spellbook UI (Inventory → Spellbooks tab). Per-book cards with page bar, rename, delete. Prepare/unprepare daily and utility powers. Mastered ritual management. Buy additional books (50 gp). Auto-migrates legacy flat data to `spellbooks[]` on first open. |
-| NotesPanel.tsx | Notes tab uses TipTap `RichTextEditor` (bold, italic, headings, lists, links, tables, etc.); read-only mode renders via `RichTextDisplay`. Profile tab shows appearance/languages/background (background rendered via `RichTextDisplay` for rich HTML). **No Features sub-tab** — class features are in ClassFeaturesPanel. |
+| NotesPanel.tsx | Notes-only panel (Profile content split out to ProfilePanel). Uses TipTap `RichTextEditor` (bold, italic, headings, lists, links, tables, etc.); read-only mode renders via `RichTextDisplay`. Rendered as Features → Notes sub-tab. |
+| ProfilePanel.tsx | Split out of NotesPanel. Shows appearance (gender/age/height/weight/build/eye color/hair color — card grid), selected languages (pill chips), and background (rendered via `RichTextDisplay` for rich HTML). Rendered as Features → Profile sub-tab. |
 | QuickTrayPanel.tsx | Quick Access Powers tray — paginated 3×3 grid of pinned PowerCards below the 3-column layout. Unlimited powers (9 per page with ← → navigation). Remove button per card; encounter/daily toggle synced to DB; psionic augment support. `quickTrayPowerIds: string[]` on Character. ⚡ pin button in PowersPanel and ActionsByTypePanel. Resolves equipment powers (magic armor/weapon) via `equipmentPowerMap` fallback — dynamically-generated power IDs not in static power DB are regenerated from equipped items. |
 | LevelUpModal.tsx | Level-up flow: power gain picker + feat (only on FEAT_LEVELS) + paragon path (L11) + ability scores. Feat picker uses searchable scrollable card list with ℹ expand/collapse for details (not a dropdown). Ability score prerequisites enforced via `derived.finalAbilityScores` + in-progress boosts. |
 
@@ -853,6 +854,17 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Wizard Review step detail panels: Race, class, and build choice (subclass) on `Step10_Review.tsx` are now clickable (dotted underline, 44px touch targets). Clicking opens an inline amber detail panel: Race panel shows size/speed/vision/skill bonuses/traits/racial powers. Class panel shows role/power source/HP/surges/key abilities/armor+weapon proficiencies/implements/level 1 features. Build Choice panel shows all options side-by-side with selected one highlighted. Only one panel open at a time. `BUILD_CHOICE_DESCRIPTIONS` constant maps all 17 class build choices to labels and descriptions. Powers and feats also clickable — powers expand to show action type/range/keywords/target/attack/hit/miss/effect/special/flavor via `PowerDetail` component; feats expand to show benefit text, special notes, and granted powers.
 - [x] Standard Actions tab: New "Standard Actions" sub-tab in Combat tab (`StandardActionsPanel.tsx`). Contains Second Wind encounter action card with red encounter-power header, circle usage toggle (same pattern as encounter powers), healing surge value display, +2 defense bonus, current surges remaining. Dwarf auto-detects Dwarven Resilience and shows "Minor Action" instead of "Standard Action". `secondWindUsed?: boolean` field on Character type, reset on short and extended rest in `SheetHeader.tsx`. Action points now only reset on extended rest (not short rest).
 - [x] Weapon feat damage bonuses in combat actions: `CombatActionsPanel.tsx` `weaponFeatDamageBonus()` function checks character feats and applies weapon-group-specific damage bonuses: Dwarven Weapon Training (+2 axes/hammers), Eladrin Soldier (+2 longswords/spears), Goliath Greatweapon Prowess (+2/+3/+4 by tier for two-handed simple/military melee). Bonus shown in damage total and amber breakdown text with feat source name.
+- [x] Mobile header reorganization: `SheetHeader.tsx` restructured for mobile screens. Previously the right-side control column (Speed, Level, Level Up, Rest, Initiative, Save) had `min-w-[24rem]` which forced the header wider than phone screens and squished body content. Now: top row is just portrait + name + ▼/▲ Info toggle button; info section (race/class/tier, role/size/initiative/vision, player, alignment/deity, XP bar) is collapsible (default expanded) with a single toggle button; action buttons moved to their own `flex-wrap` row below the info section so they wrap across multiple lines on narrow screens. Smaller button sizing (`text-xs`, `px-2.5 py-1`) to fit more per row. Initiative/Save result cards now drop upward (`bottom-full`) instead of downward so they don't overlap the sheet content below the sticky header. Rolling one clears the other's result so the two result boxes never overlap each other on screen.
+- [x] Available Actions tab restructuring: Removed standalone "Standard Actions" sub-tab — Second Wind card (`StandardActionsPanel`) now renders inline on the "Available Actions" tab between Combat Actions and Power Actions. ActionsByTypePanel wrapped in a white card with amber "POWER ACTIONS" header (matching "COMBAT ACTIONS" style) for clearer visual separation between the two power sections.
+- [x] Skills roll result inline: `SkillsPanel.tsx` now renders the roll result card **directly above the rolled skill** instead of at the top of the panel. `SkillRoll` interface gained a `skillId` field; the active-row check switched from name comparison to ID comparison. Much better UX on tablet and phone — the result stays visible next to the skill you tapped, no scroll required. Still auto-dismisses after 4 seconds.
+- [x] Tab reorganization (sheet layout pass):
+  - **Notes top-level tab removed** — Notes moved into Features as a sub-tab.
+  - **Profile split from NotesPanel** into new `ProfilePanel.tsx` and promoted to a Features sub-tab between Racial Features and Notes. `NotesPanel` simplified to just the rich text editor (no internal sub-tabs).
+  - **Proficiencies moved** from Actions → Proficiencies (gone) to Features → Proficiencies (between Racial Features and Profile).
+  - **Feats promoted** from a Powers sub-tab to a top-level tab between Powers and Features. Top-level tab order is now: Actions · Powers · Feats · Features · Paragon · Inventory.
+  - **Powers sub-tab bar hidden when only one sub-tab** — previously showed a redundant "Powers" label for classes without Channel Divinity / Discipline Powers / Implement Mastery / Eldritch Pact. Now the sub-tab bar only renders when `powersTabs.length > 1`.
+  - **Features sub-tab order:** Class Features · Racial Features · Proficiencies · Profile · Notes.
+- [x] Class Features / Racial Features layout consistency: Both panels wrapped in the standard white card + maroon (amber-800) uppercase header (matching Profile, Notes, Skills, Combat Actions, etc.) with a small amber subtitle showing the class/race name. `RacialFeaturesPanel` Racial Summary rebuilt to use the same appearance-style card grid as `ProfilePanel` → Appearance: `grid grid-cols-2 gap-2` of `bg-stone-50 rounded-lg border border-stone-200 px-3 py-2` cards with stone-400 uppercase label + stone-800 value. Single-value rows span 1 column (Size, Speed, Vision, Languages); multi-value rows span both (Ability Bonuses, Skill Bonuses, Defense Bonuses, Initiative Bonus, Extra Healing Surges). Old teal-bordered summary card removed.
 
 ---
 
@@ -1131,37 +1143,47 @@ const cfEncounterPowers = encounterPowers.filter(p => !p.keywords.includes('Chan
 
 ## SheetHeader Layout (src/components/sheet/SheetHeader.tsx)
 
-### Top row (portrait + name + right-side controls)
+Mobile-first layout. Three stacked sections inside the sticky header banner.
+
+### Top row (portrait + name + info toggle)
 ```
-[Portrait]  Character Name                    [🏃 Speed 5 (-1)] [Level 11] [Level Up ↑]
-                                              [Short Rest] [Extended Rest]
-                                              [⚡ Initiative (+8)]  [🎲 Saving Throw]
+[Portrait]  Character Name                                          [▼ Info]
 ```
 - Portrait (64×64) is a button that navigates to the portrait management page
 - Name is click-to-edit inline
-- Right column: speed + level badges, rest buttons, roll buttons — all `items-end` (right-aligned)
-- Speed badge (sky-blue `bg-sky-700`) shows 🏃 icon + speed value + bonus/penalty indicator (green/red) when speed differs from base race speed
-- Initiative and Saving Throw buttons share a `flex justify-between min-w-[24rem]` row
-  so their absolutely-positioned result cards can't overlap
+- Info toggle button expands/collapses the info section. Controlled by `infoExpanded` state (default `true`).
 
-### Info rows (full-width, left-justified below the top row)
+### Info section (collapsible, full-width, left-justified)
+Rendered conditionally when `infoExpanded === true`.
 ```
 Row 1: Elf · Cleric · Paragon Tier · ⭐ Warpriest
 Row 2: [Leader badge]  Size: Medium  Initiative +8  Vision: Low-light
 Row 3: Player: dilbery  Male  Age 35
 Row 4: Alignment: Good  Deity: Ioun  Milestone leveling
+XP progress bar (when levelingMode === 'xp')
 ```
-XP progress bar appears between Row 4 and the tab bar when `levelingMode === 'xp'`.
+
+### Action buttons row (always visible, `flex-wrap`, `mt-3`)
+```
+[🏃 Speed 5 (-1)] [Level 11] [Level Up ↑] [Short Rest] [Extended Rest] [⚡ Initiative (+8)] [🎲 Saving Throw]
+```
+- Uses `flex flex-wrap gap-1.5` so buttons wrap to multiple rows on narrow screens (mobile)
+- Speed badge (sky-blue `bg-sky-700`) shows 🏃 icon + speed value + bonus/penalty indicator (green/red) when speed differs from base race speed
+- All buttons are smaller than before (`text-xs`, `px-2.5 py-1`) to fit more per row on mobile
+- Initiative and Save result cards drop **upward** (`bottom-full mb-1.5`) so they never overlap the sheet content below the header
+- Rolling Initiative clears `saveResult`; rolling Saving Throw clears `initResult` — only one result box shown at a time so they can't overlap each other
+
 The outer header div uses `sticky top-0 z-10` to pin the banner when scrolling.
 
 ---
 
 ## Initiative Roll (src/components/sheet/SheetHeader.tsx)
 
-- Teal "⚡ Initiative (+n)" button — left side of the roll-buttons row
+- Teal "⚡ Initiative (+n)" button in the action buttons row
 - Rolls d20 + `derived.initiative` (DEX mod + half level + magic item bonuses + paragon bonus + feat bonuses)
 - **Always calls `playDiceRollSound(1)`** when clicked
-- Result card: `absolute top-full left-0` (drops left-anchored), teal, w-44
+- Clears `saveResult` on click so the two result boxes never overlap
+- Result card: `absolute bottom-full left-0 mb-1.5` (drops upward, left-anchored), teal, w-44
 - Shows full math: `d20: [roll] + [bonus] (Initiative) = [total]`
 - × button to dismiss
 
@@ -1169,18 +1191,19 @@ The outer header div uses `sticky top-0 z-10` to pin the banner when scrolling.
 
 ## Saving Throw (src/components/sheet/SheetHeader.tsx)
 
-- Rose "🎲 Saving Throw" button — right side of the roll-buttons row
+- Rose "🎲 Saving Throw" button in the action buttons row
 - Rolls d20 + `derived.savingThrowBonus`; 10+ = success
 - **Always calls `playDiceRollSound(1)`** when clicked
-- Result card: `absolute top-full right-0` (drops right-anchored), emerald (success) or stone (fail), w-48
+- Clears `initResult` on click so the two result boxes never overlap
+- Result card: `absolute bottom-full right-0 mb-1.5` (drops upward, right-anchored), emerald (success) or stone (fail), w-48
 - Shows full math: `d20: [roll] + [bonus] ([source]) = [total]`
 - Bonus label sourced from paragon path name (when applicable)
 - Green card for success (✓ Save!), grey card for failure (✗ Failed)
 - × button to dismiss the result card
 - `derived.savingThrowBonus` computed in `useCharacterDerived.ts` from `paragonPath.bonuses.savingThrowBonus` + feat bonuses (e.g. Human Perseverance)
 
-### Why result cards use `position: absolute`
-Both cards use `absolute top-full` so they float out of layout flow — expanding them never stretches the header banner height.
+### Why result cards use `position: absolute` and drop upward
+Both cards use `absolute bottom-full` so they float out of layout flow (never stretching the header height) and drop above the button so they don't overlap the ability scores / tab content below the sticky header.
 
 ---
 

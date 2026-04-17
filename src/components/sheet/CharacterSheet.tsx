@@ -13,6 +13,7 @@ import { FeatsPanel } from './FeatsPanel';
 import { CurrencyPanel } from './CurrencyPanel';
 import { EquipmentPanel } from './EquipmentPanel';
 import { NotesPanel } from './NotesPanel';
+import { ProfilePanel } from './ProfilePanel';
 import { ProficienciesPanel } from './ProficienciesPanel';
 import { ChannelDivinityPanel, CHANNEL_DIVINITY_CLASSES } from './ChannelDivinityPanel';
 import { getFeatById } from '../../data/feats';
@@ -31,7 +32,7 @@ import { RitualsPanel } from './RitualsPanel';
 import { SpellbookPanel } from './SpellbookPanel';
 import { ReadOnlyContext } from './ReadOnlyContext';
 
-type Tab = 'combat' | 'powers' | 'features' | 'paragon' | 'inventory' | 'notes';
+type Tab = 'combat' | 'powers' | 'feats' | 'features' | 'paragon' | 'inventory';
 
 interface Props {
   character: Character;
@@ -43,12 +44,11 @@ export function CharacterSheet({ character, readOnly = false }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('combat');
   const [showDiceRoller, setShowDiceRoller] = useState(false);
 
-  type CombatTab = 'actions' | 'available-actions' | 'proficiencies';
+  type CombatTab = 'actions' | 'available-actions';
   const [combatTab, setCombatTab] = useState<CombatTab>('actions');
   const combatTabs: { key: CombatTab; label: string }[] = [
     { key: 'actions',           label: 'Available Actions'    },
     { key: 'available-actions', label: 'Actions Descriptions' },
-    { key: 'proficiencies',     label: 'Proficiencies'        },
   ];
 
   const hasClassCd = (CHANNEL_DIVINITY_CLASSES as readonly string[]).includes(character.classId);
@@ -63,7 +63,7 @@ export function CharacterSheet({ character, readOnly = false }: Props) {
   const hasDisciplinePowers = (DISCIPLINE_CLASSES as readonly string[]).includes(character.classId);
   const hasArcaneImplementMastery = character.classId === 'wizard';
   const hasEldritchPact = character.classId === 'warlock';
-  type PowersTab = 'powers' | 'channel-divinity' | 'discipline-powers' | 'arcane-implement' | 'eldritch-pact' | 'feats';
+  type PowersTab = 'powers' | 'channel-divinity' | 'discipline-powers' | 'arcane-implement' | 'eldritch-pact';
   const [powersTab, setPowersTab] = useState<PowersTab>('powers');
   const powersTabs: { key: PowersTab; label: string }[] = [
     { key: 'powers',           label: 'Powers'             },
@@ -71,14 +71,16 @@ export function CharacterSheet({ character, readOnly = false }: Props) {
     ...(hasDisciplinePowers       ? [{ key: 'discipline-powers' as PowersTab, label: character.classId === 'ardent' ? 'Ardent Powers' : character.classId === 'battlemind' ? 'Battlemind Powers' : 'Discipline Powers' }] : []),
     ...(hasArcaneImplementMastery ? [{ key: 'arcane-implement'  as PowersTab, label: 'Implement Mastery' }] : []),
     ...(hasEldritchPact           ? [{ key: 'eldritch-pact'    as PowersTab, label: 'Eldritch Pact'     }] : []),
-    { key: 'feats',              label: 'Feats'              },
   ];
 
-  type FeaturesTab = 'class' | 'racial';
+  type FeaturesTab = 'class' | 'racial' | 'proficiencies' | 'profile' | 'notes';
   const [featuresTab, setFeaturesTab] = useState<FeaturesTab>('class');
   const featuresTabs: { key: FeaturesTab; label: string }[] = [
-    { key: 'class',  label: 'Class Features'  },
-    { key: 'racial', label: 'Racial Features' },
+    { key: 'class',         label: 'Class Features'  },
+    { key: 'racial',        label: 'Racial Features' },
+    { key: 'proficiencies', label: 'Proficiencies'   },
+    { key: 'profile',       label: 'Profile'         },
+    { key: 'notes',         label: 'Notes'           },
   ];
 
   type InventoryTab = 'purse' | 'equipment' | 'rituals' | 'spellbooks';
@@ -93,10 +95,10 @@ export function CharacterSheet({ character, readOnly = false }: Props) {
   const tabs: { key: Tab; label: string }[] = [
     { key: 'combat',    label: 'Actions'   },
     { key: 'powers',    label: 'Powers'    },
+    { key: 'feats',     label: 'Feats'     },
     { key: 'features',  label: 'Features'  },
     { key: 'paragon',   label: 'Paragon'   },
     { key: 'inventory', label: 'Inventory' },
-    { key: 'notes',     label: 'Notes'     },
   ];
 
   return (
@@ -186,38 +188,38 @@ export function CharacterSheet({ character, readOnly = false }: Props) {
                   </div>
                 )}
                 {combatTab === 'available-actions' && <AvailableActionsPanel />}
-                {combatTab === 'proficiencies'     && <ProficienciesPanel character={character} />}
               </div>
             </>
           )}
           {activeTab === 'powers' && (
             <>
-              {/* Powers sub-tab bar — pinned */}
-              <div className="bg-white rounded-xl border border-stone-200 flex-shrink-0 overflow-x-auto">
-                <div className="flex min-w-max">
-                  {powersTabs.map(({ key, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => setPowersTab(key)}
-                      className={[
-                        'flex-1 py-3 px-3 text-sm font-semibold transition-colors whitespace-nowrap',
-                        powersTab === key
-                          ? 'border-b-2 border-amber-600 text-amber-700'
-                          : 'text-stone-500 hover:text-stone-700',
-                      ].join(' ')}
-                    >
-                      {label}
-                    </button>
-                  ))}
+              {/* Powers sub-tab bar — only shown when there's more than one sub-tab */}
+              {powersTabs.length > 1 && (
+                <div className="bg-white rounded-xl border border-stone-200 flex-shrink-0 overflow-x-auto">
+                  <div className="flex min-w-max">
+                    {powersTabs.map(({ key, label }) => (
+                      <button
+                        key={key}
+                        onClick={() => setPowersTab(key)}
+                        className={[
+                          'flex-1 py-3 px-3 text-sm font-semibold transition-colors whitespace-nowrap',
+                          powersTab === key
+                            ? 'border-b-2 border-amber-600 text-amber-700'
+                            : 'text-stone-500 hover:text-stone-700',
+                        ].join(' ')}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="flex-1 min-h-0 overflow-y-auto">
                 {powersTab === 'powers'            && <PowersPanel character={character} />}
                 {powersTab === 'channel-divinity'  && <ChannelDivinityPanel character={character} />}
                 {powersTab === 'discipline-powers' && <DisciplinePowersPanel character={character} />}
                 {powersTab === 'arcane-implement'  && <ArcaneImplementMasteryPanel character={character} />}
                 {powersTab === 'eldritch-pact'   && <EldritchPactPanel character={character} />}
-                {powersTab === 'feats'            && <FeatsPanel character={character} />}
               </div>
             </>
           )}
@@ -243,10 +245,18 @@ export function CharacterSheet({ character, readOnly = false }: Props) {
                 </div>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto">
-                {featuresTab === 'class'  && <ClassFeaturesPanel character={character} />}
-                {featuresTab === 'racial' && <RacialFeaturesPanel character={character} />}
+                {featuresTab === 'class'         && <ClassFeaturesPanel character={character} />}
+                {featuresTab === 'racial'        && <RacialFeaturesPanel character={character} />}
+                {featuresTab === 'proficiencies' && <ProficienciesPanel character={character} />}
+                {featuresTab === 'profile'       && <ProfilePanel character={character} />}
+                {featuresTab === 'notes'         && <NotesPanel character={character} />}
               </div>
             </>
+          )}
+          {activeTab === 'feats' && (
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <FeatsPanel character={character} />
+            </div>
           )}
           {activeTab === 'paragon' && (
             <div className="flex-1 min-h-0 overflow-y-auto">
@@ -282,12 +292,6 @@ export function CharacterSheet({ character, readOnly = false }: Props) {
               </div>
             </>
           )}
-          {activeTab === 'notes' && (
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <NotesPanel character={character} />
-            </div>
-          )}
-
         </div>{/* end absolute inner */}
         </div>{/* end Column 3 */}
       </div>

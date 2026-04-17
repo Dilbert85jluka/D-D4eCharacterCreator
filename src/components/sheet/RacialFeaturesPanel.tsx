@@ -93,7 +93,14 @@ function RacialPowerCard({ powerId }: { powerId: string }) {
 
 export function RacialFeaturesPanel({ character }: Props) {
   const race = getRaceById(character.raceId);
-  if (!race) return <p className="p-4 text-stone-400 italic">No race selected.</p>;
+  if (!race) return (
+    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+      <div className="bg-amber-800 px-4 py-2">
+        <h3 className="text-white font-bold text-sm uppercase tracking-wide">Racial Features</h3>
+      </div>
+      <p className="p-4 text-stone-400 italic">No race selected.</p>
+    </div>
+  );
 
   const subrace = race.subraces?.find(sr => sr.id === character.subraceId);
 
@@ -123,87 +130,89 @@ export function RacialFeaturesPanel({ character }: Props) {
   // Collect all racial power IDs
   const racialPowerIds = [...race.racialPowerIds, ...(subrace?.racialPowerIds ?? [])];
 
-  return (
-    <div className="p-4 space-y-3">
-      <p className="text-xs text-stone-500 italic">
-        Racial features granted by the {subrace ? subrace.name : race.name} race.
-      </p>
+  // Racial summary rows — each renders as an appearance-style card.
+  // Single-value rows use span 1; multi-value rows span both columns.
+  const summaryRows: { label: string; value: string; span?: 2 }[] = [
+    { label: 'Size',      value: race.size },
+    { label: 'Speed',     value: `${race.speed} squares` },
+    { label: 'Vision',    value: race.vision },
+    { label: 'Languages', value: race.languages.join(', ') },
+  ];
+  if (abilityParts.length > 0) {
+    summaryRows.push({ label: 'Ability Bonuses', value: abilityParts.join(', '), span: 2 });
+  }
+  if (skillParts.length > 0) {
+    summaryRows.push({ label: 'Skill Bonuses', value: skillParts.join(', '), span: 2 });
+  }
+  if (race.fortitudeBonus || race.reflexBonus || race.willBonus) {
+    const parts = [
+      race.fortitudeBonus ? `+${race.fortitudeBonus} Fort` : '',
+      race.reflexBonus    ? `+${race.reflexBonus} Ref`     : '',
+      race.willBonus      ? `+${race.willBonus} Will`      : '',
+    ].filter(Boolean).join(', ');
+    summaryRows.push({ label: 'Defense Bonuses', value: parts, span: 2 });
+  }
+  if (race.initiativeBonus) {
+    summaryRows.push({ label: 'Initiative Bonus', value: `+${race.initiativeBonus}`, span: 2 });
+  }
+  if (race.surgesPerDayBonus) {
+    summaryRows.push({ label: 'Extra Healing Surges', value: `+${race.surgesPerDayBonus}`, span: 2 });
+  }
 
-      {/* Summary card */}
-      <div className="rounded-xl border border-teal-200 bg-teal-50/50 p-4">
-        <h3 className="text-xs font-bold text-teal-800 uppercase tracking-wide mb-2">
-          Racial Summary
-        </h3>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-stone-700">
-          <div><span className="font-semibold text-stone-500">Size:</span> {race.size}</div>
-          <div><span className="font-semibold text-stone-500">Speed:</span> {race.speed} squares</div>
-          <div><span className="font-semibold text-stone-500">Vision:</span> {race.vision}</div>
-          <div><span className="font-semibold text-stone-500">Languages:</span> {race.languages.join(', ')}</div>
-          {abilityParts.length > 0 && (
-            <div className="col-span-2">
-              <span className="font-semibold text-stone-500">Ability Bonuses:</span> {abilityParts.join(', ')}
-            </div>
-          )}
-          {skillParts.length > 0 && (
-            <div className="col-span-2">
-              <span className="font-semibold text-stone-500">Skill Bonuses:</span> {skillParts.join(', ')}
-            </div>
-          )}
-          {(race.fortitudeBonus || race.reflexBonus || race.willBonus) && (
-            <div className="col-span-2">
-              <span className="font-semibold text-stone-500">Defense Bonuses:</span>{' '}
-              {[
-                race.fortitudeBonus ? `+${race.fortitudeBonus} Fort` : '',
-                race.reflexBonus ? `+${race.reflexBonus} Ref` : '',
-                race.willBonus ? `+${race.willBonus} Will` : '',
-              ].filter(Boolean).join(', ')}
-            </div>
-          )}
-          {race.initiativeBonus && (
-            <div className="col-span-2">
-              <span className="font-semibold text-stone-500">Initiative Bonus:</span> +{race.initiativeBonus}
-            </div>
-          )}
-          {race.surgesPerDayBonus && (
-            <div className="col-span-2">
-              <span className="font-semibold text-stone-500">Extra Healing Surges:</span> +{race.surgesPerDayBonus}
-            </div>
-          )}
-        </div>
+  return (
+    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+      <div className="bg-amber-800 px-4 py-2">
+        <h3 className="text-white font-bold text-sm uppercase tracking-wide">Racial Features</h3>
+        <p className="text-amber-300 text-xs mt-0.5">Granted by the {subrace ? subrace.name : race.name} race</p>
       </div>
 
-      {/* Race traits */}
-      {raceTraits.map((trait) => (
-        <TraitCard key={trait.name} trait={trait} />
-      ))}
-
-      {/* Subrace section */}
-      {subrace && subraceTraits.length > 0 && (
-        <>
-          <div className="pt-2">
-            <p className="text-xs font-bold text-stone-500 uppercase tracking-wide">
-              {subrace.name} Traits
-            </p>
+      <div className="p-4 space-y-4">
+        {/* Racial Summary — same card grid layout as Profile → Appearance */}
+        <div>
+          <p className="text-xs font-bold text-stone-400 uppercase tracking-wide mb-2">Racial Summary</p>
+          <div className="grid grid-cols-2 gap-2">
+            {summaryRows.map(({ label, value, span }) => (
+              <div
+                key={label}
+                className={`bg-stone-50 rounded-lg border border-stone-200 px-3 py-2 ${span === 2 ? 'col-span-2' : ''}`}
+              >
+                <p className="text-xs text-stone-400 font-semibold">{label}</p>
+                <p className="text-sm text-stone-800 font-medium">{value}</p>
+              </div>
+            ))}
           </div>
-          {subraceTraits.map((trait) => (
-            <TraitCard key={trait.name} trait={trait} />
-          ))}
-        </>
-      )}
+        </div>
 
-      {/* Racial Powers */}
-      {racialPowerIds.length > 0 && (
-        <>
-          <div className="pt-2">
-            <p className="text-xs font-bold text-stone-500 uppercase tracking-wide">
-              Racial Powers
-            </p>
+        {/* Race traits */}
+        {raceTraits.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-xs font-bold text-stone-400 uppercase tracking-wide">Racial Traits</p>
+            {raceTraits.map((trait) => (
+              <TraitCard key={trait.name} trait={trait} />
+            ))}
           </div>
-          {racialPowerIds.map((pid) => (
-            <RacialPowerCard key={pid} powerId={pid} />
-          ))}
-        </>
-      )}
+        )}
+
+        {/* Subrace traits */}
+        {subrace && subraceTraits.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-xs font-bold text-stone-400 uppercase tracking-wide">{subrace.name} Traits</p>
+            {subraceTraits.map((trait) => (
+              <TraitCard key={trait.name} trait={trait} />
+            ))}
+          </div>
+        )}
+
+        {/* Racial Powers */}
+        {racialPowerIds.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-xs font-bold text-stone-400 uppercase tracking-wide">Racial Powers</p>
+            {racialPowerIds.map((pid) => (
+              <RacialPowerCard key={pid} powerId={pid} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

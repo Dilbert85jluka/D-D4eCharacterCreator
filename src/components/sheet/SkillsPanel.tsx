@@ -12,6 +12,7 @@ interface Props {
 }
 
 interface SkillRoll {
+  skillId: string;
   skillName: string;
   roll: number;
   bonus: number;
@@ -50,7 +51,7 @@ export function SkillsPanel({ character, derived }: Props) {
     const bonus = breakdown?.total ?? derived.skillBonuses[skill.id] ?? 0;
     const roll = Math.floor(Math.random() * 20) + 1;
     playDiceRollSound(1);
-    setLastRoll({ skillName: skill.name, roll, bonus, total: roll + bonus });
+    setLastRoll({ skillId: skill.id, skillName: skill.name, roll, bonus, total: roll + bonus });
   };
 
   return (
@@ -58,58 +59,6 @@ export function SkillsPanel({ character, derived }: Props) {
       <div className="bg-amber-800 px-4 py-2 flex-shrink-0">
         <h3 className="text-white font-bold text-sm uppercase tracking-wide">Skills</h3>
       </div>
-
-      {/* Roll result card */}
-      {lastRoll && (
-        <div className="mx-2 mt-2 mb-1 flex-shrink-0 bg-amber-50 border border-amber-200 rounded-xl p-3 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">
-              {lastRoll.skillName} Check
-            </span>
-            <button
-              onClick={() => setLastRoll(null)}
-              className="text-amber-400 hover:text-amber-700 text-lg leading-none w-6 h-6 flex items-center justify-center rounded transition-colors"
-              aria-label="Dismiss roll result"
-            >
-              ×
-            </button>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* d20 result chip */}
-            <span className="flex flex-col items-center bg-amber-100 border border-amber-300 rounded-lg px-2.5 py-1 min-w-[44px]">
-              <span className="text-xs text-amber-600 font-semibold leading-none mb-0.5">d20</span>
-              <span className="text-xl font-black text-amber-900 leading-none">{lastRoll.roll}</span>
-            </span>
-
-            <span className="text-stone-400 font-bold text-lg">+</span>
-
-            {/* Bonus chip */}
-            <span className="flex flex-col items-center bg-stone-100 border border-stone-300 rounded-lg px-2.5 py-1 min-w-[44px]">
-              <span className="text-xs text-stone-500 font-semibold leading-none mb-0.5">bonus</span>
-              <span className="text-xl font-black text-stone-700 leading-none">{lastRoll.bonus}</span>
-            </span>
-
-            <span className="text-stone-400 font-bold text-lg">=</span>
-
-            {/* Total */}
-            <span className={`text-3xl font-black leading-none ${lastRoll.total >= 20 ? 'text-emerald-600' : lastRoll.roll === 1 ? 'text-red-600' : 'text-amber-700'}`}>
-              {lastRoll.total}
-            </span>
-
-            {/* Natural 20 / Natural 1 label */}
-            {lastRoll.roll === 20 && (
-              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
-                Nat 20!
-              </span>
-            )}
-            {lastRoll.roll === 1 && (
-              <span className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">
-                Nat 1
-              </span>
-            )}
-          </div>
-        </div>
-      )}
 
       <div className="divide-y divide-stone-50 flex-1 overflow-y-auto">
         {SKILLS.map((skill) => {
@@ -132,42 +81,86 @@ export function SkillsPanel({ character, derived }: Props) {
             ? 'text-emerald-700'
             : 'text-red-500';
 
-          const isActiveRoll = lastRoll?.skillName === skill.name;
+          const isActiveRoll = lastRoll?.skillId === skill.id;
 
           return (
-            <div
-              key={skill.id}
-              title={breakdown ? buildTooltip(skill, breakdown) : `${skill.name} — click to roll`}
-              onClick={() => handleSkillClick(skill)}
-              className={[
-                'flex items-center px-3 py-2.5 cursor-pointer select-none transition-colors',
-                isActiveRoll
-                  ? 'bg-amber-100'
-                  : isTrained
-                  ? 'bg-amber-50 hover:bg-amber-100'
-                  : 'hover:bg-stone-50',
-              ].join(' ')}
-            >
-              {/* Trained dot */}
+            <div key={skill.id}>
+              {/* Inline roll result — renders above the rolled skill */}
+              {isActiveRoll && lastRoll && (
+                <div className="mx-2 mt-2 mb-1 bg-amber-50 border border-amber-200 rounded-xl p-3 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">
+                      {lastRoll.skillName} Check
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setLastRoll(null); }}
+                      className="text-amber-400 hover:text-amber-700 text-lg leading-none w-6 h-6 flex items-center justify-center rounded transition-colors"
+                      aria-label="Dismiss roll result"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="flex flex-col items-center bg-amber-100 border border-amber-300 rounded-lg px-2.5 py-1 min-w-[44px]">
+                      <span className="text-xs text-amber-600 font-semibold leading-none mb-0.5">d20</span>
+                      <span className="text-xl font-black text-amber-900 leading-none">{lastRoll.roll}</span>
+                    </span>
+                    <span className="text-stone-400 font-bold text-lg">+</span>
+                    <span className="flex flex-col items-center bg-stone-100 border border-stone-300 rounded-lg px-2.5 py-1 min-w-[44px]">
+                      <span className="text-xs text-stone-500 font-semibold leading-none mb-0.5">bonus</span>
+                      <span className="text-xl font-black text-stone-700 leading-none">{lastRoll.bonus}</span>
+                    </span>
+                    <span className="text-stone-400 font-bold text-lg">=</span>
+                    <span className={`text-3xl font-black leading-none ${lastRoll.total >= 20 ? 'text-emerald-600' : lastRoll.roll === 1 ? 'text-red-600' : 'text-amber-700'}`}>
+                      {lastRoll.total}
+                    </span>
+                    {lastRoll.roll === 20 && (
+                      <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                        Nat 20!
+                      </span>
+                    )}
+                    {lastRoll.roll === 1 && (
+                      <span className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">
+                        Nat 1
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div
-                className="w-3 h-3 rounded-full mr-2.5 flex-shrink-0"
-                style={dotStyle}
-              />
+                title={breakdown ? buildTooltip(skill, breakdown) : `${skill.name} — click to roll`}
+                onClick={() => handleSkillClick(skill)}
+                className={[
+                  'flex items-center px-3 py-2.5 cursor-pointer select-none transition-colors',
+                  isActiveRoll
+                    ? 'bg-amber-100'
+                    : isTrained
+                    ? 'bg-amber-50 hover:bg-amber-100'
+                    : 'hover:bg-stone-50',
+                ].join(' ')}
+              >
+                {/* Trained dot */}
+                <div
+                  className="w-3 h-3 rounded-full mr-2.5 flex-shrink-0"
+                  style={dotStyle}
+                />
 
-              {/* Skill name */}
-              <span className={`flex-1 text-base ${isTrained ? 'font-semibold text-stone-800' : 'text-stone-600'}`}>
-                {skill.name}
-              </span>
+                {/* Skill name */}
+                <span className={`flex-1 text-base ${isTrained ? 'font-semibold text-stone-800' : 'text-stone-600'}`}>
+                  {skill.name}
+                </span>
 
-              {/* Key ability */}
-              <span className="text-base text-stone-400 mr-3">
-                {ABILITY_ABBR[skill.keyAbility as Ability]}
-              </span>
+                {/* Key ability */}
+                <span className="text-base text-stone-400 mr-3">
+                  {ABILITY_ABBR[skill.keyAbility as Ability]}
+                </span>
 
-              {/* Bonus */}
-              <span className={`text-base font-bold min-w-[36px] text-right ${bonusClass}`}>
-                {formatModifier(bonus)}
-              </span>
+                {/* Bonus */}
+                <span className={`text-base font-bold min-w-[36px] text-right ${bonusClass}`}>
+                  {formatModifier(bonus)}
+                </span>
+              </div>
             </div>
           );
         })}
