@@ -43,11 +43,10 @@ export function CharacterSheet({ character, readOnly = false }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('combat');
   const [showDiceRoller, setShowDiceRoller] = useState(false);
 
-  type CombatTab = 'actions' | 'standard-actions' | 'available-actions' | 'proficiencies';
+  type CombatTab = 'actions' | 'available-actions' | 'proficiencies';
   const [combatTab, setCombatTab] = useState<CombatTab>('actions');
   const combatTabs: { key: CombatTab; label: string }[] = [
     { key: 'actions',           label: 'Available Actions'    },
-    { key: 'standard-actions',  label: 'Standard Actions'     },
     { key: 'available-actions', label: 'Actions Descriptions' },
     { key: 'proficiencies',     label: 'Proficiencies'        },
   ];
@@ -174,10 +173,18 @@ export function CharacterSheet({ character, readOnly = false }: Props) {
                 {combatTab === 'actions'            && (
                   <div className="space-y-3">
                     <CombatActionsPanel character={character} derived={derived} />
-                    <ActionsByTypePanel character={character} />
+                    <StandardActionsPanel character={character} derived={derived} />
+                    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+                      <div className="bg-amber-800 px-4 py-2">
+                        <h3 className="text-white font-bold text-sm uppercase tracking-wide">Power Actions</h3>
+                        <p className="text-amber-300 text-xs mt-0.5">Your powers grouped by action type</p>
+                      </div>
+                      <div className="p-3">
+                        <ActionsByTypePanel character={character} />
+                      </div>
+                    </div>
                   </div>
                 )}
-                {combatTab === 'standard-actions'  && <StandardActionsPanel character={character} derived={derived} />}
                 {combatTab === 'available-actions' && <AvailableActionsPanel />}
                 {combatTab === 'proficiencies'     && <ProficienciesPanel character={character} />}
               </div>

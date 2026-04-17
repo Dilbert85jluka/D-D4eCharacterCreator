@@ -48,6 +48,9 @@ export function SheetHeader({ character, derived }: Props) {
   // Rest confirmation modal
   const [restModal, setRestModal] = useState<'short' | 'extended' | null>(null);
 
+  // Collapsible info section (race, role, player, alignment/deity) — default expanded; user can collapse to save vertical space on mobile
+  const [infoExpanded, setInfoExpanded] = useState(true);
+
   // Saving throw result — null = not yet rolled, object = last roll
   const [saveResult, setSaveResult] = useState<{
     roll: number;
@@ -63,6 +66,7 @@ export function SheetHeader({ character, derived }: Props) {
     const bonus = derived.savingThrowBonus;
     const total = roll + bonus;
     const bonusLabel = bonus !== 0 && paragonPath ? paragonPath.name : '';
+    setInitResult(null);  // clear initiative result so the two don't overlap
     setSaveResult({ roll, bonus, bonusLabel, total, success: total >= 10 });
   };
 
@@ -78,6 +82,7 @@ export function SheetHeader({ character, derived }: Props) {
     const roll  = Math.floor(Math.random() * 20) + 1;
     const bonus = derived.initiative;   // DEX mod + half level + magic + paragon
     const total = roll + bonus;
+    setSaveResult(null);  // clear saving throw result so the two don't overlap
     setInitResult({ roll, bonus, total });
   };
 
@@ -180,7 +185,7 @@ export function SheetHeader({ character, derived }: Props) {
                 : rolePlaceholder}
             </button>
 
-            {/* Name (left) + level / rest / roll buttons (right) */}
+            {/* Name (left) + collapse toggle (right) */}
             <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
               {isEditingName ? (
                 <input
@@ -206,214 +211,220 @@ export function SheetHeader({ character, derived }: Props) {
                 </h1>
               )}
 
-              {/* Right column: level badge, rest buttons, initiative + saving throw */}
-              <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                {/* Speed badge + Level badge + Level Up */}
-                <div className="flex items-center gap-2">
-                  <div className="bg-sky-700 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5">
-                    <span className="text-sky-200 text-xs">🏃</span>
-                    <span>Speed {derived.speed}</span>
-                    {(() => {
-                      const baseSpeed = race?.speed ?? 6;
-                      const bonus = derived.speed - baseSpeed;
-                      if (bonus !== 0) return (
-                        <span className={`text-xs font-semibold ${bonus > 0 ? 'text-emerald-300' : 'text-red-300'}`}>
-                          ({bonus > 0 ? '+' : ''}{bonus})
-                        </span>
-                      );
-                      return null;
-                    })()}
-                  </div>
-                  <div className="bg-amber-600 px-3 py-1.5 rounded-lg text-sm font-bold">
-                    Level {character.level}
-                  </div>
-                  {!readOnly && character.level < 30 && (
-                    <button
-                      onClick={() => setShowLevelUp(true)}
-                      className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors"
-                      title="Level Up"
-                    >
-                      Level Up ↑
-                    </button>
-                  )}
-                </div>
-                {/* Rest buttons */}
-                {!readOnly && (
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => setRestModal('short')}
-                    className="bg-blue-700 hover:bg-blue-600 active:bg-blue-800 px-2.5 py-1 rounded-lg text-xs font-semibold text-white transition-colors"
-                    title="Short Rest"
-                  >
-                    Short Rest
-                  </button>
-                  <button
-                    onClick={() => setRestModal('extended')}
-                    className="bg-indigo-700 hover:bg-indigo-600 active:bg-indigo-800 px-2.5 py-1 rounded-lg text-xs font-semibold text-white transition-colors"
-                    title="Extended Rest"
-                  >
-                    Extended Rest
-                  </button>
-                </div>
-                )}
-
-                {/* Initiative + Saving Throw — spread apart so result cards don't overlap */}
-                <div className="flex items-center justify-between min-w-[24rem]">
-
-                  {/* Initiative — left side, result drops left-anchored */}
-                  <div className="relative">
-                    <button
-                      onClick={handleInitiativeRoll}
-                      className="bg-teal-700 hover:bg-teal-600 active:bg-teal-800 px-2.5 py-1 rounded-lg text-xs font-semibold text-white transition-colors"
-                      title={`d20 ${derived.initiative >= 0 ? '+' : ''}${derived.initiative} initiative`}
-                    >
-                      ⚡ Initiative ({derived.initiative >= 0 ? `+${derived.initiative}` : derived.initiative})
-                    </button>
-
-                    {initResult && (
-                      <div className="absolute top-full left-0 mt-1.5 z-20 w-44 rounded-lg px-2.5 py-2 text-xs text-white shadow-lg bg-teal-800">
-                        <div className="flex items-baseline gap-1 flex-wrap leading-snug">
-                          <span className="opacity-75">d20:</span>
-                          <span className="font-bold text-sm">{initResult.roll}</span>
-                          {initResult.bonus !== 0 && (
-                            <>
-                              <span className="opacity-60">{initResult.bonus >= 0 ? '+' : '−'}</span>
-                              <span className="font-semibold">{Math.abs(initResult.bonus)}</span>
-                              <span className="opacity-70">(Initiative)</span>
-                            </>
-                          )}
-                          <span className="opacity-60">=</span>
-                          <span className="font-black text-base">{initResult.total}</span>
-                        </div>
-                        <div className="flex justify-end mt-1">
-                          <button
-                            onClick={() => setInitResult(null)}
-                            className="opacity-60 hover:opacity-100 transition-opacity text-sm leading-none"
-                            aria-label="Dismiss initiative result"
-                          >×</button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Saving Throw — right side, result drops right-anchored */}
-                  <div className="relative">
-                    <button
-                      onClick={handleSavingThrow}
-                      className="bg-rose-700 hover:bg-rose-600 active:bg-rose-800 px-2.5 py-1 rounded-lg text-xs font-semibold text-white transition-colors"
-                      title={derived.savingThrowBonus !== 0 ? `d20 + ${derived.savingThrowBonus} vs 10` : 'd20 vs 10'}
-                    >
-                      🎲 Saving Throw
-                      {derived.savingThrowBonus !== 0 && (
-                        <span className="ml-1 opacity-80 font-normal">
-                          ({derived.savingThrowBonus > 0 ? `+${derived.savingThrowBonus}` : derived.savingThrowBonus})
-                        </span>
-                      )}
-                    </button>
-
-                    {saveResult && (
-                      <div className={[
-                        'absolute top-full right-0 mt-1.5 z-20 w-48 rounded-lg px-2.5 py-2 text-xs text-white shadow-lg',
-                        saveResult.success ? 'bg-emerald-700' : 'bg-stone-700',
-                      ].join(' ')}>
-                        <div className="flex items-baseline gap-1 flex-wrap leading-snug">
-                          <span className="opacity-75">d20:</span>
-                          <span className="font-bold text-sm">{saveResult.roll}</span>
-                          {saveResult.bonus !== 0 && (
-                            <>
-                              <span className="opacity-60">+</span>
-                              <span className="font-semibold">{saveResult.bonus}</span>
-                              {saveResult.bonusLabel && (
-                                <span className="opacity-70">({saveResult.bonusLabel})</span>
-                              )}
-                            </>
-                          )}
-                          <span className="opacity-60">=</span>
-                          <span className="font-black text-base">{saveResult.total}</span>
-                        </div>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="font-bold tracking-wide">
-                            {saveResult.success ? '✓ Save!' : '✗ Failed'}
-                            <span className="font-normal opacity-70 ml-1">(need 10+)</span>
-                          </span>
-                          <button
-                            onClick={() => setSaveResult(null)}
-                            className="opacity-60 hover:opacity-100 transition-opacity text-sm leading-none ml-2"
-                            aria-label="Dismiss result"
-                          >×</button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                </div>
-              </div>
+              {/* Collapse toggle for info rows */}
+              <button
+                onClick={() => setInfoExpanded((v) => !v)}
+                className="flex-shrink-0 text-amber-300 hover:text-white active:text-amber-200 text-xs font-semibold px-2 py-1 rounded-lg border border-amber-800 hover:bg-amber-900 transition-colors min-h-[32px]"
+                title={infoExpanded ? 'Hide character info' : 'Show character info'}
+                aria-label={infoExpanded ? 'Hide character info' : 'Show character info'}
+              >
+                {infoExpanded ? '▲ Info' : '▼ Info'}
+              </button>
             </div>
           </div>
 
-          {/* ── Info rows — full-width, left-justified ── */}
+          {/* ── Info rows — collapsible, full-width, left-justified ── */}
+          {infoExpanded && (
+            <div className="mt-2">
+              {/* Race · Class · Tier [· Paragon Path] */}
+              <p className="text-amber-200 text-sm">
+                {race?.name} · {cls?.name}{secondaryCls && (
+                  <span className="text-indigo-300"> / {secondaryCls.name} <span className="text-xs opacity-75">(MC)</span></span>
+                )} · {getTier(character.level)} Tier{paragonPath && (
+                  <span className="text-amber-400"> · ⭐ {paragonPath.name}</span>
+                )}
+              </p>
 
-          {/* Race · Class · Tier [· Paragon Path] */}
-          <p className="text-amber-200 text-sm mt-1">
-            {race?.name} · {cls?.name}{secondaryCls && (
-              <span className="text-indigo-300"> / {secondaryCls.name} <span className="text-xs opacity-75">(MC)</span></span>
-            )} · {getTier(character.level)} Tier{paragonPath && (
-              <span className="text-amber-400"> · ⭐ {paragonPath.name}</span>
-            )}
-          </p>
-
-          {/* Row 2 — Role badge, size, initiative, vision */}
-          <div className="flex flex-wrap items-center gap-3 mt-1">
-            {cls && <RoleBadge role={cls.role} />}
-            {race && <span className="text-xs text-amber-300">Size: {race.size}</span>}
-            <span className="text-xs text-amber-300">
-              Initiative {derived.initiative >= 0 ? `+${derived.initiative}` : derived.initiative}
-            </span>
-            {race && <span className="text-xs text-amber-300">Vision: {race.vision}</span>}
-          </div>
-
-          {/* Row 3 — Player identity */}
-          <div className="flex flex-wrap gap-3 mt-1 text-xs text-amber-300">
-            {character.playerName && <span>Player: {character.playerName}</span>}
-            {character.gender && <span>{character.gender}</span>}
-            {character.age && <span>Age {character.age}</span>}
-          </div>
-
-          {/* Row 4 — Alignment / Deity / Leveling */}
-          <div className="flex flex-wrap gap-3 mt-0.5 text-xs text-amber-300">
-            {character.alignment && <span>Alignment: {character.alignment}</span>}
-            {character.deity && <span>Deity: {character.deity}</span>}
-            {character.levelingMode === 'xp' ? (
-              <span className="flex items-center gap-1">
-                <span>
-                  XP: {character.xp.toLocaleString()}
-                  {character.level < 30 && ` / ${xpForNextLevel(character.level)!.toLocaleString()}`}
+              {/* Row 2 — Role badge, size, initiative, vision */}
+              <div className="flex flex-wrap items-center gap-3 mt-1">
+                {cls && <RoleBadge role={cls.role} />}
+                {race && <span className="text-xs text-amber-300">Size: {race.size}</span>}
+                <span className="text-xs text-amber-300">
+                  Initiative {derived.initiative >= 0 ? `+${derived.initiative}` : derived.initiative}
                 </span>
-                <button
-                  onClick={() => { setXpInput(''); setXpModal('add'); }}
-                  className="text-amber-400 hover:text-white font-bold text-sm leading-none w-5 h-5 flex items-center justify-center transition-colors"
-                  title="Award XP"
-                >+</button>
-                <button
-                  onClick={() => { setXpInput(''); setXpModal('sub'); }}
-                  className="text-amber-400 hover:text-white font-bold text-sm leading-none w-5 h-5 flex items-center justify-center transition-colors"
-                  title="Subtract XP"
-                >−</button>
-              </span>
-            ) : (
-              <span className="text-amber-400">Milestone leveling</span>
-            )}
-          </div>
+                {race && <span className="text-xs text-amber-300">Vision: {race.vision}</span>}
+              </div>
 
-          {/* XP progress bar */}
-          {character.levelingMode === 'xp' && character.level < 30 && (
-            <div className="mt-1.5 h-1.5 bg-amber-900 rounded-full overflow-hidden w-full max-w-xs">
-              <div
-                className="h-full bg-amber-400 rounded-full transition-all"
-                style={{ width: `${xpProgress(character.xp, character.level)}%` }}
-              />
+              {/* Row 3 — Player identity */}
+              <div className="flex flex-wrap gap-3 mt-1 text-xs text-amber-300">
+                {character.playerName && <span>Player: {character.playerName}</span>}
+                {character.gender && <span>{character.gender}</span>}
+                {character.age && <span>Age {character.age}</span>}
+              </div>
+
+              {/* Row 4 — Alignment / Deity / Leveling */}
+              <div className="flex flex-wrap gap-3 mt-0.5 text-xs text-amber-300">
+                {character.alignment && <span>Alignment: {character.alignment}</span>}
+                {character.deity && <span>Deity: {character.deity}</span>}
+                {character.levelingMode === 'xp' ? (
+                  <span className="flex items-center gap-1">
+                    <span>
+                      XP: {character.xp.toLocaleString()}
+                      {character.level < 30 && ` / ${xpForNextLevel(character.level)!.toLocaleString()}`}
+                    </span>
+                    <button
+                      onClick={() => { setXpInput(''); setXpModal('add'); }}
+                      className="text-amber-400 hover:text-white font-bold text-sm leading-none w-5 h-5 flex items-center justify-center transition-colors"
+                      title="Award XP"
+                    >+</button>
+                    <button
+                      onClick={() => { setXpInput(''); setXpModal('sub'); }}
+                      className="text-amber-400 hover:text-white font-bold text-sm leading-none w-5 h-5 flex items-center justify-center transition-colors"
+                      title="Subtract XP"
+                    >−</button>
+                  </span>
+                ) : (
+                  <span className="text-amber-400">Milestone leveling</span>
+                )}
+              </div>
+
+              {/* XP progress bar */}
+              {character.levelingMode === 'xp' && character.level < 30 && (
+                <div className="mt-1.5 h-1.5 bg-amber-900 rounded-full overflow-hidden w-full max-w-xs">
+                  <div
+                    className="h-full bg-amber-400 rounded-full transition-all"
+                    style={{ width: `${xpProgress(character.xp, character.level)}%` }}
+                  />
+                </div>
+              )}
             </div>
           )}
+
+          {/* ── Action buttons row — always visible, wraps on narrow screens ── */}
+          <div className="flex flex-wrap items-center gap-1.5 mt-3">
+            {/* Speed badge */}
+            <div className="bg-sky-700 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
+              <span className="text-sky-200">🏃</span>
+              <span>Speed {derived.speed}</span>
+              {(() => {
+                const baseSpeed = race?.speed ?? 6;
+                const bonus = derived.speed - baseSpeed;
+                if (bonus !== 0) return (
+                  <span className={`text-[10px] font-semibold ${bonus > 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                    ({bonus > 0 ? '+' : ''}{bonus})
+                  </span>
+                );
+                return null;
+              })()}
+            </div>
+            {/* Level badge */}
+            <div className="bg-amber-600 px-2.5 py-1 rounded-lg text-xs font-bold">
+              Level {character.level}
+            </div>
+            {/* Level Up */}
+            {!readOnly && character.level < 30 && (
+              <button
+                onClick={() => setShowLevelUp(true)}
+                className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors"
+                title="Level Up"
+              >
+                Level Up ↑
+              </button>
+            )}
+            {/* Rest buttons */}
+            {!readOnly && (
+              <>
+                <button
+                  onClick={() => setRestModal('short')}
+                  className="bg-blue-700 hover:bg-blue-600 active:bg-blue-800 px-2.5 py-1 rounded-lg text-xs font-semibold text-white transition-colors"
+                  title="Short Rest"
+                >
+                  Short Rest
+                </button>
+                <button
+                  onClick={() => setRestModal('extended')}
+                  className="bg-indigo-700 hover:bg-indigo-600 active:bg-indigo-800 px-2.5 py-1 rounded-lg text-xs font-semibold text-white transition-colors"
+                  title="Extended Rest"
+                >
+                  Extended Rest
+                </button>
+              </>
+            )}
+            {/* Initiative */}
+            <div className="relative">
+              <button
+                onClick={handleInitiativeRoll}
+                className="bg-teal-700 hover:bg-teal-600 active:bg-teal-800 px-2.5 py-1 rounded-lg text-xs font-semibold text-white transition-colors"
+                title={`d20 ${derived.initiative >= 0 ? '+' : ''}${derived.initiative} initiative`}
+              >
+                ⚡ Initiative ({derived.initiative >= 0 ? `+${derived.initiative}` : derived.initiative})
+              </button>
+
+              {initResult && (
+                <div className="absolute bottom-full left-0 mb-1.5 z-20 w-44 rounded-lg px-2.5 py-2 text-xs text-white shadow-lg bg-teal-800">
+                  <div className="flex items-baseline gap-1 flex-wrap leading-snug">
+                    <span className="opacity-75">d20:</span>
+                    <span className="font-bold text-sm">{initResult.roll}</span>
+                    {initResult.bonus !== 0 && (
+                      <>
+                        <span className="opacity-60">{initResult.bonus >= 0 ? '+' : '−'}</span>
+                        <span className="font-semibold">{Math.abs(initResult.bonus)}</span>
+                        <span className="opacity-70">(Initiative)</span>
+                      </>
+                    )}
+                    <span className="opacity-60">=</span>
+                    <span className="font-black text-base">{initResult.total}</span>
+                  </div>
+                  <div className="flex justify-end mt-1">
+                    <button
+                      onClick={() => setInitResult(null)}
+                      className="opacity-60 hover:opacity-100 transition-opacity text-sm leading-none"
+                      aria-label="Dismiss initiative result"
+                    >×</button>
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* Saving Throw */}
+            <div className="relative">
+              <button
+                onClick={handleSavingThrow}
+                className="bg-rose-700 hover:bg-rose-600 active:bg-rose-800 px-2.5 py-1 rounded-lg text-xs font-semibold text-white transition-colors"
+                title={derived.savingThrowBonus !== 0 ? `d20 + ${derived.savingThrowBonus} vs 10` : 'd20 vs 10'}
+              >
+                🎲 Saving Throw
+                {derived.savingThrowBonus !== 0 && (
+                  <span className="ml-1 opacity-80 font-normal">
+                    ({derived.savingThrowBonus > 0 ? `+${derived.savingThrowBonus}` : derived.savingThrowBonus})
+                  </span>
+                )}
+              </button>
+
+              {saveResult && (
+                <div className={[
+                  'absolute bottom-full right-0 mb-1.5 z-20 w-48 rounded-lg px-2.5 py-2 text-xs text-white shadow-lg',
+                  saveResult.success ? 'bg-emerald-700' : 'bg-stone-700',
+                ].join(' ')}>
+                  <div className="flex items-baseline gap-1 flex-wrap leading-snug">
+                    <span className="opacity-75">d20:</span>
+                    <span className="font-bold text-sm">{saveResult.roll}</span>
+                    {saveResult.bonus !== 0 && (
+                      <>
+                        <span className="opacity-60">+</span>
+                        <span className="font-semibold">{saveResult.bonus}</span>
+                        {saveResult.bonusLabel && (
+                          <span className="opacity-70">({saveResult.bonusLabel})</span>
+                        )}
+                      </>
+                    )}
+                    <span className="opacity-60">=</span>
+                    <span className="font-black text-base">{saveResult.total}</span>
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="font-bold tracking-wide">
+                      {saveResult.success ? '✓ Save!' : '✗ Failed'}
+                      <span className="font-normal opacity-70 ml-1">(need 10+)</span>
+                    </span>
+                    <button
+                      onClick={() => setSaveResult(null)}
+                      className="opacity-60 hover:opacity-100 transition-opacity text-sm leading-none ml-2"
+                      aria-label="Dismiss result"
+                    >×</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
         </div>
       </div>

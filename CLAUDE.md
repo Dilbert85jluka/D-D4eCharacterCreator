@@ -54,8 +54,8 @@ src/
 │   ├── auth/                  # LoginPage.tsx — magic link email sign-in
 │   ├── sharing/               # ShareCampaignModal, JoinCampaignModal, LinkCharacterModal, SharedCampaignView, PartyRosterCards
 │   ├── dice/                  # DiceRollerModal.tsx — floating dice roller (d2–d20 + d%)
-│   ├── sheet/                 # Character sheet panels (21 files — see below)
-│   ├── ui/                    # Button, Card, Badge, Modal (primitive components)
+│   ├── sheet/                 # Character sheet panels (22 files — see below)
+│   ├── ui/                    # Button, Card, Badge, Modal, RichTextEditor, RichTextDisplay (primitive components)
 │   └── wizard/                # CreationWizard, WizardNav, 10 step components, PowerCard
 ├── data/
 │   ├── advancement.ts         # FEAT_LEVELS array + featsEarnedByLevel() — shared source of truth
@@ -225,6 +225,7 @@ interface Character {
   currentSurges: number;
   usedEncounterPowers: string[];   // Array of powerIds
   usedDailyPowers: string[];
+  secondWindUsed?: boolean;        // Resets on short/extended rest
   quickTrayPowerIds?: string[];    // Up to 9 pinned power IDs for quick access tray
   // Wizard spellbook (wizard only)
   hasSpellbook?: boolean;
@@ -503,7 +504,7 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 
 | Main Tab | Sub-tabs |
 |---|---|
-| Actions | Available Actions · Actions Descriptions · Proficiencies |
+| Actions | Available Actions · Standard Actions · Actions Descriptions · Proficiencies |
 | Powers | Powers · Channel Divinity\* · Discipline Powers\*\*\*\*\* · Implement Mastery\*\* · Eldritch Pact\*\*\* · Feats |
 | Features | Class Features · Racial Features |
 | Paragon | (no sub-tabs) |
@@ -527,9 +528,10 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 | DefensesBlock.tsx | AC, Fort, Ref, Will in 2×2 grid |
 | HitPointsBlock.tsx | HP/bloodied/surge tracker with rest buttons; Power Points row for psionic classes |
 | SkillsPanel.tsx | All 17 skills with trained/untrained indicators |
-| CombatActionsPanel.tsx | Weapon attack cards from equipped weapons (Actions → Available Actions, top section); Fighter Weapon Talent +1 attack bonus applied when proficient |
+| CombatActionsPanel.tsx | Weapon attack cards from equipped weapons (Actions → Available Actions, top section); Fighter Weapon Talent +1 attack bonus applied when proficient; feat-based weapon damage bonuses (Dwarven Weapon Training +2 axes/hammers, Eladrin Soldier +2 longswords/spears, Goliath Greatweapon Prowess +2/+3/+4 two-handed melee) shown in damage breakdown |
 | ActionsByTypePanel.tsx | Read-only power cards grouped by action type with 5 sub-tabs: Standard, Minor, Move, Immediate (interrupt + reaction), Free. Powers collected from selectedPowers + level 0 class powers + dilettante + racial powers + feat-granted powers + equipment powers. Encounter/daily powers toggleable (used/available) with circle button, synced to DB. No remove button. (Actions → Available Actions, below weapon cards) |
 | AvailableActionsPanel.tsx | PHB p.289 "Actions in Combat" reference table — 7 category tabs: Standard, Move, Minor, Free, Immediate Interrupts, Immediate Reactions, Opportunity (Actions → Actions Descriptions) |
+| StandardActionsPanel.tsx | Second Wind encounter action card with usage toggle circle (Actions → Standard Actions). Shows healing surge value, +2 defense bonus, surges remaining. Dwarf auto-shows "Minor Action" via Dwarven Resilience. `secondWindUsed?: boolean` on Character, reset on short/extended rest. |
 | ProficienciesPanel.tsx | Shows all proficiencies (armor, weapons, shields, implements) sourced from class + feats + MC feat choices (Actions → Proficiencies) |
 | PowersPanel.tsx | At-will / Encounter / Daily tabs with picker modal. Utility powers appear within encounter/daily tabs. Auto-shows wizard cantrip and warlock pact boon (no remove button). Racial powers shown with emerald "Race" badge, ⚡ pin, usage toggle. |
 | ChannelDivinityPanel.tsx | Channel Divinity powers for cleric/paladin; Encounter/At-Will sub-tabs |
@@ -544,7 +546,7 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 | CurrencyPanel.tsx | Gold/silver/copper |
 | RitualsPanel.tsx | Ritual scroll shop + ritual book; BuyScrollModal; AddToBookModal; skill check table display |
 | SpellbookPanel.tsx | Wizard multi-spellbook UI (Inventory → Spellbooks tab). Per-book cards with page bar, rename, delete. Prepare/unprepare daily and utility powers. Mastered ritual management. Buy additional books (50 gp). Auto-migrates legacy flat data to `spellbooks[]` on first open. |
-| NotesPanel.tsx | Notes textarea + Profile (appearance/languages/background). **No Features sub-tab** — class features are in ClassFeaturesPanel. |
+| NotesPanel.tsx | Notes tab uses TipTap `RichTextEditor` (bold, italic, headings, lists, links, tables, etc.); read-only mode renders via `RichTextDisplay`. Profile tab shows appearance/languages/background (background rendered via `RichTextDisplay` for rich HTML). **No Features sub-tab** — class features are in ClassFeaturesPanel. |
 | QuickTrayPanel.tsx | Quick Access Powers tray — paginated 3×3 grid of pinned PowerCards below the 3-column layout. Unlimited powers (9 per page with ← → navigation). Remove button per card; encounter/daily toggle synced to DB; psionic augment support. `quickTrayPowerIds: string[]` on Character. ⚡ pin button in PowersPanel and ActionsByTypePanel. Resolves equipment powers (magic armor/weapon) via `equipmentPowerMap` fallback — dynamically-generated power IDs not in static power DB are regenerated from equipped items. |
 | LevelUpModal.tsx | Level-up flow: power gain picker + feat (only on FEAT_LEVELS) + paragon path (L11) + ability scores. Feat picker uses searchable scrollable card list with ℹ expand/collapse for details (not a dropdown). Ability score prerequisites enforced via `derived.finalAbilityScores` + in-progress boosts. |
 
@@ -847,6 +849,10 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Player campaign view always-visible headers: `SharedCampaignView` now always shows "CAMPAIGN DESCRIPTION" and "CAMPAIGN NOTES" section headers even when content is empty (displays "No description yet." / "No notes yet." in italic). Campaign description moved from inline in the name header card to its own dedicated section.
 - [x] Stale connection resilience for character data fetch: `getCharacterData()` in `sharingService.ts` bypasses the Supabase JS client entirely — uses raw `fetch()` to the PostgREST endpoint with the access token read directly from localStorage (`getStoredAccessToken()`). On 401 (expired JWT after idle/minimize), automatically refreshes the token via raw `fetch()` to `/auth/v1/token?grant_type=refresh_token` using the stored refresh token (`refreshAccessToken()`), updates localStorage, and retries the query. Store has 10s `Promise.race` timeout per attempt with one auto-retry. `useRealtimeCampaign` hook reconnects Supabase realtime channels on `visibilitychange` (tab restore after minimize).
 - [x] Player characters in DM's Characters section: `CampaignManagementPage` CHARACTERS section now shows a "Player Characters" subsection below the DM's local characters. Populated from `activeCampaignSummaries` (filtered to exclude DM's own). Each card shows character name, level, race/class, player name (indigo accent), portrait, and clickable chevron to open read-only sheet. Indigo border distinguishes player characters from DM-added local characters.
+- [x] Rich text editor for Notes and Background: Replaced plain `<textarea>` in `NotesPanel.tsx` (character sheet Notes tab) and `Step1_Basics.tsx` (wizard Background/Notes field) with TipTap `RichTextEditor` component (bold, italic, underline, headings, lists, links, tables, images, colors, alignment). Background displayed in NotesPanel Profile tab via `RichTextDisplay` (DOMPurify-sanitized HTML). Existing plain-text values render fine — TipTap handles plain text gracefully. Fixed TipTap infinite update loop by guarding `useEffect` content sync with `!editor.isFocused`. Fixed placeholder positioning (wrapped editor in `relative` container with `absolute` overlay).
+- [x] Wizard Review step detail panels: Race, class, and build choice (subclass) on `Step10_Review.tsx` are now clickable (dotted underline, 44px touch targets). Clicking opens an inline amber detail panel: Race panel shows size/speed/vision/skill bonuses/traits/racial powers. Class panel shows role/power source/HP/surges/key abilities/armor+weapon proficiencies/implements/level 1 features. Build Choice panel shows all options side-by-side with selected one highlighted. Only one panel open at a time. `BUILD_CHOICE_DESCRIPTIONS` constant maps all 17 class build choices to labels and descriptions. Powers and feats also clickable — powers expand to show action type/range/keywords/target/attack/hit/miss/effect/special/flavor via `PowerDetail` component; feats expand to show benefit text, special notes, and granted powers.
+- [x] Standard Actions tab: New "Standard Actions" sub-tab in Combat tab (`StandardActionsPanel.tsx`). Contains Second Wind encounter action card with red encounter-power header, circle usage toggle (same pattern as encounter powers), healing surge value display, +2 defense bonus, current surges remaining. Dwarf auto-detects Dwarven Resilience and shows "Minor Action" instead of "Standard Action". `secondWindUsed?: boolean` field on Character type, reset on short and extended rest in `SheetHeader.tsx`. Action points now only reset on extended rest (not short rest).
+- [x] Weapon feat damage bonuses in combat actions: `CombatActionsPanel.tsx` `weaponFeatDamageBonus()` function checks character feats and applies weapon-group-specific damage bonuses: Dwarven Weapon Training (+2 axes/hammers), Eladrin Soldier (+2 longswords/spears), Goliath Greatweapon Prowess (+2/+3/+4 by tier for two-handed simple/military melee). Bonus shown in damage total and amber breakdown text with feat source name.
 
 ---
 
