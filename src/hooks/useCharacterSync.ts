@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Character } from '../types/character';
 import { useAuthStore } from '../store/useAuthStore';
 import { useCharacterDerived } from './useCharacterDerived';
@@ -14,13 +14,14 @@ import { extractSummary, createSyncDebouncer } from '../lib/summarySync';
 export function useCharacterSync(character: Character | undefined) {
   const user = useAuthStore((s) => s.user);
   const derived = useCharacterDerived(character as Character);
-  const campaignIdRef = useRef<string | null>(null);
+  // Use state (not ref) so changes to the campaign ID re-trigger the sync effect
+  const [campaignId, setCampaignId] = useState<string | null>(null);
   const debouncerRef = useRef(createSyncDebouncer());
 
   // Look up which campaign (if any) this character is linked to
   useEffect(() => {
     if (!character || !user) {
-      campaignIdRef.current = null;
+      setCampaignId(null);
       return;
     }
 
@@ -34,10 +35,8 @@ export function useCharacterSync(character: Character | undefined) {
           .eq('user_id', user.id)
           .limit(1);
 
-        if (!cancelled && data && data.length > 0) {
-          campaignIdRef.current = data[0].campaign_id;
-        } else if (!cancelled) {
-          campaignIdRef.current = null;
+        if (!cancelled) {
+          setCampaignId(data && data.length > 0 ? data[0].campaign_id : null);
         }
       } catch {
         // Offline or query error — no-op
@@ -47,16 +46,13 @@ export function useCharacterSync(character: Character | undefined) {
     return () => { cancelled = true; };
   }, [character?.id, user?.id]);
 
-  // Watch character changes and debounce sync
+  // Watch character changes AND initial campaign lookup — push summary to Supabase
   useEffect(() => {
-    if (!character || !user || !campaignIdRef.current) return;
+    if (!character || !user || !campaignId) return;
 
     const { debounce } = debouncerRef.current;
 
     debounce(async () => {
-      const campaignId = campaignIdRef.current;
-      if (!campaignId) return;
-
       try {
         const summary = extractSummary(character, campaignId, user.id, derived.maxHp);
         await upsertCharacterSummary(summary);
@@ -65,7 +61,11 @@ export function useCharacterSync(character: Character | undefined) {
       }
     });
   }, [
-    // Sync full character data on any change — updatedAt is bumped on every patch
+    // campaignId in deps — when the lookup resolves, an initial sync fires immediately
+    // (this catches characters whose local state is ahead of the stored summary, e.g. a portrait
+    // added before the sync hook could see the campaign link).
+    campaignId,
+    // updatedAt is bumped on every patch — triggers sync on any character edit
     character?.updatedAt,
     derived.maxHp,
     user?.id,

@@ -1350,13 +1350,21 @@ export function CampaignManagementPage() {
                     )}
                   </section>
 
-                  {/* Characters */}
+                  {/* Characters — unified list: DM-added local characters + party-roster-linked player characters */}
+                  {(() => {
+                    // Player-linked summaries from the shared campaign, excluding the DM's own linked character
+                    // (DM's character is shown via the DM-added local flow below).
+                    const playerLinkedSummaries = activeCampaign?.sharedCampaignId
+                      ? activeCampaignSummaries.filter((s) => s.user_id !== user?.id)
+                      : [];
+                    const totalCount = campaignDraft.characterIds.length + playerLinkedSummaries.length;
+                    return (
                   <section>
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <p className={labelCls}>Characters</p>
                         <p className={hintCls}>
-                          {campaignDraft.characterIds.length} character{campaignDraft.characterIds.length !== 1 ? 's' : ''} in this campaign
+                          {totalCount} character{totalCount !== 1 ? 's' : ''} in this campaign
                         </p>
                       </div>
                       <button
@@ -1366,7 +1374,7 @@ export function CampaignManagementPage() {
                       >+ Add Character</button>
                     </div>
 
-                    {campaignDraft.characterIds.length === 0 ? (
+                    {totalCount === 0 ? (
                       <div className="border-2 border-dashed border-stone-200 rounded-xl py-8 text-center">
                         <p className="text-stone-400 text-sm mb-3">No characters added yet.</p>
                         <button
@@ -1413,56 +1421,45 @@ export function CampaignManagementPage() {
                             </div>
                           );
                         })}
+                        {/* Player-linked characters from shared campaign — rendered inline in the same list */}
+                        {playerLinkedSummaries.map((summary) => {
+                          const race = getRaceById(summary.race_id);
+                          const cls = getClassById(summary.class_id);
+                          const memberProfile = activeCampaignMembers.find((m) => m.user_id === summary.user_id);
+                          const playerName = memberProfile?.profile?.display_name || memberProfile?.profile?.email || 'Unknown';
+                          return (
+                            <div
+                              key={summary.id}
+                              className={[
+                                'flex items-center gap-3 p-3 bg-white rounded-xl border border-indigo-100 shadow-sm',
+                                summary.character_data ? 'cursor-pointer hover:bg-indigo-50 transition-colors' : '',
+                              ].join(' ')}
+                              onClick={() => handleDmCharacterClick(summary)}
+                              role={summary.character_data ? 'button' : undefined}
+                            >
+                              <div className="w-10 h-10 rounded-xl bg-indigo-100 border border-indigo-200 flex-shrink-0 flex items-center justify-center text-sm overflow-hidden">
+                                {summary.portrait_url ? (
+                                  <img src={summary.portrait_url} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-indigo-400">?</span>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm text-stone-800 truncate">{summary.name}</p>
+                                <p className="text-xs text-stone-400">Lv {summary.level} · {race?.name} {cls?.name}</p>
+                                <p className="text-xs text-indigo-400">Player: {playerName}</p>
+                              </div>
+                              <svg className="w-4 h-4 text-stone-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
-
-                    {/* Player-linked characters from shared campaign */}
-                    {activeCampaign?.sharedCampaignId && activeCampaignSummaries.length > 0 && (() => {
-                      // Show characters linked by other players (not the DM)
-                      const playerSummaries = activeCampaignSummaries.filter((s) => s.user_id !== user?.id);
-                      if (playerSummaries.length === 0) return null;
-                      return (
-                        <div className="mt-4">
-                          <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Player Characters</p>
-                          <div className="space-y-2">
-                            {playerSummaries.map((summary) => {
-                              const race = getRaceById(summary.race_id);
-                              const cls = getClassById(summary.class_id);
-                              const memberProfile = activeCampaignMembers.find((m) => m.user_id === summary.user_id);
-                              const playerName = memberProfile?.profile?.display_name || memberProfile?.profile?.email || 'Unknown';
-                              return (
-                                <div
-                                  key={summary.id}
-                                  className={[
-                                    'flex items-center gap-3 p-3 bg-white rounded-xl border border-indigo-100 shadow-sm',
-                                    summary.character_data ? 'cursor-pointer hover:bg-indigo-50 transition-colors' : '',
-                                  ].join(' ')}
-                                  onClick={() => handleDmCharacterClick(summary)}
-                                  role={summary.character_data ? 'button' : undefined}
-                                >
-                                  <div className="w-10 h-10 rounded-xl bg-indigo-100 border border-indigo-200 flex-shrink-0 flex items-center justify-center text-sm overflow-hidden">
-                                    {summary.portrait_url ? (
-                                      <img src={summary.portrait_url} alt="" className="w-full h-full object-cover" />
-                                    ) : (
-                                      <span className="text-indigo-400">?</span>
-                                    )}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-semibold text-sm text-stone-800 truncate">{summary.name}</p>
-                                    <p className="text-xs text-stone-400">Lv {summary.level} · {race?.name} {cls?.name}</p>
-                                    <p className="text-xs text-indigo-400">Player: {playerName}</p>
-                                  </div>
-                                  <svg className="w-4 h-4 text-stone-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                                  </svg>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })()}
                   </section>
+                    );
+                  })()}
 
                   {/* Party Roster (Online) — only visible when campaign is shared */}
                   {activeCampaign?.sharedCampaignId && (

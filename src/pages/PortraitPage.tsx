@@ -83,9 +83,10 @@ export function PortraitPage() {
     setSaving(true);
     try {
       const dataUrl = await processImage(file);
-      const updated = { ...character, portrait: dataUrl };
+      const now = Date.now();
       await characterRepository.patch(character.id, { portrait: dataUrl });
-      updateCharacter(updated);
+      // Bump updatedAt in the in-memory store so useCharacterSync fires and pushes the new portrait to Supabase
+      updateCharacter({ ...character, portrait: dataUrl, updatedAt: now });
       showToast('Portrait saved!', 'success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to process image.');
@@ -99,8 +100,9 @@ export function PortraitPage() {
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { portrait: _removed, ...rest } = character;
-      const updated = { ...rest } as typeof character;
+      const updated = { ...rest, updatedAt: Date.now() } as typeof character;
       await characterRepository.patch(character.id, { portrait: undefined });
+      // Bump updatedAt so useCharacterSync fires and pushes the portrait removal to Supabase
       updateCharacter(updated);
       showToast('Portrait removed.', 'info');
     } finally {
