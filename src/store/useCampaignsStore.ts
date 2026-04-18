@@ -77,13 +77,22 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
     const allLocalEncounters = await db.encounters.toArray();
     const localEncounterMap = new Map(allLocalEncounters.map((e) => [e.id, e]));
 
+    let campaignsWritten = 0;
+    let sessionsWritten = 0;
+    let encountersWritten = 0;
+
     for (const bundle of cloudBundles) {
       const { campaign: cloudCampaign, sessions, encounters } = bundle;
       const local = localMap.get(cloudCampaign.id);
 
+      console.debug(
+        `[mergeCloudCampaigns] Bundle "${cloudCampaign.name}": ${sessions.length} sessions, ${encounters.length} encounters`,
+      );
+
       // Campaign: newer-wins by updatedAt
       if (!local || cloudCampaign.updatedAt > local.updatedAt) {
         await campaignRepository.upsertFromCloud(cloudCampaign);
+        campaignsWritten++;
       }
 
       // Sessions: per-record newer-wins
@@ -91,6 +100,7 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
         const localSession = localSessionMap.get(session.id);
         if (!localSession || session.updatedAt > localSession.updatedAt) {
           await db.sessions.put(session);
+          sessionsWritten++;
         }
       }
 
@@ -99,9 +109,14 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
         const localEncounter = localEncounterMap.get(encounter.id);
         if (!localEncounter || encounter.updatedAt > localEncounter.updatedAt) {
           await db.encounters.put(encounter);
+          encountersWritten++;
         }
       }
     }
+
+    console.info(
+      `[mergeCloudCampaigns] Wrote ${campaignsWritten} campaign(s), ${sessionsWritten} session(s), ${encountersWritten} encounter(s) from cloud`,
+    );
 
     // Reload all stores to pick up merged data
     const updated = await campaignRepository.getAll();
