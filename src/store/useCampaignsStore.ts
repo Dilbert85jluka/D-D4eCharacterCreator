@@ -67,22 +67,37 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
     const localCampaigns = await campaignRepository.getAll();
     const localMap = new Map(localCampaigns.map((c) => [c.id, c]));
 
+    // Load local sessions + encounters once so we can merge per-record.
+    // Per-record merge is important: a campaign's updatedAt only changes when its OWN fields
+    // change (name/notes/description). Editing a nested session or encounter does not bump
+    // the parent campaign's timestamp, so comparing only at the campaign level would drop
+    // incoming session/encounter updates.
+    const allLocalSessions = await db.sessions.toArray();
+    const localSessionMap = new Map(allLocalSessions.map((s) => [s.id, s]));
+    const allLocalEncounters = await db.encounters.toArray();
+    const localEncounterMap = new Map(allLocalEncounters.map((e) => [e.id, e]));
+
     for (const bundle of cloudBundles) {
       const { campaign: cloudCampaign, sessions, encounters } = bundle;
       const local = localMap.get(cloudCampaign.id);
-      const shouldMerge = !local || cloudCampaign.updatedAt > local.updatedAt;
 
-      if (shouldMerge) {
-        // Merge campaign
+      // Campaign: newer-wins by updatedAt
+      if (!local || cloudCampaign.updatedAt > local.updatedAt) {
         await campaignRepository.upsertFromCloud(cloudCampaign);
+      }
 
-        // Merge sessions (upsert each — put replaces if exists)
-        for (const session of sessions) {
+      // Sessions: per-record newer-wins
+      for (const session of sessions) {
+        const localSession = localSessionMap.get(session.id);
+        if (!localSession || session.updatedAt > localSession.updatedAt) {
           await db.sessions.put(session);
         }
+      }
 
-        // Merge encounters (upsert each)
-        for (const encounter of encounters) {
+      // Encounters: per-record newer-wins
+      for (const encounter of encounters) {
+        const localEncounter = localEncounterMap.get(encounter.id);
+        if (!localEncounter || encounter.updatedAt > localEncounter.updatedAt) {
           await db.encounters.put(encounter);
         }
       }
