@@ -24,6 +24,11 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
     extensions: [
       StarterKit.configure({
         horizontalRule: false, // use standalone extension
+        // TipTap 3.x StarterKit includes Link + Underline by default.
+        // Disable them here so our explicit imports below (with custom config) take over
+        // — otherwise TipTap warns about duplicate extensions and editor updates don't fire reliably.
+        link: false,
+        underline: false,
       }),
       Underline,
       TextStyle,
