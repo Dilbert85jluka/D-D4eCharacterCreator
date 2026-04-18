@@ -25,53 +25,108 @@ export function useCampaignCloudSync() {
 
   const hasPulledRef = useRef(false);
   const debouncersRef = useRef(new Map<string, ReturnType<typeof createSyncDebouncer>>());
-  const prevHashRef = useRef('');
+  // Per-campaign hash so we only push the campaign(s) that actually changed.
+  // Previously a single combined hash caused every campaign to be pushed on every edit,
+  // which wasted Supabase free-tier writes.
+  const prevCampaignHashesRef = useRef<Map<string, string>>(new Map());
+  const initialHashesCapturedRef = useRef(false);
 
   // ── ONE-TIME PULL on startup ──
   useEffect(() => {
-    if (!user || !hasLoaded || hasPulledRef.current) return;
+    if (!user) {
+      console.info('[useCampaignCloudSync] Skipping pull: not signed in');
+      return;
+    }
+    if (!hasLoaded) {
+      console.info('[useCampaignCloudSync] Skipping pull: campaigns store not yet loaded');
+      return;
+    }
+    if (hasPulledRef.current) return;
     hasPulledRef.current = true;
 
     (async () => {
       try {
+        console.info('[useCampaignCloudSync] Pulling campaigns from cloud…');
         const cloudCampaigns = await pullAllCampaignsFromCloud(user.id);
+        console.info(`[useCampaignCloudSync] Pulled ${cloudCampaigns.length} campaign(s) from cloud`);
         if (cloudCampaigns.length > 0) {
           await mergeCloudCampaigns(cloudCampaigns);
         }
-      } catch {
-        // Offline — silent
+      } catch (err) {
+        console.error('[useCampaignCloudSync] Pull failed:', err);
       }
     })();
   }, [user, hasLoaded, mergeCloudCampaigns]);
 
   // ── DEBOUNCED PUSH on campaign / session / encounter changes ──
   useEffect(() => {
-    if (!user || !hasLoaded || !hasPulledRef.current) return;
+    if (!user) {
+      console.debug('[useCampaignCloudSync] Skipping push: not signed in');
+      return;
+    }
+    if (!hasLoaded) {
+      console.debug('[useCampaignCloudSync] Skipping push: campaigns store not loaded');
+      return;
+    }
+    if (!hasPulledRef.current) {
+      console.debug('[useCampaignCloudSync] Skipping push: initial pull not complete');
+      return;
+    }
 
-    // Hash includes campaign + all sessions + all encounters so any change triggers a push
-    const currentHash = JSON.stringify({
-      campaigns: campaigns.map((c) => ({ id: c.id, u: c.updatedAt })),
-      sessions: Object.entries(sessionsByCampaign).flatMap(([cid, ss]) =>
-        ss.map((s) => ({ c: cid, id: s.id, u: s.updatedAt })),
-      ),
-      encounters: Object.values(encountersBySession).flat().map((e) => ({
-        id: e.id, c: e.campaignId, u: e.updatedAt,
-      })),
+    // Build a per-campaign fingerprint: campaign.updatedAt + all its sessions'/encounters' updatedAt.
+    // Only campaigns whose fingerprint actually changed get pushed — saves Supabase writes.
+    const encountersByCampaign = new Map<string, { id: string; u: number }[]>();
+    for (const enc of Object.values(encountersBySession).flat()) {
+      if (!encountersByCampaign.has(enc.campaignId)) encountersByCampaign.set(enc.campaignId, []);
+      encountersByCampaign.get(enc.campaignId)!.push({ id: enc.id, u: enc.updatedAt });
+    }
+
+    const newHashes = new Map<string, string>();
+    for (const c of campaigns) {
+      const sessions = (sessionsByCampaign[c.id] ?? []).map((s) => ({ id: s.id, u: s.updatedAt }));
+      const encounters = encountersByCampaign.get(c.id) ?? [];
+      newHashes.set(
+        c.id,
+        JSON.stringify({ u: c.updatedAt, s: sessions, e: encounters }),
+      );
+    }
+
+    // On first run, capture baseline hashes only — don't push anything.
+    if (!initialHashesCapturedRef.current) {
+      prevCampaignHashesRef.current = newHashes;
+      initialHashesCapturedRef.current = true;
+      console.debug('[useCampaignCloudSync] Initial per-campaign hashes captured; watching for changes');
+      return;
+    }
+
+    // Find which campaigns changed
+    const changedCampaigns = campaigns.filter((c) => {
+      const prev = prevCampaignHashesRef.current.get(c.id);
+      const curr = newHashes.get(c.id);
+      return prev !== curr;
     });
-    if (currentHash === prevHashRef.current) return;
-    prevHashRef.current = currentHash;
 
-    for (const campaign of campaigns) {
+    // Update baseline
+    prevCampaignHashesRef.current = newHashes;
+
+    if (changedCampaigns.length === 0) return;
+
+    console.info(
+      `[useCampaignCloudSync] Change detected — scheduling push for ${changedCampaigns.length} campaign(s): ${changedCampaigns.map((c) => `"${c.name}"`).join(', ')} (3s debounce)`,
+    );
+
+    for (const campaign of changedCampaigns) {
       if (!debouncersRef.current.has(campaign.id)) {
         debouncersRef.current.set(campaign.id, createSyncDebouncer(3000));
       }
       const { debounce } = debouncersRef.current.get(campaign.id)!;
       debounce(async () => {
         try {
+          console.info(`[useCampaignCloudSync] Pushing "${campaign.name}" to Supabase…`);
           await pushCampaignToCloud(campaign, user.id);
-          console.debug('[useCampaignCloudSync] Pushed campaign', campaign.name);
+          console.info(`[useCampaignCloudSync] ✓ Pushed "${campaign.name}"`);
         } catch (err) {
-          console.warn('[useCampaignCloudSync] Failed to push campaign:', err);
+          console.error(`[useCampaignCloudSync] ✗ Push failed for "${campaign.name}":`, err);
         }
       });
     }
