@@ -56,8 +56,10 @@ export function useCharacterSync(character: Character | undefined) {
       try {
         const summary = extractSummary(character, campaignId, user.id, derived.maxHp);
         await upsertCharacterSummary(summary);
-      } catch {
-        // Offline or error — silent fail, will sync on next change
+        console.debug('[useCharacterSync] Pushed summary for', character.name, 'campaign', campaignId);
+      } catch (err) {
+        // Log so we can diagnose silent sync failures (RLS violations, offline, etc.)
+        console.warn('[useCharacterSync] Failed to push character summary:', err);
       }
     });
   }, [

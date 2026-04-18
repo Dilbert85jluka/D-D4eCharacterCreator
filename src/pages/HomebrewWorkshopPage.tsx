@@ -126,15 +126,135 @@ export function HomebrewWorkshopPage() {
 
   return (
     <div className="min-h-screen bg-parchment-100">
-      {/* Banner */}
-      <div className="bg-gradient-to-r from-amber-900 to-amber-800 text-white px-4 py-6 sm:px-6">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            🔧 Homebrew Workshop
-          </h1>
-          <p className="text-amber-300 text-sm mt-1">
-            Create custom content for your characters and campaigns
-          </p>
+      {/* ── Homebrew Workshop Banner ─────────────────────────────────────── */}
+      <div className="relative overflow-hidden" style={{ height: '160px' }}>
+        <svg
+          viewBox="0 0 1200 160"
+          preserveAspectRatio="xMidYMid slice"
+          className="absolute inset-0 w-full h-full"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id="hb-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%"   stopColor="#451a03" />
+              <stop offset="40%"  stopColor="#7c2d12" />
+              <stop offset="70%"  stopColor="#92400e" />
+              <stop offset="100%" stopColor="#451a03" />
+            </linearGradient>
+            <radialGradient id="hb-forge" cx="50%" cy="70%" r="40%">
+              <stop offset="0%"   stopColor="#f97316" stopOpacity="0.5" />
+              <stop offset="60%"  stopColor="#ea580c" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#ea580c" stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id="hb-spark-l" cx="20%" cy="50%" r="30%">
+              <stop offset="0%"   stopColor="#fbbf24" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id="hb-spark-r" cx="80%" cy="55%" r="30%">
+              <stop offset="0%"   stopColor="#fbbf24" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+
+          {/* Background */}
+          <rect width="1200" height="160" fill="url(#hb-bg)" />
+          <rect width="1200" height="160" fill="url(#hb-spark-l)" />
+          <rect width="1200" height="160" fill="url(#hb-spark-r)" />
+          <rect width="1200" height="160" fill="url(#hb-forge)" />
+
+          {/* Embers / sparks */}
+          {[
+            [90,20,1.5],[210,12,1],[340,28,1.2],[480,15,1.5],[600,22,1],[720,10,1.5],
+            [860,18,1.2],[960,25,1],[1080,14,1.5],[1150,22,1],[160,40,0.8],[500,38,0.8],
+            [780,42,1],[1020,36,0.8],[380,48,1],[640,44,0.8],[900,50,1],[1120,46,0.8],
+          ].map(([x, y, r], i) => (
+            <circle key={i} cx={x} cy={y} r={r} fill={i % 2 === 0 ? '#fbbf24' : '#f97316'} opacity={0.35 + (i % 3) * 0.2} />
+          ))}
+
+          {/* Anvil (center) */}
+          <g transform="translate(560, 95)">
+            {/* Anvil top */}
+            <rect x="-50" y="0" width="100" height="14" rx="3" fill="#1c1917" />
+            <rect x="-55" y="0" width="10" height="8" rx="2" fill="#1c1917" />
+            <rect x="45" y="0" width="10" height="8" rx="2" fill="#1c1917" />
+            {/* Anvil waist */}
+            <path d="M -35,14 L -20,40 L 20,40 L 35,14 Z" fill="#27272a" />
+            {/* Anvil base */}
+            <rect x="-40" y="40" width="80" height="15" rx="2" fill="#1c1917" />
+            {/* Highlight */}
+            <rect x="-48" y="1" width="96" height="2" fill="#57534e" opacity="0.6" />
+          </g>
+
+          {/* Hammer (right of anvil, angled, mid-swing) */}
+          <g transform="translate(670, 70) rotate(30)">
+            <rect x="0" y="0" width="6" height="70" rx="2" fill="#78350f" />
+            <rect x="-14" y="-8" width="34" height="20" rx="3" fill="#44403c" />
+            <rect x="-14" y="-8" width="34" height="4" fill="#57534e" />
+          </g>
+
+          {/* Wrench (far left) */}
+          <g transform="translate(140, 70) rotate(-20)">
+            <rect x="0" y="0" width="8" height="65" rx="2" fill="#57534e" />
+            <circle cx="4" cy="0" r="12" fill="none" stroke="#57534e" strokeWidth="6" />
+            <path d="M -4,-10 L 12,-10 L 12,-4 Z" fill="#292524" />
+          </g>
+
+          {/* Gear (upper right) */}
+          <g transform="translate(960, 55)">
+            <circle cx="0" cy="0" r="22" fill="none" stroke="#57534e" strokeWidth="3" />
+            <circle cx="0" cy="0" r="8" fill="#44403c" />
+            {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
+              <rect
+                key={angle}
+                x="-3" y="-30" width="6" height="8"
+                fill="#57534e"
+                transform={`rotate(${angle})`}
+              />
+            ))}
+          </g>
+
+          {/* Small gear (upper left) */}
+          <g transform="translate(240, 40)">
+            <circle cx="0" cy="0" r="14" fill="none" stroke="#57534e" strokeWidth="2" />
+            <circle cx="0" cy="0" r="5" fill="#44403c" />
+            {[0, 60, 120, 180, 240, 300].map((angle) => (
+              <rect
+                key={angle}
+                x="-2" y="-20" width="4" height="6"
+                fill="#57534e"
+                transform={`rotate(${angle})`}
+              />
+            ))}
+          </g>
+
+          {/* Forge glow at bottom */}
+          <ellipse cx="600" cy="155" rx="180" ry="18" fill="#f97316" opacity="0.35" />
+          <ellipse cx="600" cy="152" rx="100" ry="8" fill="#fbbf24" opacity="0.25" />
+
+          {/* Rising sparks from anvil */}
+          {[
+            [580, 80], [610, 75], [595, 70], [620, 82], [570, 85],
+          ].map(([x, y], i) => (
+            <circle key={i} cx={x} cy={y} r={1.2} fill="#fbbf24" opacity="0.8" />
+          ))}
+        </svg>
+
+        {/* Title overlay */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
+          <div className="text-center">
+            <h1
+              className="text-3xl font-bold tracking-widest text-amber-200 uppercase"
+              style={{ textShadow: '0 0 24px rgba(249,115,22,0.9), 0 0 8px rgba(0,0,0,1), 0 2px 6px rgba(0,0,0,1)' }}
+            >
+              🔧 Homebrew Workshop
+            </h1>
+            <p
+              className="text-sm tracking-widest mt-1 text-amber-400/80 uppercase"
+              style={{ textShadow: '0 1px 4px rgba(0,0,0,1)' }}
+            >
+              Forge custom content · {items.length} item{items.length !== 1 ? 's' : ''}
+            </p>
+          </div>
         </div>
       </div>
 

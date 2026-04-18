@@ -22,6 +22,10 @@ export interface SessionEncounter {
   title: string;
   description: string;
   monsterEntries: EncounterMonsterEntry[];
+  /** Character IDs participating in this encounter. IDs may reference either
+   *  a local Character (DM-added) or a CharacterSummary (party-roster-linked).
+   *  Optional for backwards compatibility with encounters created before this field was added. */
+  characterIds?: string[];
   /** Saved initiative tracker state — resume mid-combat */
   initiativeState?: SavedInitiativeState | null;
 }

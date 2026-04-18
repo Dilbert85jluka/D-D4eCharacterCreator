@@ -1,8 +1,14 @@
 import { useRef, useState } from 'react';
 import { useCharactersStore } from '../store/useCharactersStore';
 import { useAppStore } from '../store/useAppStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { characterRepository } from '../db/characterRepository';
 import { getClassById } from '../data/classes';
+import { supabase } from '../lib/supabase';
+import { upsertCharacterSummary } from '../lib/sharingService';
+import { extractSummary } from '../lib/summarySync';
+import { useCharacterDerived } from '../hooks/useCharacterDerived';
+import type { Character } from '../types/character';
 
 const MAX_FILE_BYTES = 3 * 1024 * 1024; // 3 MB
 const OUT_SIZE = 150; // pixels
@@ -45,9 +51,13 @@ export function PortraitPage() {
   );
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
 
+  const user = useAuthStore((s) => s.user);
+  const derived = useCharacterDerived(character as Character);
+
   const fileRef = useRef<HTMLInputElement>(null);
   const [error,  setError]  = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   // If the character is gone (e.g. navigated here stale), bail out.
   if (!character) {
@@ -107,6 +117,43 @@ export function PortraitPage() {
       showToast('Portrait removed.', 'info');
     } finally {
       setSaving(false);
+    }
+  };
+
+  /** Manually force-push the entire local character summary to Supabase.
+   *  Useful when the auto-sync silently failed, or when the campaign link was established
+   *  before the sync hook could see it. Surfaces errors in the UI rather than swallowing them. */
+  const handleManualSync = async () => {
+    if (!user) {
+      showToast('You must be signed in to sync to a campaign.', 'error');
+      return;
+    }
+    setSyncing(true);
+    try {
+      // Find the campaign this character is linked to
+      const { data, error: lookupError } = await supabase
+        .from('character_summaries')
+        .select('campaign_id')
+        .eq('id', character.id)
+        .eq('user_id', user.id)
+        .limit(1);
+
+      if (lookupError) throw lookupError;
+      if (!data || data.length === 0) {
+        showToast('This character is not linked to any campaign.', 'error');
+        return;
+      }
+
+      const campaignId = data[0].campaign_id;
+      const summary = extractSummary(character, campaignId, user.id, derived.maxHp);
+      await upsertCharacterSummary(summary);
+      showToast('Character synced to campaign!', 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[handleManualSync] Failed:', err);
+      showToast(`Sync failed: ${msg}`, 'error');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -175,6 +222,18 @@ export function PortraitPage() {
               className="w-full min-h-[48px] border-2 border-red-300 hover:border-red-400 hover:bg-red-50 active:bg-red-100 disabled:opacity-50 text-red-600 font-semibold rounded-xl transition-colors text-base"
             >
               Remove Portrait
+            </button>
+          )}
+
+          {/* Manual sync — useful when auto-sync silently failed */}
+          {user && (
+            <button
+              onClick={handleManualSync}
+              disabled={syncing || saving}
+              className="w-full min-h-[48px] border-2 border-emerald-300 hover:border-emerald-400 hover:bg-emerald-50 active:bg-emerald-100 disabled:opacity-50 text-emerald-700 font-semibold rounded-xl transition-colors text-base"
+              title="Force push this character (portrait, HP, level, etc.) to any linked campaign"
+            >
+              {syncing ? 'Syncing…' : '↻ Sync to Campaign'}
             </button>
           )}
         </div>

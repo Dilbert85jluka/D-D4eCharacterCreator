@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCampaignsStore } from '../store/useCampaignsStore';
 import { useCharactersStore } from '../store/useCharactersStore';
 import { useSessionsStore } from '../store/useSessionsStore';
@@ -466,6 +466,8 @@ export function CampaignManagementPage() {
   const [pickerTargetEncounterId, setPickerTargetEncounterId]   = useState<string | null>(null);
   const [monsterSearch, setMonsterSearch]                       = useState('');
   const [viewingMonster, setViewingMonster]                     = useState<MonsterData | null>(null);
+  const [showCharacterPicker, setShowCharacterPicker]           = useState(false);
+  const [characterPickerTargetEncounterId, setCharacterPickerTargetEncounterId] = useState<string | null>(null);
 
   // ── Initiative Tracker state ──────────────────────────────────────────
   const [activeEncounterId, setActiveEncounterId]   = useState<string | null>(null);
@@ -505,6 +507,7 @@ export function CampaignManagementPage() {
       title:        'New Encounter',
       description:  '',
       monsterEntries: [],
+      characterIds: [],
     });
     addEncounter(created);
   };
@@ -554,6 +557,29 @@ export function CampaignManagementPage() {
     setMonsterSearch('');
   };
 
+  // ── Encounter character handlers ─────────────────────────────────────
+  const handlePickCharacter = async (characterId: string) => {
+    if (!characterPickerTargetEncounterId) return;
+    const enc = sessionEncounters.find((e) => e.id === characterPickerTargetEncounterId);
+    if (!enc) return;
+    const existing = enc.characterIds ?? [];
+    if (existing.includes(characterId)) return; // already added
+    const updated = { ...enc, characterIds: [...existing, characterId], updatedAt: Date.now() };
+    await encounterRepository.update(updated);
+    updateEncounter(updated);
+    setShowCharacterPicker(false);
+  };
+
+  const handleRemoveCharacterFromEncounter = async (enc: SessionEncounter, characterId: string) => {
+    const updated = {
+      ...enc,
+      characterIds: (enc.characterIds ?? []).filter((id) => id !== characterId),
+      updatedAt: Date.now(),
+    };
+    await encounterRepository.update(updated);
+    updateEncounter(updated);
+  };
+
   // ── Initiative Tracker handlers ──────────────────────────────────────
   const activeEncounter = activeEncounterId
     ? sessionEncounters.find((e) => e.id === activeEncounterId)
@@ -574,11 +600,39 @@ export function CampaignManagementPage() {
       })
     : [];
 
-  // PC pool: campaign characters
-  const pcPool = activeCampaign
-    ? activeCampaign.characterIds
-        .map((id) => characters.find((c) => c.id === id))
-        .filter((c): c is NonNullable<typeof c> => !!c)
+  // PC pool: characters added to the active encounter.
+  // Each id can reference either a local Character (DM-added) or a CharacterSummary (party-roster-linked).
+  // Normalize both sources to a common shape so the initiative-tracker UI can render them uniformly.
+  const pcPool = activeEncounter
+    ? (activeEncounter.characterIds ?? [])
+        .map((charId) => {
+          const localChar = characters.find((c) => c.id === charId);
+          if (localChar) {
+            return {
+              id: localChar.id,
+              name: localChar.name,
+              level: localChar.level,
+              raceId: localChar.raceId,
+              classId: localChar.classId,
+              portrait: localChar.portrait,
+              currentHp: localChar.currentHp,
+            };
+          }
+          const summary = activeCampaignSummaries.find((s) => s.id === charId);
+          if (summary) {
+            return {
+              id: summary.id,
+              name: summary.name,
+              level: summary.level,
+              raceId: summary.race_id,
+              classId: summary.class_id,
+              portrait: summary.portrait_url ?? undefined,
+              currentHp: summary.current_hp,
+            };
+          }
+          return null;
+        })
+        .filter((c): c is NonNullable<typeof c> => c !== null)
     : [];
 
   // addedInstanceKeys tracks which pool items have been added
@@ -2091,11 +2145,10 @@ export function CampaignManagementPage() {
                     <p className={hintCls}>
                       Context carried forward — what happened that may have bearing on this session.
                     </p>
-                    <textarea
-                      value={sessionDraft.importantEvents}
-                      onChange={(e) => setSessionDraft((d) => ({ ...d, importantEvents: e.target.value }))}
+                    <RichTextEditor
+                      content={sessionDraft.importantEvents}
+                      onChange={(html) => setSessionDraft((d) => ({ ...d, importantEvents: html }))}
                       placeholder="The party defeated the goblin king in Session 3. The mysterious hooded figure escaped…"
-                      rows={6} className={fieldCls}
                     />
                   </section>
 
@@ -2105,11 +2158,10 @@ export function CampaignManagementPage() {
                     <p className={hintCls}>
                       Brief overview of what you intend to run — encounters, NPCs, objectives.
                     </p>
-                    <textarea
-                      value={sessionDraft.plannedSummary}
-                      onChange={(e) => setSessionDraft((d) => ({ ...d, plannedSummary: e.target.value }))}
+                    <RichTextEditor
+                      content={sessionDraft.plannedSummary}
+                      onChange={(html) => setSessionDraft((d) => ({ ...d, plannedSummary: html }))}
                       placeholder="The party will arrive at the city of Fallcrest. Key encounter: ambush at the bridge. NPC: Lord Warden Faren Markelhay…"
-                      rows={6} className={fieldCls}
                     />
                   </section>
 
@@ -2193,24 +2245,22 @@ export function CampaignManagementPage() {
 
                             {/* Description */}
                             <div className="px-3 pt-2 pb-1">
-                              <textarea
-                                key={enc.id + '-desc'}
-                                defaultValue={enc.description}
-                                onBlur={(e) => {
-                                  const val = e.target.value;
-                                  if (val !== enc.description)
-                                    handleEncounterBlur(enc, { description: val });
+                              <EncounterDescriptionEditor
+                                key={enc.id}
+                                encounter={enc}
+                                onSave={(html) => {
+                                  if (html !== enc.description) handleEncounterBlur(enc, { description: html });
                                 }}
-                                rows={2}
-                                placeholder="Encounter description, objectives, terrain, special rules…"
-                                className="w-full text-sm text-stone-700 border border-stone-200 rounded-lg
-                                           px-3 py-2 resize-y outline-none focus:border-amber-400
-                                           focus:ring-2 focus:ring-amber-100 placeholder:text-stone-400"
                               />
                             </div>
 
                             {/* Monsters */}
                             <div className="px-3 pb-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="flex-1 h-px bg-stone-200" />
+                                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Monsters</span>
+                                <div className="flex-1 h-px bg-stone-200" />
+                              </div>
                               {enc.monsterEntries.length > 0 && (
                                 <div className="space-y-1.5 mb-2">
                                   {enc.monsterEntries.map(({ monsterId, quantity }) => {
@@ -2277,6 +2327,75 @@ export function CampaignManagementPage() {
                               >
                                 ＋ Add Monster from Compendium
                               </button>
+
+                              {/* Divider between monsters and characters */}
+                              <div className="flex items-center gap-2 my-3">
+                                <div className="flex-1 h-px bg-stone-200" />
+                                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Characters</span>
+                                <div className="flex-1 h-px bg-stone-200" />
+                              </div>
+
+                              {/* Characters */}
+                              {(enc.characterIds ?? []).length > 0 && (
+                                <div className="space-y-1.5 mt-3 mb-2">
+                                  {(enc.characterIds ?? []).map((charId) => {
+                                    // Try DM-added local character first, then fall back to party-roster summary
+                                    const localChar = characters.find((c) => c.id === charId);
+                                    const summary = activeCampaignSummaries.find((s) => s.id === charId);
+                                    if (!localChar && !summary) {
+                                      return (
+                                        <div key={charId} className="flex items-center gap-2 py-1">
+                                          <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-bold bg-stone-100 text-stone-500">
+                                            PC
+                                          </span>
+                                          <span className="flex-1 text-sm text-stone-400 italic">
+                                            Character not found
+                                          </span>
+                                          <button
+                                            onClick={() => handleRemoveCharacterFromEncounter(enc, charId)}
+                                            className="text-stone-300 hover:text-red-400 text-xl leading-none flex-shrink-0 transition-colors"
+                                            title="Remove character"
+                                          >×</button>
+                                        </div>
+                                      );
+                                    }
+                                    const name = localChar?.name ?? summary!.name;
+                                    const level = localChar?.level ?? summary!.level;
+                                    const raceId = localChar?.raceId ?? summary!.race_id;
+                                    const classId = localChar?.classId ?? summary!.class_id;
+                                    const race = getRaceById(raceId);
+                                    const cls = getClassById(classId);
+                                    return (
+                                      <div key={charId} className="flex items-center gap-2 py-1">
+                                        <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
+                                          PC
+                                        </span>
+                                        <span className="flex-1 text-sm text-stone-800 font-medium truncate min-w-0">
+                                          {name}
+                                        </span>
+                                        <span className="text-xs text-stone-400 flex-shrink-0">
+                                          Lv {level} · {race?.name ?? '—'} {cls?.name ?? '—'}
+                                        </span>
+                                        <button
+                                          onClick={() => handleRemoveCharacterFromEncounter(enc, charId)}
+                                          className="text-stone-300 hover:text-red-400 text-xl leading-none flex-shrink-0 transition-colors"
+                                          title="Remove character"
+                                        >×</button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setCharacterPickerTargetEncounterId(enc.id);
+                                  setShowCharacterPicker(true);
+                                }}
+                                className="mt-2 w-full text-xs font-semibold text-emerald-700 border border-emerald-200
+                                           border-dashed rounded-lg py-2 hover:bg-emerald-50 transition-colors"
+                              >
+                                ＋ Add Character from Campaign
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -2290,11 +2409,10 @@ export function CampaignManagementPage() {
                     <p className={hintCls}>
                       Post-session recap, rule reminders, experience awarded, loot given out, etc.
                     </p>
-                    <textarea
-                      value={sessionDraft.additionalNotes}
-                      onChange={(e) => setSessionDraft((d) => ({ ...d, additionalNotes: e.target.value }))}
+                    <RichTextEditor
+                      content={sessionDraft.additionalNotes}
+                      onChange={(html) => setSessionDraft((d) => ({ ...d, additionalNotes: html }))}
                       placeholder="Post-session notes…"
-                      rows={5} className={fieldCls}
                     />
                   </section>
 
@@ -2455,6 +2573,115 @@ export function CampaignManagementPage() {
         );
       })()}
 
+      {/* Character picker — pick from campaign characters (DM-added locals + party-roster-linked players) */}
+      {showCharacterPicker && (() => {
+        // Collect all campaign characters: DM-added locals + player-linked summaries (excluding DM's own)
+        const dmChars = campaignDraft.characterIds
+          .map((cid) => characters.find((c) => c.id === cid))
+          .filter((c): c is NonNullable<typeof c> => Boolean(c))
+          .map((c) => {
+            const race = getRaceById(c.raceId);
+            const cls  = getClassById(c.classId);
+            return {
+              id: c.id,
+              name: c.name,
+              level: c.level,
+              race: race?.name ?? '—',
+              cls: cls?.name ?? '—',
+              portrait: c.portrait,
+              playerName: null as string | null,
+            };
+          });
+
+        const playerChars = activeCampaignSummaries
+          .filter((s) => s.user_id !== user?.id)
+          .map((s) => {
+            const race = getRaceById(s.race_id);
+            const cls  = getClassById(s.class_id);
+            const memberProfile = activeCampaignMembers.find((m) => m.user_id === s.user_id);
+            const playerName = memberProfile?.profile?.display_name || memberProfile?.profile?.email || 'Unknown';
+            return {
+              id: s.id,
+              name: s.name,
+              level: s.level,
+              race: race?.name ?? '—',
+              cls: cls?.name ?? '—',
+              portrait: s.portrait_url ?? undefined,
+              playerName,
+            };
+          });
+
+        const allChars = [...dmChars, ...playerChars];
+        const currentEnc = sessionEncounters.find((e) => e.id === characterPickerTargetEncounterId);
+        const alreadyAddedIds = new Set(currentEnc?.characterIds ?? []);
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-3 pb-3 sm:pb-0"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowCharacterPicker(false); }}
+          >
+            <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+              <div className="bg-emerald-800 px-4 py-3 flex items-center justify-between flex-shrink-0">
+                <h3 className="text-white font-bold">Add Character to Encounter</h3>
+                <button
+                  onClick={() => setShowCharacterPicker(false)}
+                  className="text-emerald-200 hover:text-white text-2xl leading-none w-9 h-9 flex items-center justify-center"
+                >×</button>
+              </div>
+              <div className="overflow-y-auto flex-1 p-3 space-y-1.5">
+                {allChars.length === 0 ? (
+                  <p className="text-stone-400 text-sm text-center py-8">
+                    No characters in this campaign yet. Add characters to the campaign first.
+                  </p>
+                ) : (
+                  allChars.map((c) => {
+                    const added = alreadyAddedIds.has(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => !added && handlePickCharacter(c.id)}
+                        disabled={added}
+                        className={[
+                          'w-full flex items-center gap-3 p-2.5 rounded-xl border transition-colors text-left',
+                          added
+                            ? 'bg-stone-50 border-stone-200 opacity-50 cursor-not-allowed'
+                            : 'bg-stone-50 border-stone-200 hover:border-emerald-300 hover:bg-emerald-50',
+                        ].join(' ')}
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-emerald-100 border border-emerald-200 flex-shrink-0 flex items-center justify-center text-sm overflow-hidden">
+                          {c.portrait ? (
+                            <img src={c.portrait} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-emerald-400">?</span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-stone-800 truncate">{c.name}</p>
+                          <p className="text-xs text-stone-400 truncate">
+                            Lv {c.level} · {c.race} {c.cls}
+                          </p>
+                          {c.playerName && (
+                            <p className="text-xs text-indigo-400 truncate">Player: {c.playerName}</p>
+                          )}
+                        </div>
+                        {added && (
+                          <span className="text-xs text-stone-400 flex-shrink-0 italic">Added</span>
+                        )}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+              <div className="border-t border-stone-100 px-4 py-2 flex-shrink-0 bg-stone-50">
+                <p className="text-xs text-stone-400">
+                  {allChars.length} character{allChars.length !== 1 ? 's' : ''} in this campaign
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── Monster Stat Block Modal ──────────────────────────────────────── */}
       {viewingMonster && (
         <MonsterModal
@@ -2559,5 +2786,51 @@ export function CampaignManagementPage() {
       )}
 
     </div>
+  );
+}
+
+/** Encounter description rich text editor with debounced save.
+ *  Keeps local state while typing so we don't write to the DB on every keystroke;
+ *  flushes to the parent ~1s after the last edit, and immediately on unmount if dirty. */
+function EncounterDescriptionEditor({
+  encounter,
+  onSave,
+}: {
+  encounter: SessionEncounter;
+  onSave: (html: string) => void;
+}) {
+  const [value, setValue] = useState(encounter.description);
+  const latestValueRef = useRef(value);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirtyRef = useRef(false);
+
+  const flush = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (dirtyRef.current) {
+      onSave(latestValueRef.current);
+      dirtyRef.current = false;
+    }
+  }, [onSave]);
+
+  // Flush pending changes on unmount so nothing is lost when navigating away
+  useEffect(() => {
+    return () => { flush(); };
+  }, [flush]);
+
+  return (
+    <RichTextEditor
+      content={value}
+      onChange={(html) => {
+        setValue(html);
+        latestValueRef.current = html;
+        dirtyRef.current = true;
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(flush, 1000);
+      }}
+      placeholder="Encounter description, objectives, terrain, special rules…"
+    />
   );
 }
