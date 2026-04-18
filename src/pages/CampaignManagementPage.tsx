@@ -2247,10 +2247,8 @@ export function CampaignManagementPage() {
                             <div className="px-3 pt-2 pb-1">
                               <EncounterDescriptionEditor
                                 key={enc.id}
-                                encounter={enc}
-                                onSave={(html) => {
-                                  if (html !== enc.description) handleEncounterBlur(enc, { description: html });
-                                }}
+                                encounterId={enc.id}
+                                initialDescription={enc.description}
                               />
                             </div>
 
@@ -2791,29 +2789,54 @@ export function CampaignManagementPage() {
 
 /** Encounter description rich text editor with debounced save.
  *  Keeps local state while typing so we don't write to the DB on every keystroke;
- *  flushes to the parent ~1s after the last edit, and immediately on unmount if dirty. */
+ *  flushes ~1s after the last edit, and immediately on unmount if dirty.
+ *
+ *  Reads the live encounter from Dexie at save time (by id) rather than capturing
+ *  a stale `encounter` prop — prevents other concurrent edits (like adding monsters)
+ *  from being clobbered by a delayed save with a stale encounter snapshot. */
 function EncounterDescriptionEditor({
-  encounter,
-  onSave,
+  encounterId,
+  initialDescription,
 }: {
-  encounter: SessionEncounter;
-  onSave: (html: string) => void;
+  encounterId: string;
+  initialDescription: string;
 }) {
-  const [value, setValue] = useState(encounter.description);
+  const updateEncounter = useEncountersStore((s) => s.updateEncounter);
+  const [value, setValue] = useState(initialDescription);
   const latestValueRef = useRef(value);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyRef = useRef(false);
+
+  // Save by reading the current encounter from Dexie, patching description, and writing back.
+  // No stale `encounter` prop — we always operate on the latest persisted state.
+  const persist = useCallback(async () => {
+    if (!dirtyRef.current) return;
+    dirtyRef.current = false;
+    const html = latestValueRef.current;
+    try {
+      const current = await encounterRepository.getById(encounterId);
+      if (!current) {
+        console.warn('[EncounterDescriptionEditor] Encounter gone while saving', encounterId);
+        return;
+      }
+      if (current.description === html) return; // no-op
+      const updated = { ...current, description: html, updatedAt: Date.now() };
+      await encounterRepository.update(updated);
+      updateEncounter(updated);
+      console.debug('[EncounterDescriptionEditor] Saved description for', encounterId, '(len', html.length, ')');
+    } catch (err) {
+      console.error('[EncounterDescriptionEditor] Save failed:', err);
+      dirtyRef.current = true; // restore dirty flag so we retry
+    }
+  }, [encounterId, updateEncounter]);
 
   const flush = useCallback(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    if (dirtyRef.current) {
-      onSave(latestValueRef.current);
-      dirtyRef.current = false;
-    }
-  }, [onSave]);
+    void persist();
+  }, [persist]);
 
   // Flush pending changes on unmount so nothing is lost when navigating away
   useEffect(() => {

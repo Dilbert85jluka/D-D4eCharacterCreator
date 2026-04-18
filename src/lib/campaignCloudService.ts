@@ -17,6 +17,10 @@ export async function pushCampaignToCloud(campaign: Campaign, userId: string): P
   const sessions = await sessionRepository.getAllForCampaign(campaign.id);
   const encounters = await encounterRepository.getAllForCampaign(campaign.id);
 
+  console.info(
+    `[pushCampaignToCloud] "${campaign.name}" (id=${campaign.id}) — bundling ${sessions.length} session(s), ${encounters.length} encounter(s) from Dexie`,
+  );
+
   const bundle: CampaignBundle = { campaign, sessions, encounters };
 
   const { error } = await supabase.from('user_campaigns').upsert(
