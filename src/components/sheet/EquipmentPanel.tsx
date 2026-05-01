@@ -467,10 +467,11 @@ export function EquipmentPanel({ character, derived }: Props) {
   // Count owned instances by itemId (for picker badge)
   const ownedCount = (id: string) => character.equipment.filter((e) => e.itemId === id).length;
 
-  // ── Filtered picker lists ────────────────────────────────────────────────
+  // ── Filtered picker lists (alphabetical by name) ─────────────────────────
   const q = search.trim().toLowerCase();
-  const filteredWeapons     = WEAPONS.filter((w) => !q || w.name.toLowerCase().includes(q) || w.category.toLowerCase().includes(q));
-  const filteredArmor       = ARMOR.filter((a) => !q || a.name.toLowerCase().includes(q) || a.type.toLowerCase().includes(q));
+  const byName = <T extends { name: string }>(a: T, b: T) => a.name.localeCompare(b.name);
+  const filteredWeapons     = WEAPONS.filter((w) => !q || w.name.toLowerCase().includes(q) || w.category.toLowerCase().includes(q)).sort(byName);
+  const filteredArmor       = ARMOR.filter((a) => !q || a.name.toLowerCase().includes(q) || a.type.toLowerCase().includes(q)).sort(byName);
 
   // Build flat list of magic armor × tier entries, filtered by character level
   const magicArmorTierEntries = MAGIC_ARMOR.flatMap((ma) =>
@@ -480,7 +481,7 @@ export function EquipmentPanel({ character, derived }: Props) {
   );
   const filteredMagicArmorTiers = magicArmorTierEntries.filter(({ ma }) =>
     !q || ma.name.toLowerCase().includes(q) || ma.rarity.toLowerCase().includes(q) || (ma.property ?? '').toLowerCase().includes(q) || (ma.description ?? '').toLowerCase().includes(q)
-  );
+  ).sort((a, b) => a.ma.name.localeCompare(b.ma.name) || a.tier.level - b.tier.level);
   // Build flat list of magic weapon × tier entries, filtered by character level
   const magicWeaponTierEntries = MAGIC_WEAPONS.flatMap((mw) =>
     mw.tiers
@@ -489,21 +490,21 @@ export function EquipmentPanel({ character, derived }: Props) {
   );
   const filteredMagicWeaponTiers = magicWeaponTierEntries.filter(({ mw }) =>
     !q || mw.name.toLowerCase().includes(q) || mw.rarity.toLowerCase().includes(q) || (mw.property ?? '').toLowerCase().includes(q) || (mw.critical ?? '').toLowerCase().includes(q)
-  );
+  ).sort((a, b) => a.mw.name.localeCompare(b.mw.name) || a.tier.level - b.tier.level);
   // Build flat list of magic implement × tier entries, filtered by character level
   const magicImplementTierEntries = MAGIC_IMPLEMENTS.flatMap((mi) =>
     mi.tiers
       .filter(t => t.level <= character.level)
       .map(t => ({ mi, tier: t }))
   );
-  const filteredImplements = IMPLEMENTS.filter((impl) => !q || impl.name.toLowerCase().includes(q) || impl.type.toLowerCase().includes(q));
-  const filteredSuperiorImplements = SUPERIOR_IMPLEMENTS.filter((si) => !q || si.name.toLowerCase().includes(q) || si.type.toLowerCase().includes(q) || si.properties.some(p => p.name.toLowerCase().includes(q)));
+  const filteredImplements = IMPLEMENTS.filter((impl) => !q || impl.name.toLowerCase().includes(q) || impl.type.toLowerCase().includes(q)).sort(byName);
+  const filteredSuperiorImplements = SUPERIOR_IMPLEMENTS.filter((si) => !q || si.name.toLowerCase().includes(q) || si.type.toLowerCase().includes(q) || si.properties.some(p => p.name.toLowerCase().includes(q))).sort(byName);
   const filteredMagicImplementTiers = magicImplementTierEntries.filter(({ mi }) =>
     !q || mi.name.toLowerCase().includes(q) || mi.rarity.toLowerCase().includes(q) || mi.type.toLowerCase().includes(q) || (mi.property ?? '').toLowerCase().includes(q) || (mi.critical ?? '').toLowerCase().includes(q)
-  );
-  const filteredMagic       = MAGIC_ITEMS.filter((m) => !q || m.name.toLowerCase().includes(q) || m.slot.toLowerCase().includes(q) || (m.property ?? '').toLowerCase().includes(q) || (m.power ?? '').toLowerCase().includes(q));
-  const filteredConsumables = CONSUMABLES.filter((c) => !q || c.name.toLowerCase().includes(q) || c.category.toLowerCase().includes(q) || c.effect.toLowerCase().includes(q));
-  const filteredGear        = GEAR.filter((g) => !q || g.name.toLowerCase().includes(q) || g.description.toLowerCase().includes(q) || (g.category && g.category.toLowerCase().includes(q)));
+  ).sort((a, b) => a.mi.name.localeCompare(b.mi.name) || a.tier.level - b.tier.level);
+  const filteredMagic       = MAGIC_ITEMS.filter((m) => !q || m.name.toLowerCase().includes(q) || m.slot.toLowerCase().includes(q) || (m.property ?? '').toLowerCase().includes(q) || (m.power ?? '').toLowerCase().includes(q)).sort(byName);
+  const filteredConsumables = CONSUMABLES.filter((c) => !q || c.name.toLowerCase().includes(q) || c.category.toLowerCase().includes(q) || c.effect.toLowerCase().includes(q)).sort(byName);
+  const filteredGear        = GEAR.filter((g) => !q || g.name.toLowerCase().includes(q) || g.description.toLowerCase().includes(q) || (g.category && g.category.toLowerCase().includes(q))).sort(byName);
 
   // ── Shared UI helpers ─────────────────────────────────────────────────────
   const equipBtnCls = (equipped: boolean) =>

@@ -297,7 +297,7 @@ export function Step8_Equipment() {
       <div className="space-y-2">
         {tab === 'weapons' && WEAPONS.filter((w) =>
           !search.trim() || w.name.toLowerCase().includes(search.toLowerCase())
-        ).map((w) => {
+        ).sort((a, b) => a.name.localeCompare(b.name)).map((w) => {
           const n = ownedCount(w.id);
           const canAfford = w.cost <= goldPieces;
           return (
@@ -336,7 +336,7 @@ export function Step8_Equipment() {
 
         {tab === 'armor' && ARMOR.filter((a) =>
           !search.trim() || a.name.toLowerCase().includes(search.toLowerCase())
-        ).map((a) => {
+        ).sort((a, b) => a.name.localeCompare(b.name)).map((a) => {
           const n = ownedCount(a.id);
           const canAfford = a.cost <= goldPieces;
           return (
@@ -375,7 +375,7 @@ export function Step8_Equipment() {
 
         {tab === 'gear' && GEAR.filter((g) =>
           !search.trim() || g.name.toLowerCase().includes(search.toLowerCase())
-        ).map((g) => {
+        ).sort((a, b) => a.name.localeCompare(b.name)).map((g) => {
           const qty = ownedGearQty(g.id);
           const canAfford = g.cost <= goldPieces;
           return (
