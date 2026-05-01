@@ -97,6 +97,24 @@ export function MonsterModal({
         {/* Scrollable body */}
         <div className="overflow-y-auto flex-1 p-4 space-y-4">
 
+          {/* Portrait (homebrew monsters only) */}
+          {monster.portrait && (
+            <div className="flex justify-center">
+              <img
+                src={monster.portrait}
+                alt={monster.name}
+                className="w-40 h-40 rounded-xl border-2 border-stone-200 object-cover shadow-md"
+              />
+            </div>
+          )}
+
+          {/* Flavor description (homebrew monsters only) */}
+          {monster.description && (
+            <p className="text-sm text-stone-600 italic leading-relaxed bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              {monster.description}
+            </p>
+          )}
+
           {/* Core stats grid */}
           <div className="flex flex-wrap gap-1.5">
             <StatCell label="HP"       value={monster.hp} />

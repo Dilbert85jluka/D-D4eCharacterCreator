@@ -9,7 +9,7 @@ import type { MonsterData, MonsterFilters } from '../../types/monster';
 
 export { mm1Monsters, mm2Monsters, mm3Monsters, dmgMonsters, dmg2Monsters, mvMonsters, mvttnvMonsters };
 
-export const ALL_MONSTERS: MonsterData[] = [
+const OFFICIAL_MONSTERS: MonsterData[] = [
   ...mm1Monsters,
   ...mm2Monsters,
   ...mm3Monsters,
@@ -18,6 +18,18 @@ export const ALL_MONSTERS: MonsterData[] = [
   ...mvMonsters,
   ...mvttnvMonsters,
 ];
+
+/** Mutable merged array: official monsters + any registered homebrew monsters.
+ *  All consumers (compendium, encounter picker, initiative pool) query through this. */
+export let ALL_MONSTERS: MonsterData[] = [...OFFICIAL_MONSTERS];
+
+export function registerHomebrewMonsters(monsters: MonsterData[]): void {
+  ALL_MONSTERS = [...OFFICIAL_MONSTERS, ...monsters];
+}
+
+export function unregisterHomebrewMonsters(): void {
+  ALL_MONSTERS = [...OFFICIAL_MONSTERS];
+}
 
 export function getMonsterById(id: string): MonsterData | undefined {
   return ALL_MONSTERS.find((m) => m.id === id);

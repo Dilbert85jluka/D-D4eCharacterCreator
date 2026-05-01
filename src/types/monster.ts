@@ -1,4 +1,4 @@
-export type MonsterSource = 'mm1' | 'mm2' | 'mm3' | 'dmg' | 'dmg2' | 'mv' | 'mvttnv';
+export type MonsterSource = 'mm1' | 'mm2' | 'mm3' | 'dmg' | 'dmg2' | 'mv' | 'mvttnv' | 'homebrew';
 
 export type MonsterRole =
   | 'Brute'
@@ -75,6 +75,10 @@ export interface MonsterData {
   powers: MonsterPower[];
   alignment: 'Lawful Good' | 'Good' | 'Unaligned' | 'Evil' | 'Chaotic Evil';
   languages?: string[];
+  /** Optional portrait/illustration. Base64 data URL (JPEG). Only set on homebrew monsters. */
+  portrait?: string;
+  /** Optional flavor description — shown in MonsterModal when present. Homebrew-only field. */
+  description?: string;
 }
 
 /** Filters for the compendium search */

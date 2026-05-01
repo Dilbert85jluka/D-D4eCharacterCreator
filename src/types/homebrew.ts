@@ -12,6 +12,7 @@ import type {
   RaceData,
   ClassData,
 } from './gameData';
+import type { MonsterData } from './monster';
 
 export type HomebrewContentType =
   | 'race'
@@ -25,7 +26,8 @@ export type HomebrewContentType =
   | 'magicArmor'
   | 'magicWeapon'
   | 'magicImplement'
-  | 'consumable';
+  | 'consumable'
+  | 'monster';
 
 export const HOMEBREW_CONTENT_TYPES: { key: HomebrewContentType; label: string }[] = [
   { key: 'race', label: 'Races' },
@@ -40,6 +42,7 @@ export const HOMEBREW_CONTENT_TYPES: { key: HomebrewContentType; label: string }
   { key: 'magicWeapon', label: 'Magic Weapons' },
   { key: 'magicImplement', label: 'Magic Implements' },
   { key: 'consumable', label: 'Consumables' },
+  { key: 'monster', label: 'Monsters' },
 ];
 
 export type HomebrewDataMap = {
@@ -55,6 +58,7 @@ export type HomebrewDataMap = {
   magicWeapon: MagicWeaponData;
   magicImplement: MagicImplementData;
   consumable: ConsumableData;
+  monster: MonsterData;
 };
 
 export interface HomebrewItem<T extends HomebrewContentType = HomebrewContentType> {

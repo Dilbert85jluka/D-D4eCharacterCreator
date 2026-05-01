@@ -5,6 +5,28 @@ import { useCampaignsStore } from '../store/useCampaignsStore';
 import { HOMEBREW_CONTENT_TYPES } from '../types/homebrew';
 import type { HomebrewContentType, HomebrewItem } from '../types/homebrew';
 import { HomebrewEditorModal } from '../components/homebrew/HomebrewEditorModal';
+import { HomebrewImportModal } from '../components/homebrew/HomebrewImportModal';
+import { downloadExport, safeFilename } from '../lib/homebrewExport';
+
+/** Per-content-type metadata: emoji icon + color theme for pill buttons */
+const CONTENT_TYPE_META: Record<HomebrewContentType, { icon: string; theme: {
+  activeBg: string; activeText: string; activeBadgeBg: string; activeBadgeText: string;
+  idleBorder: string; idleText: string; idleIconBg: string; hoverBorder: string; hoverBg: string;
+} }> = {
+  race:           { icon: '🧝', theme: { activeBg: 'bg-violet-600',   activeText: 'text-white', activeBadgeBg: 'bg-violet-800',   activeBadgeText: 'text-violet-100',   idleBorder: 'border-violet-200',   idleText: 'text-violet-800',   idleIconBg: 'bg-violet-50',   hoverBorder: 'hover:border-violet-400',   hoverBg: 'hover:bg-violet-50'   } },
+  class:          { icon: '⚔️', theme: { activeBg: 'bg-red-600',      activeText: 'text-white', activeBadgeBg: 'bg-red-800',      activeBadgeText: 'text-red-100',      idleBorder: 'border-red-200',      idleText: 'text-red-800',      idleIconBg: 'bg-red-50',      hoverBorder: 'hover:border-red-400',      hoverBg: 'hover:bg-red-50'      } },
+  power:          { icon: '✨', theme: { activeBg: 'bg-purple-600',   activeText: 'text-white', activeBadgeBg: 'bg-purple-800',   activeBadgeText: 'text-purple-100',   idleBorder: 'border-purple-200',   idleText: 'text-purple-800',   idleIconBg: 'bg-purple-50',   hoverBorder: 'hover:border-purple-400',   hoverBg: 'hover:bg-purple-50'   } },
+  feat:           { icon: '🎯', theme: { activeBg: 'bg-orange-600',   activeText: 'text-white', activeBadgeBg: 'bg-orange-800',   activeBadgeText: 'text-orange-100',   idleBorder: 'border-orange-200',   idleText: 'text-orange-800',   idleIconBg: 'bg-orange-50',   hoverBorder: 'hover:border-orange-400',   hoverBg: 'hover:bg-orange-50'   } },
+  weapon:         { icon: '🗡️', theme: { activeBg: 'bg-stone-700',    activeText: 'text-white', activeBadgeBg: 'bg-stone-900',    activeBadgeText: 'text-stone-100',    idleBorder: 'border-stone-300',    idleText: 'text-stone-800',    idleIconBg: 'bg-stone-50',    hoverBorder: 'hover:border-stone-500',    hoverBg: 'hover:bg-stone-50'    } },
+  armor:          { icon: '🛡️', theme: { activeBg: 'bg-sky-600',      activeText: 'text-white', activeBadgeBg: 'bg-sky-800',      activeBadgeText: 'text-sky-100',      idleBorder: 'border-sky-200',      idleText: 'text-sky-800',      idleIconBg: 'bg-sky-50',      hoverBorder: 'hover:border-sky-400',      hoverBg: 'hover:bg-sky-50'      } },
+  gear:           { icon: '🎒', theme: { activeBg: 'bg-amber-700',    activeText: 'text-white', activeBadgeBg: 'bg-amber-900',    activeBadgeText: 'text-amber-100',    idleBorder: 'border-amber-200',    idleText: 'text-amber-800',    idleIconBg: 'bg-amber-50',    hoverBorder: 'hover:border-amber-400',    hoverBg: 'hover:bg-amber-50'    } },
+  magicItem:      { icon: '💎', theme: { activeBg: 'bg-indigo-600',   activeText: 'text-white', activeBadgeBg: 'bg-indigo-800',   activeBadgeText: 'text-indigo-100',   idleBorder: 'border-indigo-200',   idleText: 'text-indigo-800',   idleIconBg: 'bg-indigo-50',   hoverBorder: 'hover:border-indigo-400',   hoverBg: 'hover:bg-indigo-50'   } },
+  magicArmor:     { icon: '🧿', theme: { activeBg: 'bg-blue-600',     activeText: 'text-white', activeBadgeBg: 'bg-blue-800',     activeBadgeText: 'text-blue-100',     idleBorder: 'border-blue-200',     idleText: 'text-blue-800',     idleIconBg: 'bg-blue-50',     hoverBorder: 'hover:border-blue-400',     hoverBg: 'hover:bg-blue-50'     } },
+  magicWeapon:    { icon: '⚡', theme: { activeBg: 'bg-rose-600',     activeText: 'text-white', activeBadgeBg: 'bg-rose-800',     activeBadgeText: 'text-rose-100',     idleBorder: 'border-rose-200',     idleText: 'text-rose-800',     idleIconBg: 'bg-rose-50',     hoverBorder: 'hover:border-rose-400',     hoverBg: 'hover:bg-rose-50'     } },
+  magicImplement: { icon: '🔮', theme: { activeBg: 'bg-fuchsia-600',  activeText: 'text-white', activeBadgeBg: 'bg-fuchsia-800',  activeBadgeText: 'text-fuchsia-100',  idleBorder: 'border-fuchsia-200',  idleText: 'text-fuchsia-800',  idleIconBg: 'bg-fuchsia-50',  hoverBorder: 'hover:border-fuchsia-400',  hoverBg: 'hover:bg-fuchsia-50'  } },
+  consumable:     { icon: '🧪', theme: { activeBg: 'bg-emerald-600',  activeText: 'text-white', activeBadgeBg: 'bg-emerald-800',  activeBadgeText: 'text-emerald-100',  idleBorder: 'border-emerald-200',  idleText: 'text-emerald-800',  idleIconBg: 'bg-emerald-50',  hoverBorder: 'hover:border-emerald-400',  hoverBg: 'hover:bg-emerald-50'  } },
+  monster:        { icon: '🐉', theme: { activeBg: 'bg-teal-600',     activeText: 'text-white', activeBadgeBg: 'bg-teal-800',     activeBadgeText: 'text-teal-100',     idleBorder: 'border-teal-200',     idleText: 'text-teal-800',     idleIconBg: 'bg-teal-50',     hoverBorder: 'hover:border-teal-400',     hoverBg: 'hover:bg-teal-50'     } },
+};
 
 function ContentTypePill({ type, active, count, onClick }: {
   type: { key: HomebrewContentType; label: string };
@@ -12,21 +34,30 @@ function ContentTypePill({ type, active, count, onClick }: {
   count: number;
   onClick: () => void;
 }) {
+  const meta = CONTENT_TYPE_META[type.key];
+  const t = meta.theme;
   return (
     <button
       onClick={onClick}
       className={[
-        'px-3 py-2 rounded-lg text-sm font-semibold transition-colors min-h-[44px] flex items-center gap-2 whitespace-nowrap',
+        'w-full px-2.5 py-2 rounded-xl text-sm font-semibold transition-all min-h-[56px]',
+        'flex items-center gap-2 border-2',
         active
-          ? 'bg-amber-700 text-white'
-          : 'bg-white text-stone-600 border border-stone-300 hover:border-amber-400 hover:bg-amber-50',
+          ? `${t.activeBg} ${t.activeText} border-transparent shadow-md scale-[1.02]`
+          : `bg-white ${t.idleText} ${t.idleBorder} ${t.hoverBorder} ${t.hoverBg}`,
       ].join(' ')}
     >
-      {type.label}
+      <span className={[
+        'flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 text-xl leading-none',
+        active ? 'bg-white/20' : t.idleIconBg,
+      ].join(' ')}>
+        {meta.icon}
+      </span>
+      <span className="flex-1 text-left leading-tight">{type.label}</span>
       {count > 0 && (
         <span className={[
-          'text-xs px-1.5 py-0.5 rounded-full font-bold',
-          active ? 'bg-amber-600 text-amber-100' : 'bg-stone-200 text-stone-500',
+          'text-xs px-1.5 py-0.5 rounded-full font-bold flex-shrink-0',
+          active ? `${t.activeBadgeBg} ${t.activeBadgeText}` : 'bg-stone-200 text-stone-600',
         ].join(' ')}>
           {count}
         </span>
@@ -35,10 +66,11 @@ function ContentTypePill({ type, active, count, onClick }: {
   );
 }
 
-function ItemRow({ item, onEdit, onDelete }: {
+function ItemRow({ item, onEdit, onDelete, onExport }: {
   item: HomebrewItem;
   onEdit: () => void;
   onDelete: () => void;
+  onExport: () => void;
 }) {
   const campaigns = useCampaignsStore((s) => s.campaigns);
   const linkedCampaigns = campaigns.filter((c) => item.campaignIds.includes(c.id));
@@ -61,6 +93,13 @@ function ItemRow({ item, onEdit, onDelete }: {
       </div>
 
       {/* Actions */}
+      <button
+        onClick={onExport}
+        title="Export this item"
+        className="px-3 py-1.5 text-xs font-semibold bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200 transition-colors min-h-[36px]"
+      >
+        Export
+      </button>
       <button
         onClick={onEdit}
         className="px-3 py-1.5 text-xs font-semibold bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition-colors min-h-[36px]"
@@ -87,6 +126,7 @@ export function HomebrewWorkshopPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<HomebrewItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   // Count items per type
   const countsByType = useMemo(() => {
@@ -120,6 +160,17 @@ export function HomebrewWorkshopPage() {
   const handleDelete = async (id: string) => {
     await deleteItem(id);
     setDeleteConfirm(null);
+  };
+
+  const handleExportItem = (item: HomebrewItem) => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadExport([item], `homebrew-${item.contentType}-${safeFilename(item.name)}-${stamp}.json`);
+  };
+
+  const handleExportAll = () => {
+    if (items.length === 0) return;
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadExport(items, `homebrew-all-${stamp}.json`);
   };
 
   const activeLabel = HOMEBREW_CONTENT_TYPES.find((t) => t.key === activeType)?.label ?? activeType;
@@ -259,8 +310,9 @@ export function HomebrewWorkshopPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 space-y-4">
-        {/* Content Type Selector — horizontal pill bar */}
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        {/* Content Type Selector — responsive grid.
+            13 items: 5 columns on desktop = 3 rows (5 + 5 + 3), wraps to fewer columns on smaller screens. */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
           {HOMEBREW_CONTENT_TYPES.map((type) => (
             <ContentTypePill
               key={type.key}
@@ -273,8 +325,8 @@ export function HomebrewWorkshopPage() {
         </div>
 
         {/* Toolbar: search + new button */}
-        <div className="flex items-center gap-3">
-          <div className="flex-1 relative">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex-1 min-w-[200px] relative">
             <input
               type="text"
               value={search}
@@ -286,6 +338,21 @@ export function HomebrewWorkshopPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
+          <button
+            onClick={handleExportAll}
+            disabled={items.length === 0}
+            title={items.length === 0 ? 'No homebrew to export' : `Export all ${items.length} item${items.length !== 1 ? 's' : ''} as a JSON file`}
+            className="px-3 py-2.5 bg-stone-100 text-stone-700 font-semibold text-sm rounded-lg hover:bg-stone-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[44px] whitespace-nowrap"
+          >
+            Export All
+          </button>
+          <button
+            onClick={() => setImportOpen(true)}
+            title="Import homebrew from a JSON file"
+            className="px-3 py-2.5 bg-stone-100 text-stone-700 font-semibold text-sm rounded-lg hover:bg-stone-200 transition-colors min-h-[44px] whitespace-nowrap"
+          >
+            Import
+          </button>
           <button
             onClick={handleNew}
             className="px-4 py-2.5 bg-amber-700 text-white font-semibold text-sm rounded-lg hover:bg-amber-600 transition-colors min-h-[44px] flex items-center gap-1.5 whitespace-nowrap"
@@ -334,6 +401,7 @@ export function HomebrewWorkshopPage() {
                     item={item}
                     onEdit={() => handleEdit(item)}
                     onDelete={() => setDeleteConfirm(item.id)}
+                    onExport={() => handleExportItem(item)}
                   />
                 )}
               </div>
@@ -357,6 +425,11 @@ export function HomebrewWorkshopPage() {
           userId={user.id}
           onClose={() => { setEditorOpen(false); setEditingItem(null); }}
         />
+      )}
+
+      {/* Import modal */}
+      {importOpen && (
+        <HomebrewImportModal onClose={() => setImportOpen(false)} />
       )}
     </div>
   );

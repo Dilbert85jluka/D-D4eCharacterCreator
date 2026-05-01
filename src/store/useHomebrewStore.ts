@@ -19,6 +19,8 @@ import {
   registerHomebrewMagicWeapons, unregisterHomebrewMagicWeapons,
   registerHomebrewMagicImplements, unregisterHomebrewMagicImplements,
 } from '../data/equipment';
+import { registerHomebrewMonsters, unregisterHomebrewMonsters } from '../data/monsters';
+import type { MonsterData } from '../types/monster';
 
 function syncToDataLayer(items: HomebrewItem[]) {
   // Group items by contentType and register them into the static data arrays
@@ -34,6 +36,7 @@ function syncToDataLayer(items: HomebrewItem[]) {
   const magicArmor = items.filter((i) => i.contentType === 'magicArmor').map((i) => i.data as MagicArmorData);
   const magicWeapons = items.filter((i) => i.contentType === 'magicWeapon').map((i) => i.data as MagicWeaponData);
   const magicImplements = items.filter((i) => i.contentType === 'magicImplement').map((i) => i.data as MagicImplementData);
+  const monsters = items.filter((i) => i.contentType === 'monster').map((i) => i.data as MonsterData);
 
   if (races.length) registerHomebrewRaces(races); else unregisterHomebrewRaces();
   if (classes.length) registerHomebrewClasses(classes); else unregisterHomebrewClasses();
@@ -47,6 +50,7 @@ function syncToDataLayer(items: HomebrewItem[]) {
   if (magicArmor.length) registerHomebrewMagicArmor(magicArmor); else unregisterHomebrewMagicArmor();
   if (magicWeapons.length) registerHomebrewMagicWeapons(magicWeapons); else unregisterHomebrewMagicWeapons();
   if (magicImplements.length) registerHomebrewMagicImplements(magicImplements); else unregisterHomebrewMagicImplements();
+  if (monsters.length) registerHomebrewMonsters(monsters); else unregisterHomebrewMonsters();
 }
 
 interface HomebrewState {
@@ -61,6 +65,7 @@ interface HomebrewState {
   getItemsByType: (contentType: HomebrewContentType) => HomebrewItem[];
   getItemsByCampaign: (campaignId: string) => HomebrewItem[];
   mergeCloudHomebrew: (cloudItems: HomebrewItem[]) => Promise<void>;
+  importItems: (items: HomebrewItem[]) => Promise<void>;
 }
 
 export const useHomebrewStore = create<HomebrewState>((set, get) => ({
@@ -110,6 +115,14 @@ export const useHomebrewStore = create<HomebrewState>((set, get) => ({
   getItemsByType: (contentType) => get().items.filter((i) => i.contentType === contentType),
 
   getItemsByCampaign: (campaignId) => get().items.filter((i) => i.campaignIds.includes(campaignId)),
+
+  importItems: async (items) => {
+    if (items.length === 0) return;
+    await db.homebrew.bulkPut(items);
+    const fresh = await homebrewRepository.getAll();
+    set({ items: fresh });
+    syncToDataLayer(fresh);
+  },
 
   mergeCloudHomebrew: async (cloudItems) => {
     const localItems = await homebrewRepository.getAll();

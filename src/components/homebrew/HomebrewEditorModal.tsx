@@ -11,6 +11,7 @@ import { MagicItemEditor } from './MagicItemEditor';
 import { MagicArmorEditor } from './MagicArmorEditor';
 import { MagicWeaponEditor } from './MagicWeaponEditor';
 import { MagicImplementEditor } from './MagicImplementEditor';
+import { MonsterEditor } from './MonsterEditor';
 
 interface Props {
   contentType: HomebrewContentType;
@@ -32,6 +33,7 @@ const EDITORS: Record<HomebrewContentType, React.ComponentType<EditorProps>> = {
   magicArmor: MagicArmorEditor,
   magicWeapon: MagicWeaponEditor,
   magicImplement: MagicImplementEditor,
+  monster: MonsterEditor,
 };
 
 export interface EditorProps {

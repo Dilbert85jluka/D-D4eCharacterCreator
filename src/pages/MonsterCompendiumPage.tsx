@@ -86,6 +86,15 @@ function MonsterRow({ monster, onClick }: { monster: MonsterData; onClick: () =>
       {/* Role colour strip */}
       <span className={`w-1.5 self-stretch rounded-full flex-shrink-0 ${ROLE_COLORS[monster.role].split(' ')[0]}`} />
 
+      {/* Portrait thumbnail (when present) */}
+      {monster.portrait && (
+        <img
+          src={monster.portrait}
+          alt=""
+          className="w-10 h-10 rounded-lg object-cover border border-stone-200 flex-shrink-0"
+        />
+      )}
+
       {/* Name + descriptor */}
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-stone-800 text-sm truncate">{monster.name}</div>
@@ -124,6 +133,7 @@ const SOURCES: { key: MonsterSource; label: string }[] = [
   { key: 'dmg2', label: 'DMG2' },
   { key: 'mv', label: 'MV' },
   { key: 'mvttnv', label: "MV:TttNV" },
+  { key: 'homebrew', label: 'Homebrew' },
 ];
 
 const ROLES: MonsterRole[] = ['Brute', 'Soldier', 'Artillery', 'Lurker', 'Controller', 'Skirmisher'];
