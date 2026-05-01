@@ -13,12 +13,15 @@ interface AppState {
   sidebarOpen: boolean;
   activeToast: Toast | null;
   activeCharacterId: string | null;
+  /** Share code captured from `?import=<code>` URL. HomebrewWorkshopPage reads + clears this. */
+  pendingImportCode: string | null;
 
   navigate: (view: AppView, characterId?: string) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
   showToast: (message: string, type: Toast['type']) => void;
   clearToast: () => void;
+  setPendingImportCode: (code: string | null) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -28,6 +31,7 @@ export const useAppStore = create<AppState>()(
       sidebarOpen: false,
       activeToast: null,
       activeCharacterId: null,
+      pendingImportCode: null,
 
       navigate: (view, characterId) =>
         set({ currentView: view, activeCharacterId: characterId ?? null }),
@@ -37,6 +41,7 @@ export const useAppStore = create<AppState>()(
 
       showToast: (message, type) => set({ activeToast: { message, type } }),
       clearToast: () => set({ activeToast: null }),
+      setPendingImportCode: (code) => set({ pendingImportCode: code }),
     }),
     {
       name: 'dnd4e-app-nav',
@@ -58,6 +63,9 @@ export const useAppStore = create<AppState>()(
             ? 'magicItems'
             : 'home',
         activeCharacterId: state.activeCharacterId,
+        // Persist pending import code so it survives the magic-link login round-trip
+        // (the magic link callback reloads the page).
+        pendingImportCode: state.pendingImportCode,
       }),
     },
   ),

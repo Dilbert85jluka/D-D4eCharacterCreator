@@ -1,11 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useHomebrewStore } from '../store/useHomebrewStore';
 import { useAuthStore } from '../store/useAuthStore';
+import { useAppStore } from '../store/useAppStore';
 import { useCampaignsStore } from '../store/useCampaignsStore';
 import { HOMEBREW_CONTENT_TYPES } from '../types/homebrew';
 import type { HomebrewContentType, HomebrewItem } from '../types/homebrew';
 import { HomebrewEditorModal } from '../components/homebrew/HomebrewEditorModal';
 import { HomebrewImportModal } from '../components/homebrew/HomebrewImportModal';
+import { HomebrewShareCodeModal } from '../components/homebrew/HomebrewShareCodeModal';
 import { downloadExport, safeFilename } from '../lib/homebrewExport';
 
 /** Per-content-type metadata: emoji icon + color theme for pill buttons */
@@ -66,11 +68,12 @@ function ContentTypePill({ type, active, count, onClick }: {
   );
 }
 
-function ItemRow({ item, onEdit, onDelete, onExport }: {
+function ItemRow({ item, onEdit, onDelete, onExport, onShareCode }: {
   item: HomebrewItem;
   onEdit: () => void;
   onDelete: () => void;
   onExport: () => void;
+  onShareCode: () => void;
 }) {
   const campaigns = useCampaignsStore((s) => s.campaigns);
   const linkedCampaigns = campaigns.filter((c) => item.campaignIds.includes(c.id));
@@ -94,8 +97,15 @@ function ItemRow({ item, onEdit, onDelete, onExport }: {
 
       {/* Actions */}
       <button
+        onClick={onShareCode}
+        title="Share this item via code or URL"
+        className="px-3 py-1.5 text-xs font-semibold bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200 transition-colors min-h-[36px]"
+      >
+        Share
+      </button>
+      <button
         onClick={onExport}
-        title="Export this item"
+        title="Export this item as a JSON file"
         className="px-3 py-1.5 text-xs font-semibold bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200 transition-colors min-h-[36px]"
       >
         Export
@@ -120,6 +130,8 @@ export function HomebrewWorkshopPage() {
   const items = useHomebrewStore((s) => s.items);
   const deleteItem = useHomebrewStore((s) => s.deleteItem);
   const user = useAuthStore((s) => s.user);
+  const pendingImportCode = useAppStore((s) => s.pendingImportCode);
+  const setPendingImportCode = useAppStore((s) => s.setPendingImportCode);
 
   const [activeType, setActiveType] = useState<HomebrewContentType>('power');
   const [search, setSearch] = useState('');
@@ -127,6 +139,18 @@ export function HomebrewWorkshopPage() {
   const [editingItem, setEditingItem] = useState<HomebrewItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [importInitialCode, setImportInitialCode] = useState<string | undefined>(undefined);
+  const [shareCodeItem, setShareCodeItem] = useState<HomebrewItem | null>(null);
+
+  // Auto-open import modal when arriving via a `?import=<code>` deep-link.
+  // App.tsx captures the code on startup and navigates here after login.
+  useEffect(() => {
+    if (pendingImportCode) {
+      setImportInitialCode(pendingImportCode);
+      setImportOpen(true);
+      setPendingImportCode(null);
+    }
+  }, [pendingImportCode, setPendingImportCode]);
 
   // Count items per type
   const countsByType = useMemo(() => {
@@ -402,6 +426,7 @@ export function HomebrewWorkshopPage() {
                     onEdit={() => handleEdit(item)}
                     onDelete={() => setDeleteConfirm(item.id)}
                     onExport={() => handleExportItem(item)}
+                    onShareCode={() => setShareCodeItem(item)}
                   />
                 )}
               </div>
@@ -429,7 +454,21 @@ export function HomebrewWorkshopPage() {
 
       {/* Import modal */}
       {importOpen && (
-        <HomebrewImportModal onClose={() => setImportOpen(false)} />
+        <HomebrewImportModal
+          onClose={() => {
+            setImportOpen(false);
+            setImportInitialCode(undefined);
+          }}
+          initialCode={importInitialCode}
+        />
+      )}
+
+      {/* Share code modal */}
+      {shareCodeItem && (
+        <HomebrewShareCodeModal
+          item={shareCodeItem}
+          onClose={() => setShareCodeItem(null)}
+        />
       )}
     </div>
   );

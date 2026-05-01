@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useHomebrewStore } from '../../store/useHomebrewStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { HOMEBREW_CONTENT_TYPES } from '../../types/homebrew';
@@ -6,24 +6,44 @@ import type { HomebrewContentType } from '../../types/homebrew';
 import {
   parseHomebrewImport,
   prepareImport,
+  decodeShareCode,
   type HomebrewExportFile,
   type ImportConflictMode,
 } from '../../lib/homebrewExport';
 
+type ImportSource = 'file' | 'code';
+
 interface Props {
   onClose: () => void;
+  /** Optional initial code (e.g. from `?import=` URL param) — pre-fills the code tab. */
+  initialCode?: string;
 }
 
-export function HomebrewImportModal({ onClose }: Props) {
+export function HomebrewImportModal({ onClose, initialCode }: Props) {
   const existingItems = useHomebrewStore((s) => s.items);
   const importItems = useHomebrewStore((s) => s.importItems);
   const userId = useAuthStore((s) => s.user?.id);
 
+  const [source, setSource] = useState<ImportSource>(initialCode ? 'code' : 'file');
   const [parsed, setParsed] = useState<HomebrewExportFile | null>(null);
   const [conflictMode, setConflictMode] = useState<ImportConflictMode>('skip');
   const [status, setStatus] = useState<'idle' | 'importing' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [fileName, setFileName] = useState<string>('');
+  const [codeInput, setCodeInput] = useState<string>(initialCode ?? '');
+  const autoDecodedRef = useRef(false);
+
+  // Auto-decode when initialCode is supplied (deep-link flow). Runs once.
+  useEffect(() => {
+    if (!initialCode || autoDecodedRef.current) return;
+    autoDecodedRef.current = true;
+    try {
+      const data = decodeShareCode(initialCode);
+      setParsed(data);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Could not decode share code.');
+    }
+  }, [initialCode]);
 
   const prepared = useMemo(() => {
     if (!parsed || !userId) return null;
@@ -53,6 +73,31 @@ export function HomebrewImportModal({ onClose }: Props) {
       setParsed(null);
       setErrorMsg(err instanceof Error ? err.message : 'Could not read file.');
     }
+  }
+
+  function handleDecodeCode() {
+    setStatus('idle');
+    setErrorMsg('');
+    if (!codeInput.trim()) {
+      setParsed(null);
+      setErrorMsg('Paste a share code or URL.');
+      return;
+    }
+    try {
+      const data = decodeShareCode(codeInput);
+      setParsed(data);
+    } catch (err) {
+      setParsed(null);
+      setErrorMsg(err instanceof Error ? err.message : 'Could not decode share code.');
+    }
+  }
+
+  function switchSource(next: ImportSource) {
+    if (next === source) return;
+    setSource(next);
+    setParsed(null);
+    setErrorMsg('');
+    setStatus('idle');
   }
 
   async function handleImport() {
@@ -90,21 +135,73 @@ export function HomebrewImportModal({ onClose }: Props) {
 
         <div className="p-6 space-y-5">
           <p className="text-sm text-stone-500">
-            Import homebrew items shared by another player. Choose a <code className="text-xs bg-stone-100 px-1 rounded">.json</code> file exported from the Homebrew Workshop.
+            Import homebrew items shared by another player.
           </p>
 
-          <label className="block">
-            <span className="sr-only">Choose import file</span>
-            <input
-              type="file"
-              accept=".json,application/json"
-              onChange={handleFileChange}
-              className="block w-full text-sm text-stone-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200 file:min-h-[36px] file:cursor-pointer cursor-pointer"
-            />
-          </label>
+          {/* Source toggle */}
+          <div className="flex gap-1 bg-stone-100 p-1 rounded-lg">
+            <button
+              onClick={() => switchSource('file')}
+              className={[
+                'flex-1 py-2 text-sm font-semibold rounded-md transition-colors min-h-[36px]',
+                source === 'file' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700',
+              ].join(' ')}
+            >
+              From file
+            </button>
+            <button
+              onClick={() => switchSource('code')}
+              className={[
+                'flex-1 py-2 text-sm font-semibold rounded-md transition-colors min-h-[36px]',
+                source === 'code' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700',
+              ].join(' ')}
+            >
+              From code
+            </button>
+          </div>
 
-          {fileName && !errorMsg && parsed && (
-            <p className="text-xs text-stone-400 -mt-2">Loaded: {fileName}</p>
+          {source === 'file' ? (
+            <>
+              <p className="text-xs text-stone-400 -mt-2">
+                Choose a <code className="bg-stone-100 px-1 rounded">.json</code> file exported from the Homebrew Workshop.
+              </p>
+              <label className="block">
+                <span className="sr-only">Choose import file</span>
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={handleFileChange}
+                  className="block w-full text-sm text-stone-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200 file:min-h-[36px] file:cursor-pointer cursor-pointer"
+                />
+              </label>
+              {fileName && !errorMsg && parsed && (
+                <p className="text-xs text-stone-400 -mt-2">Loaded: {fileName}</p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-stone-400 -mt-2">
+                Paste a share code or share URL someone sent you.
+              </p>
+              <textarea
+                value={codeInput}
+                onChange={(e) => {
+                  setCodeInput(e.target.value);
+                  if (parsed) setParsed(null);
+                  if (errorMsg) setErrorMsg('');
+                }}
+                placeholder="Paste share code or URL here..."
+                rows={5}
+                className="w-full text-[11px] font-mono px-2.5 py-2 rounded-lg border border-stone-300 bg-white text-stone-700 resize-none break-all focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              />
+              <button
+                onClick={handleDecodeCode}
+                disabled={!codeInput.trim() || !!parsed}
+                className="w-full py-2 text-sm font-semibold bg-stone-200 text-stone-700 hover:bg-stone-300 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors min-h-[36px]"
+              >
+                {parsed ? 'Decoded' : 'Decode'}
+              </button>
+            </>
           )}
 
           {errorMsg && (
@@ -117,7 +214,7 @@ export function HomebrewImportModal({ onClose }: Props) {
             <>
               <div className="bg-stone-50 border border-stone-200 rounded-lg p-3 text-sm space-y-2">
                 <p className="font-semibold text-stone-700">
-                  File contains {parsed.items.length} item{parsed.items.length !== 1 ? 's' : ''}:
+                  Contains {parsed.items.length} item{parsed.items.length !== 1 ? 's' : ''}:
                 </p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-stone-600 text-xs">
                   {HOMEBREW_CONTENT_TYPES.filter((t) => countsByType[t.key]).map((t) => (

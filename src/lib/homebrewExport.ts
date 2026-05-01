@@ -83,6 +83,51 @@ export interface PreparedImport {
   newItems: HomebrewItem[];
 }
 
+/** URL-safe base64 of the export envelope (RFC 4648 §5). Suitable for share codes and URLs. */
+export function encodeShareCode(items: HomebrewItem[]): string {
+  const json = JSON.stringify(buildExport(items));
+  // btoa requires Latin-1 — round-trip through encodeURIComponent for unicode safety
+  const b64 = btoa(unescape(encodeURIComponent(json)));
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** Decode a share code OR a full share URL with `?import=<code>`. Returns the parsed file. */
+export function decodeShareCode(input: string): HomebrewExportFile {
+  const trimmed = input.trim();
+  if (!trimmed) throw new Error('Share code is empty.');
+
+  // Extract code from a URL if one was pasted
+  let code = trimmed;
+  if (trimmed.includes('://') || trimmed.startsWith('?') || trimmed.startsWith('/')) {
+    try {
+      const url = trimmed.startsWith('http') ? new URL(trimmed) : new URL(trimmed, 'https://example.com');
+      const fromQuery = url.searchParams.get('import');
+      if (fromQuery) code = fromQuery;
+    } catch {
+      // Not a parseable URL — fall through and treat the whole input as a code
+    }
+  }
+
+  // Reverse URL-safe encoding and restore base64 padding
+  const padded = code.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = padded.length % 4 === 0 ? '' : '='.repeat(4 - (padded.length % 4));
+  const b64 = padded + padding;
+
+  let json: string;
+  try {
+    json = decodeURIComponent(escape(atob(b64)));
+  } catch {
+    throw new Error('Invalid share code: could not decode.');
+  }
+  return parseHomebrewImport(json); // reuses envelope validation
+}
+
+/** Build the absolute URL form of a share code. Uses the current page origin + pathname. */
+export function buildShareUrl(code: string): string {
+  if (typeof window === 'undefined') return `?import=${code}`;
+  return `${window.location.origin}${window.location.pathname}?import=${code}`;
+}
+
 export function prepareImport(
   fileItems: HomebrewItem[],
   existing: HomebrewItem[],

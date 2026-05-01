@@ -26,6 +26,8 @@ import { useHomebrewCloudSync } from './hooks/useHomebrewCloudSync';
 
 export default function App() {
   const currentView    = useAppStore((s) => s.currentView);
+  const navigate       = useAppStore((s) => s.navigate);
+  const setPendingImportCode = useAppStore((s) => s.setPendingImportCode);
   const loadCharacters    = useCharactersStore((s) => s.loadCharacters);
   const loadCampaigns     = useCampaignsStore((s) => s.loadCampaigns);
   const loadAllSessions   = useSessionsStore((s) => s.loadAllSessions);
@@ -43,6 +45,33 @@ export default function App() {
   useEffect(() => { loadHomebrew(); }, [loadHomebrew]);
   // Initialize Supabase auth (checks existing session, subscribes to changes)
   useEffect(() => { initializeAuth(); }, [initializeAuth]);
+
+  // Capture `?import=<code>` deep-link on first paint. Stash in app store and
+  // strip from the URL so a refresh doesn't re-trigger. Code survives login.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const importCode = params.get('import');
+    if (importCode) {
+      setPendingImportCode(importCode);
+      params.delete('import');
+      const newSearch = params.toString();
+      const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [setPendingImportCode]);
+
+  // After login, if there's a pending import code, navigate to the Homebrew Workshop
+  // (which auto-opens the import modal pre-filled with the code).
+  useEffect(() => {
+    if (!user) return;
+    const code = useAppStore.getState().pendingImportCode;
+    if (code && currentView !== 'homebrew') {
+      navigate('homebrew');
+    }
+    // We deliberately depend only on `user` so this fires once on auth resolve,
+    // not on every navigation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
   useCharacterCloudSync();
   useCampaignCloudSync();
   useHomebrewCloudSync();
