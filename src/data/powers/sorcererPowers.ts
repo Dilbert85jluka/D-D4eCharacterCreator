@@ -62,7 +62,10 @@ export const sorcererPowers: PowerData[] = [
     defense: 'Will',
     target: 'One creature Primary',
     attack: 'Charisma vs. Will',
-    hit: '1d10 + Charisma modifier psychic damage. Level 21: 2d10 + Charisma modifier psychic damage. Wild Magic: If you rolled an even number for the primary attack roll, make a secondary attack. Secondary Target: One creature within 5 squares of the target last hit by this power. Secondary Attack: Charisma vs. Will. Hit: 1d6 psychic damage. If you rolled an even number for the secondary attack roll, repeat the secondary attack. You can attack a creature only once with a single use of this power.',
+    hit: '1d10 + Charisma modifier psychic damage. Level 21: 2d10 + Charisma modifier psychic damage. Wild Magic: If you rolled an even number for the primary attack roll, make a secondary attack.',
+    secondaryTarget: 'One creature within 5 squares of the target last hit by this power',
+    secondaryAttack: 'Charisma vs. Will',
+    secondaryHit: '1d6 psychic damage. If you rolled an even number for the secondary attack roll, repeat the secondary attack. You can attack a creature only once with a single use of this power.',
   },
   {
     id: 'sorcerer-chromatic-orb',
@@ -366,7 +369,10 @@ export const sorcererPowers: PowerData[] = [
     target: 'One creature Primary',
     attack: 'Charisma vs. Fortitude',
     hit: 'You slide the primary target 3 squares.',
-    effect: 'The primary target takes 2d6 acid damage. Make a secondary attack that is an area burst 1 centered on the primary target. Secondary Target: Each creature in the burst. Secondary Attack: Charisma vs. Reflex. Hit: 2d6 acid damage.',
+    effect: 'The primary target takes 2d6 acid damage. Make a secondary attack that is an area burst 1 centered on the primary target.',
+    secondaryTarget: 'Each creature in the burst',
+    secondaryAttack: 'Charisma vs. Reflex',
+    secondaryHit: '2d6 acid damage.',
   },
   {
     id: 'sorcerer-palest-flames',
@@ -430,7 +436,10 @@ export const sorcererPowers: PowerData[] = [
     target: 'Each creature in the burst Primary',
     attack: 'Charisma vs. Fortitude',
     hit: '2d6 + Charisma modifier thunder damage.',
-    effect: 'You jump a number of squares equal to your speed + your Charisma modifier. This movement does not provoke opportunity attacks. Then make a secondary attack. Secondary Target: Each creature in the burst. Secondary Attack: Charisma vs. Fortitude. Hit: 2d6 thunder damage, and you push the secondary target 1 square.',
+    effect: 'You jump a number of squares equal to your speed + your Charisma modifier. This movement does not provoke opportunity attacks. Then make a secondary attack.',
+    secondaryTarget: 'Each creature in the burst',
+    secondaryAttack: 'Charisma vs. Fortitude',
+    secondaryHit: '2d6 thunder damage, and you push the secondary target 1 square.',
   },
 
   // ─── LEVEL 6 ───────────────────────────────────────────────────────────────
@@ -1222,7 +1231,10 @@ export const sorcererPowers: PowerData[] = [
     defense: 'Reflex',
     target: 'One creature Primary',
     attack: 'Charisma vs. Reflex',
-    hit: '4d6 + Charisma modifier fire damage. Make a secondary attack. Secondary Target: One creature within 5 squares of the target last hit by this power. Secondary Attack: Charisma vs. Reflex. Hit: 4d6 + Charisma modifier fire damage. Repeat the secondary attack against a creature you haven\'t already targeted with this power during this encounter.',
+    hit: '4d6 + Charisma modifier fire damage. Make a secondary attack.',
+    secondaryTarget: 'One creature within 5 squares of the target last hit by this power',
+    secondaryAttack: 'Charisma vs. Reflex',
+    secondaryHit: '4d6 + Charisma modifier fire damage. Repeat the secondary attack against a creature you haven\'t already targeted with this power during this encounter.',
   },
 
   // ─── LEVEL 29 ───────────────────────────────────────────────────────────────

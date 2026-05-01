@@ -744,7 +744,10 @@ export const barbarianPowers: PowerData[] = [
     defense: 'Fortitude',
     target: 'One creature Primary',
     attack: 'Strength vs. Fortitude',
-    hit: '3[W] + Strength modifier damage. Make a secondary attack that is a close burst 1. Secondary Target: Each enemy in the burst. Secondary Attack: Charisma vs. Will. Hit: The secondary target moves 2 squares away from you as a free action and takes a -2 penalty to attack rolls until the end of your next turn. Thaneborn Triumph: The penalty to attack rolls equals your Charisma modifier.',
+    hit: '3[W] + Strength modifier damage. Make a secondary attack that is a close burst 1.',
+    secondaryTarget: 'Each enemy in the burst',
+    secondaryAttack: 'Charisma vs. Will',
+    secondaryHit: 'The secondary target moves 2 squares away from you as a free action and takes a -2 penalty to attack rolls until the end of your next turn. Thaneborn Triumph: The penalty to attack rolls equals your Charisma modifier.',
   },
   {
     id: 'barbarian-thunderfall',
@@ -928,7 +931,10 @@ export const barbarianPowers: PowerData[] = [
     defense: 'Fortitude',
     target: 'One creature Primary',
     attack: 'Strength vs. Fortitude',
-    hit: '2[W] + Strength modifier damage, and you push the target 1 square. You then shift 1 square and make a secondary attack. Secondary Target: One creature other than the primary target. Secondary Attack: Strength vs. AC. Hit: 1[W] + Strength modifier damage.',
+    hit: '2[W] + Strength modifier damage, and you push the target 1 square. You then shift 1 square and make a secondary attack.',
+    secondaryTarget: 'One creature other than the primary target',
+    secondaryAttack: 'Strength vs. AC',
+    secondaryHit: '1[W] + Strength modifier damage.',
     special: 'When charging, you can use this power in place of a melee basic attack. If you charge, you gain a bonus to the primary attack roll equal to your Constitution modifier.',
   },
   {
@@ -1326,7 +1332,10 @@ export const barbarianPowers: PowerData[] = [
     target: 'One or two creatures Primary',
     attack: 'Strength vs. AC',
     hit: '2[W] + Strength modifier damage, and you push the primary target 1 square.',
-    effect: 'You move your speed and then make a secondary attack. Secondary Target: One creature other than the primary target. Secondary Attack: Strength + 1 vs. AC. Hit: 3[W] + Strength modifier damage.',
+    effect: 'You move your speed and then make a secondary attack.',
+    secondaryTarget: 'One creature other than the primary target',
+    secondaryAttack: 'Strength + 1 vs. AC',
+    secondaryHit: '3[W] + Strength modifier damage.',
   },
 
   // ─── LEVEL 29 ───────────────────────────────────────────────────────────────
