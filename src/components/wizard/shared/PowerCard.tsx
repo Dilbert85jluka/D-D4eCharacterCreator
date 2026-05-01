@@ -164,6 +164,50 @@ export function PowerCard({
           <p><span className="font-semibold text-blue-700">Effect:</span> {sub(power.effect)}</p>
         )}
 
+        {/* Secondary attack stage */}
+        {(power.secondaryTarget || power.secondaryAttack || power.secondaryHit || power.secondaryMiss || power.secondaryEffect) && (
+          <div className="mt-2 border-l-2 border-stone-200 pl-2 space-y-0.5">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-stone-500">Secondary Attack</p>
+            {power.secondaryTarget && (
+              <p><span className="font-semibold">Target:</span> {power.secondaryTarget}</p>
+            )}
+            {power.secondaryAttack && (
+              <p><span className="font-semibold">Attack:</span> {sub(power.secondaryAttack)}</p>
+            )}
+            {power.secondaryHit && (
+              <p><span className="font-semibold text-emerald-700">Hit:</span> {sub(power.secondaryHit)}</p>
+            )}
+            {power.secondaryMiss && (
+              <p><span className="font-semibold text-red-600">Miss:</span> {sub(power.secondaryMiss)}</p>
+            )}
+            {power.secondaryEffect && (
+              <p><span className="font-semibold text-blue-700">Effect:</span> {sub(power.secondaryEffect)}</p>
+            )}
+          </div>
+        )}
+
+        {/* Tertiary attack stage */}
+        {(power.tertiaryTarget || power.tertiaryAttack || power.tertiaryHit || power.tertiaryMiss || power.tertiaryEffect) && (
+          <div className="mt-2 border-l-2 border-stone-200 pl-2 space-y-0.5">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-stone-500">Tertiary Attack</p>
+            {power.tertiaryTarget && (
+              <p><span className="font-semibold">Target:</span> {power.tertiaryTarget}</p>
+            )}
+            {power.tertiaryAttack && (
+              <p><span className="font-semibold">Attack:</span> {sub(power.tertiaryAttack)}</p>
+            )}
+            {power.tertiaryHit && (
+              <p><span className="font-semibold text-emerald-700">Hit:</span> {sub(power.tertiaryHit)}</p>
+            )}
+            {power.tertiaryMiss && (
+              <p><span className="font-semibold text-red-600">Miss:</span> {sub(power.tertiaryMiss)}</p>
+            )}
+            {power.tertiaryEffect && (
+              <p><span className="font-semibold text-blue-700">Effect:</span> {sub(power.tertiaryEffect)}</p>
+            )}
+          </div>
+        )}
+
         {/* Special — structured augment display for psionic powers, raw text otherwise */}
         {hasAugments ? (
           <div className="space-y-2 mt-1">

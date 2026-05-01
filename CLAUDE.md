@@ -270,6 +270,18 @@ interface PowerData {
   hit?: string;
   miss?: string;
   effect?: string;
+  // Multi-stage attack chains (e.g. Thunder Ram Assault, Ferocious Maul) — all optional.
+  // PowerCard renders each stage as its own block with a left-border accent + uppercase header.
+  secondaryTarget?: string;
+  secondaryAttack?: string;
+  secondaryHit?: string;
+  secondaryMiss?: string;
+  secondaryEffect?: string;
+  tertiaryTarget?: string;
+  tertiaryAttack?: string;
+  tertiaryHit?: string;
+  tertiaryMiss?: string;
+  tertiaryEffect?: string;
   special?: string;
   trigger?: string;
   requirement?: string;
@@ -879,6 +891,8 @@ const updateCharacter = useCharactersStore(s => s.updateCharacter);
 - [x] Homebrew Workshop banner: `HomebrewWorkshopPage.tsx` banner rebuilt to match Monster Compendium and Magic Item Compendium style. 160px tall, themed SVG artwork (dark amber/rust gradient background with anvil + hammer + wrench + gears + forge glow + rising embers). Centered uppercase title with text-shadow glow and dynamic subtitle showing item count. Previous flat gradient banner replaced.
 - [x] Homebrew Monsters (13th content type): Added `'monster'` to `HomebrewContentType` and `HOMEBREW_CONTENT_TYPES`; `HomebrewDataMap.monster = MonsterData`. New `MonsterEditor.tsx` (`src/components/homebrew/`) — full editor covering all D&D 4e monster fields: identity (level/role/role modifier/XP/size/origin/type/alignment/keywords), defenses + stats grid (HP/AC/Fort/Ref/Will/Init/Perception/speed), senses/resist/immune/vulnerable/languages (comma-separated lists via `ListInput` helper), flavor description, repeating powers blocks (name/action/keywords/recharge/description). **Image upload**: PNG/JPEG/GIF/WebP up to 3 MB, center-cropped to a 300×300 JPEG (≈25–40 KB) via new shared `src/lib/imageProcessing.ts` (`processSquareImage()`, `validateImageFile()`, `MAX_IMAGE_FILE_BYTES`). `MonsterData` type gained optional `portrait?: string` (base64 data URL) and `description?: string` (flavor text) — both backwards-compatible with 1000+ official monsters. `MonsterSource` union extended with `'homebrew'`. `src/data/monsters/index.ts` gained `registerHomebrewMonsters()` / `unregisterHomebrewMonsters()` (converted `ALL_MONSTERS` from `const` to mutable `let` merged with `OFFICIAL_MONSTERS`). `useHomebrewStore.syncToDataLayer()` wires monsters the same as every other homebrew type. `MonsterModal` shows the portrait (160px) and flavor description at the top of the stat block when present. `MonsterCompendiumPage` `MonsterRow` renders a 40px portrait thumbnail when present and adds `homebrew` to the source filter chips. Encounter monster picker automatically shows homebrew monsters since it reads the merged `ALL_MONSTERS` array via `searchMonsters()`.
 - [x] Homebrew Workshop pill grid redesign: `HomebrewWorkshopPage.tsx` content-type selector changed from a single horizontal scrolling row to a responsive grid (`grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5`) — 13 content types fit in 3 rows on desktop (5+5+3), wrap gracefully on mobile. Each type now has its own icon + color theme via `CONTENT_TYPE_META` map: 🧝 Races (violet), ⚔️ Classes (red), ✨ Powers (purple), 🎯 Feats (orange), 🗡️ Weapons (stone), 🛡️ Armor (sky), 🎒 Gear (amber), 💎 Magic Items (indigo), 🧿 Magic Armor (blue), ⚡ Magic Weapons (rose), 🔮 Magic Implements (fuchsia), 🧪 Consumables (emerald), 🐉 Monsters (teal). Active pill fills with its theme color + slight lift (`shadow-md scale-[1.02]`); idle pills have themed 2px border + tinted icon square; hover tints the background.
+- [x] Multi-stage attack chains in PowerData: Powers with chained Secondary (and rare Tertiary) attacks now have first-class structured fields instead of cramming everything into a single `hit`/`effect` string. Added to `PowerData` (`src/types/gameData.ts`): `secondaryTarget`, `secondaryAttack`, `secondaryHit`, `secondaryMiss`, `secondaryEffect`, `tertiaryTarget`, `tertiaryAttack`, `tertiaryHit`, `tertiaryMiss`, `tertiaryEffect` — all optional, backward compatible. PowerCard (`src/components/wizard/shared/PowerCard.tsx`) renders each stage as its own block with a left-border accent (`border-l-2 border-stone-200 pl-2`) and a small uppercase "SECONDARY ATTACK" / "TERTIARY ATTACK" header; reuses the same color scheme as primary (emerald Hit, red Miss, blue Effect). `Druid Ferocious Maul` (level 25 daily) migrated to structured form — three distinct attack stages render with proper visual separation. Other multi-stage powers still inline the secondary text in `hit`/`effect`; can be migrated incrementally.
+- [x] Power data parser truncation sweep: Fixed 33 powers across 8 class files where the original iws.mx scraper truncated multi-stage attack text after the orphan word `Secondary`. Affected: ardent (Prescient Strike, Intellect Bomb), barbarian (Terror's Cry, Shoulder Slam, Rampaging Dragon Strike), druid (Predator's Flurry, Feast of Fury, Lightning Cascade, Ferocious Maul), monk (Strike the Avalanche, Relentless Hound Technique, Whirlwind Kick, Duel in the Heavens, Fist of Golden Light, Tap the Life Well, Stunning Fist), psion (Ravening Thought, Mind Cannon, Shred Reality), seeker (Corralling Shot, Tremor Shot, Quill Storm, Lightning Burst, Thundering Shot), warden (Thunder Ram Assault, Thorn Burst, Icy Shards, Call Forth the Harvest, Nature's Ally, Weight of the Mountain), sorcerer (Chaos Bolt, Acidic Implantation, Thunder Leap, Wildfire Curse). Methodology: connected via `Claude_in_Chrome` MCP to iws.mx, force-loaded all 20 power data files (9,415 entries decompressed in-browser via `<script>` injection), located each truncated power by name+class in `od.data.category.power.list`, extracted rendered HTML from `od.data.category.power.data[id]`, parsed to plain text. Applied via Node script (`C:\Claude\fix_secondary_powers.js`) that scopes each replacement to its specific entry by `id` to prevent cross-power collisions on shared placeholder strings (`'Make a secondary attack. Secondary'` appears in 5+ powers). Script aborts atomically if any single match is ambiguous, preventing partial application. Also fixed `target: 'One creature Primary'` → `'One creature'` parser artifact and removed bogus `'m'` keyword from Ferocious Maul. All replacement text verified directly from iws.mx (PHB2/PHB3) per the source-accuracy rule.
 - [x] Homebrew player-to-player export/import: Players can share custom races, classes, powers, feats, equipment, and monsters with each other as JSON files — independent of the campaign sharing system, works without auth or VPN. **Export single item:** every row in `HomebrewWorkshopPage` has an Export button that downloads just that item as `homebrew-<contentType>-<safeName>-<YYYY-MM-DD>.json`. **Export All:** toolbar button downloads every homebrew item the user has as `homebrew-all-<YYYY-MM-DD>.json`. **Import:** toolbar button opens `HomebrewImportModal` (`src/components/homebrew/`) — file picker, type-broken-down preview, conflict resolution. **File format** (`src/lib/homebrewExport.ts`): `{ type: 'dnd4e-homebrew', version: 1, exportedAt: ISO8601, items: HomebrewItem[] }` — `parseHomebrewImport()` validates the envelope and per-item required fields (`id`, `contentType`, `name`, `data`); throws specific error messages on malformed input. **Cross-user safety:** `buildExport()` strips `campaignIds` (local Dexie campaign IDs that don't translate across users) before writing the file; on import, `prepareImport()` strips `campaignIds` again and rewrites `createdBy` to the importing user so cloud sync (`useHomebrewCloudSync`) treats imported items as the importer's own. **Conflict modes** (offered only when duplicates exist by ID): `skip` (default — keep existing), `replace` (overwrite, preserves original `createdAt`, bumps `updatedAt`), `duplicate` (regenerate ID via `homebrew-${uuidv4()}` so both versions coexist). **Store integration:** new `importItems(items)` action on `useHomebrewStore` calls `db.homebrew.bulkPut()` (preserves IDs, unlike `addItem` which always generates new ones), then re-reads from Dexie and calls `syncToDataLayer()` so imported races/classes/powers immediately appear in pickers. The existing cloud-sync hook picks up the new items and pushes them to Supabase debounced.
 
 ---
@@ -1267,15 +1281,27 @@ The site runs a JavaScript app that decompresses all data on demand.
 
 - **Listing URL:** `https://iws.mx/dnd/?list.name.ritual&sort=SourceBook`
   - Replace `ritual` with any type; `sort=SourceBook` groups by source
-- **Individual entry URL:** `https://iws.mx/dnd/?id=ENTRY_ID`
-- **JavaScript API** (use via `javascript_tool` on the live tab):
+- **Individual entry URL:** `https://iws.mx/dnd/?view=ENTRY_ID` (note: `view=` works; `?id=` redirects to listing)
+- **JavaScript API** (use via `mcp__Claude_in_Chrome__javascript_tool` on the live tab):
   ```javascript
-  window.od.data.load_all_listing('ritual', function(items) {
-    window._allRituals = items;
-  });
-  // items is an array; fields vary but typically include: id, name, level, source, category, etc.
+  // Load the listing (id, name, level, source, classname, etc. — no body text)
+  window.od.data.load_all_listing('power', function() {});
+  // After ~10–30s the listing populates: window.od.data.category.power.list
+  // Listing entries have ID, Name, ClassName, Level, Type, Action, Keywords, SourceBook
   ```
-  This loads asynchronously from compressed files — wait 3–5 seconds after triggering before reading `window._allRituals`.
+- **Bulk-loading full body text — fastest approach**: inject all 20 data files at once as `<script>` tags. The server-side data files are LZMA+Base85 compressed; they self-decompress on load and populate `window.od.data.category.<type>.data[id]` with the rendered HTML for every entry in that file (~470 entries per file).
+  ```javascript
+  for (let i = 0; i < 20; i++) {
+    const s = document.createElement('script');
+    s.src = `4e_database_files/power/data${i}.js`;
+    document.head.appendChild(s);
+  }
+  // Wait ~12–25s for decompression; then access:
+  // window.od.data.category.power.data['power5101'] // = raw HTML string
+  ```
+  This loads all 9,415 power entries (~3 MB decompressed) in one batch — far faster than navigating per-entry. Same pattern works for `feat`, `ritual`, `item`, etc.
+- **CDP timeout caveats**: `mcp__Claude_in_Chrome__javascript_tool` has a ~45s timeout. Don't use top-level `await` or return a `Promise` — the renderer hangs. Instead: kick off async work, store the result on `window`, return immediately, then re-poll in a separate JS call. Avoid stringifying `od.data.category.<type>.list` directly (circular references via `_category` back-pointers) — strip those keys first or call `JSON.stringify(list.slice(...).map(p => ({ ID: p.ID, Name: p.Name, ... })))`.
+- **Tool output truncation**: `javascript_tool` truncates returned strings around ~1000 chars. For longer payloads, `console.log()` each item with a unique marker and read back via `mcp__Claude_in_Chrome__read_console_messages` with a regex pattern — full lines come through intact.
 
 ### Source book abbreviations
 

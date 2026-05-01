@@ -182,7 +182,7 @@ export const psionPowers: PowerData[] = [
     attack: 'Intelligence vs. Will',
     hit: '2d6 + Intelligence modifier psychic damage, and ongoing 5 psychic damage (save ends).',
     miss: 'Half damage, and ongoing 3 psychic damage (save ends).',
-    effect: 'Make a secondary attack. Secondary',
+    effect: 'Make a secondary attack. Secondary Target: Each enemy adjacent to the primary target. Secondary Attack: Intelligence vs. Will. Hit: 1d6 + Intelligence modifier psychic damage, and ongoing 5 psychic damage (save ends).',
   },
   {
     id: 'psion-telekinetic-anchor',
@@ -542,7 +542,7 @@ export const psionPowers: PowerData[] = [
     attack: 'Intelligence vs. Fortitude',
     hit: '2d8 + Intelligence modifier force and thunder damage. You push the primary target 1 square, and it is deafened (save ends).',
     miss: 'Half damage.',
-    effect: 'Make a secondary attack that is a close burst 1 centered on the primary target. Secondary',
+    effect: 'Make a secondary attack that is a close burst 1 centered on the primary target. Secondary Target: Each creature in the burst other than the primary target. Secondary Attack: Intelligence vs. Fortitude. Hit: 1d8 + Wisdom modifier thunder damage. Miss: Half damage.',
   },
   {
     id: 'psion-sensory-onslaught',
@@ -930,7 +930,7 @@ export const psionPowers: PowerData[] = [
     attack: 'Intelligence vs. Reflex',
     hit: '3d8 + Intelligence modifier force damage, and you teleport the target 3 squares.',
     miss: 'The target is dazed until the end of your next turn.',
-    effect: 'Make a secondary attack. Secondary',
+    effect: 'Make a secondary attack. Secondary Target: One creature hit by the primary attack. Secondary Attack: Intelligence vs. Will. Hit: The target is removed from play. At the end of your next turn, the target reappears in an unoccupied space of your choice within 5 squares of you and is dazed until the end of its next turn. Miss: The target is dazed until the end of your next turn.',
   },
 
   // ─── LEVEL 22 ───────────────────────────────────────────────────────────────

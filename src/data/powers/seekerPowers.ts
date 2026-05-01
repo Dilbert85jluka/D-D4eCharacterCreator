@@ -451,7 +451,7 @@ export const seekerPowers: PowerData[] = [
     target: 'One creature Primary',
     attack: 'Wisdom vs. AC',
     hit: '2[W] + Wisdom modifier damage.',
-    effect: 'Make a secondary attack. Secondary',
+    effect: 'Make a secondary attack. Secondary Target: One or two creatures that are within 5 squares of the primary target. Secondary Attack: Wisdom vs. AC. Hit: 1[W] damage, and you slide the secondary target 5 squares to a square adjacent to the primary target.',
   },
   {
     id: 'seeker-ensnaring-shot',
@@ -600,7 +600,7 @@ export const seekerPowers: PowerData[] = [
     defense: 'AC',
     target: 'One creature Primary',
     attack: 'Wisdom vs. AC',
-    hit: '1[W] + 1d8 + Wisdom modifier damage. Make a secondary attack that is an area burst 1 centered on the primary target. Secondary',
+    hit: '1[W] + 1d8 + Wisdom modifier damage. Make a secondary attack that is an area burst 1 centered on the primary target. Secondary Target: Each enemy in the burst other than the primary target. Secondary Attack: Wisdom vs. Fortitude. Hit: You slide the secondary target 1 square, and it grants combat advantage until the end of your next turn.',
   },
   {
     id: 'seeker-wasp-sting-shot',
@@ -1172,7 +1172,7 @@ export const seekerPowers: PowerData[] = [
     defense: 'AC',
     target: 'One creature Primary',
     attack: 'Wisdom vs. AC',
-    hit: '1[W] + 2d8 + Wisdom modifier damage. Make a secondary attack that is an area burst 3 centered on the primary target. Secondary',
+    hit: '1[W] + 2d8 + Wisdom modifier damage. Make a secondary attack that is an area burst 3 centered on the primary target. Secondary Target: Each creature in the burst other than the primary target. Secondary Attack: Wisdom vs. Reflex. Hit: 1d8 damage, and the secondary target takes a -2 penalty to attack rolls (save ends).',
   },
   {
     id: 'seeker-roaring-missile',
@@ -1253,7 +1253,7 @@ export const seekerPowers: PowerData[] = [
     attack: 'Wisdom vs. AC',
     hit: '2[W] + Wisdom modifier lightning damage.',
     miss: 'Half damage.',
-    effect: 'Make a secondary attack for each primary target. Each attack is an area burst 1 centered on a different primary target. Secondary',
+    effect: 'Make a secondary attack for each primary target. Each attack is an area burst 1 centered on a different primary target. Secondary Target: Each creature in the burst other than the primary targets. Secondary Attack: Wisdom vs. Reflex. Hit: 1d10 + Wisdom modifier lightning damage.',
   },
   {
     id: 'seeker-slavering-sentinels',
@@ -1287,7 +1287,7 @@ export const seekerPowers: PowerData[] = [
     target: 'One creature Primary',
     attack: 'Wisdom vs. AC',
     hit: '2[W] + Wisdom modifier thunder damage.',
-    effect: 'Make a secondary attack that is an area burst 1 centered on the primary target. Secondary',
+    effect: 'Make a secondary attack that is an area burst 1 centered on the primary target. Secondary Target: Each creature in the burst. Secondary Attack: Wisdom vs. Fortitude. Hit: 10 thunder damage, and the secondary target is dazed and slowed (save ends both).',
   },
   {
     id: 'seeker-wind-of-decay',

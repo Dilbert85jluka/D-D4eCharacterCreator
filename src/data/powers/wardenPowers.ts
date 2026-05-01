@@ -198,9 +198,10 @@ export const wardenPowers: PowerData[] = [
     keywords: ['Primal', 'Thunder', 'Weapon'],
     attackAbility: 'str',
     defense: 'AC',
-    target: 'One creature Primary',
+    target: 'One creature',
     attack: 'Strength vs. AC',
-    hit: '1[W] + Strength modifier thunder damage. Make a secondary attack that is a close blast 3. Earthstrength : You also push the primary target a number of squares equal to your Constitution modifier. Secondary',
+    hit: '1[W] + Strength modifier thunder damage. Make a secondary attack that is a close blast 3. Earthstrength: You also push the primary target a number of squares equal to your Constitution modifier. Secondary Target: Each creature in the blast. Secondary Attack: Strength vs. Fortitude. Hit: 1d6 thunder damage, and you push the secondary target 1 square.',
+    flavor: 'As your attack hits, you channel the spirit of the thunder ram to knock your foe and its companions away from you.',
   },
   {
     id: 'warden-weight-of-earth',
@@ -525,7 +526,7 @@ export const wardenPowers: PowerData[] = [
     defense: 'Reflex',
     target: 'One creature Primary',
     attack: 'Strength vs. Reflex',
-    hit: '1[W] + Strength modifier damage. Make a secondary attack. Secondary',
+    hit: '1[W] + Strength modifier damage. Make a secondary attack. Secondary Target: Each enemy adjacent to the primary target. Secondary Attack: Strength vs. Reflex. Hit: 5 poison damage.',
   },
 
   // ─── LEVEL 9 ───────────────────────────────────────────────────────────────
@@ -687,7 +688,7 @@ export const wardenPowers: PowerData[] = [
     defense: 'Fortitude',
     target: 'One creature Primary',
     attack: 'Strength vs. Fortitude',
-    hit: '2[W] + Strength modifier cold damage, and the primary target is slowed until the end of your next turn. Make a secondary attack. Secondary',
+    hit: '2[W] + Strength modifier cold damage, and the primary target is slowed until the end of your next turn. Make a secondary attack. Secondary Target: Each enemy adjacent to the primary target. Secondary Attack: Strength vs. Fortitude. Hit: 5 cold damage.',
   },
   {
     id: 'warden-ponderous-strike',
@@ -863,7 +864,7 @@ export const wardenPowers: PowerData[] = [
     defense: 'AC',
     target: 'One creature Primary',
     attack: 'Strength vs. AC',
-    hit: '3[W] + Strength modifier damage. Make a secondary attack that is a close burst 2. Secondary',
+    hit: '3[W] + Strength modifier damage. Make a secondary attack that is a close burst 2. Secondary Target: Each enemy in the burst. Secondary Attack: Strength vs. Reflex. Hit: The secondary target is marked and slowed until the end of your next turn.',
   },
   {
     id: 'warden-eager-vine-strike',
@@ -1059,7 +1060,7 @@ export const wardenPowers: PowerData[] = [
     defense: 'Reflex',
     target: 'One creature in the burst Primary',
     attack: 'Strength vs. Reflex',
-    hit: 'You pull the target 2 squares to a space that must be adjacent to you. Make a secondary attack that is a melee attack against the target. Secondary',
+    hit: 'You pull the target 2 squares to a space that must be adjacent to you. Make a secondary attack that is a melee attack against the target. Secondary Attack: Strength + 2 vs. AC. Hit: 3[W] + Strength modifier damage. Earthstrength: If either attack hits, the target is also slowed until the start of your next turn.',
   },
   {
     id: 'warden-startling-savagery',
@@ -1230,7 +1231,7 @@ export const wardenPowers: PowerData[] = [
     defense: 'AC',
     target: 'One creature Primary',
     attack: 'Strength vs. AC',
-    hit: '2[W] + Strength modifier damage. Make a secondary attack that is a close burst 5. Secondary',
+    hit: '2[W] + Strength modifier damage. Make a secondary attack that is a close burst 5. Secondary Target: Each enemy in the burst. Secondary Attack: Strength vs. Fortitude. Hit: 2d6 damage. Effect: Each secondary target is slowed until the end of your next turn.',
     effect: 'Each secondary target is slowed until the end of your next turn.',
   },
 

@@ -514,7 +514,7 @@ export const monkPowers: PowerData[] = [
     defense: 'Fortitude',
     target: 'One creature Primary',
     attack: 'Dexterity vs. Fortitude',
-    hit: '2d10 + Dexterity modifier damage, and you slide the primary target a number of squares equal to your Wisdom modifier. Make a secondary attack that is a close burst 1 centered on the primary target. Secondary',
+    hit: '2d10 + Dexterity modifier damage, and you slide the primary target a number of squares equal to your Wisdom modifier. Make a secondary attack that is a close burst 1 centered on the primary target. Secondary Target: Each creature in the burst other than the primary target. Secondary Attack: Dexterity vs. Fortitude. Hit: The secondary target falls prone.',
     special: 'Movement Technique (Move Action): You move your speed + 2. During this movement, you don\'t provoke opportunity attacks from prone enemies.',
   },
   {
@@ -563,7 +563,7 @@ export const monkPowers: PowerData[] = [
     keywords: ['Implement', 'Psionic'],
     attackAbility: 'dex',
     defense: 'Reflex',
-    trigger: 'The target makes an attack Secondary',
+    trigger: 'The target makes an attack. Secondary Attack: Dexterity vs. Reflex. Hit: 2d10 + Dexterity modifier damage. Miss: Half damage.',
     target: 'One creature Primary',
     attack: 'Dexterity vs. Reflex',
     hit: '2d10 + Dexterity modifier damage.',
@@ -890,7 +890,7 @@ export const monkPowers: PowerData[] = [
     target: 'Each enemy in the burst Primary',
     attack: 'Dexterity vs. Fortitude',
     hit: 'You pull the target 2 squares.',
-    effect: 'Make a secondary attack. Secondary',
+    effect: 'Make a secondary attack. Secondary Target: Each enemy adjacent to you. Secondary Attack: Dexterity vs. Reflex. Hit: 2d10 + Dexterity modifier + Strength modifier damage.',
     special: 'Movement Technique (Move Action): You fly your speed. The first square of this movement doesn\'t provoke opportunity attacks.',
   },
 
@@ -927,7 +927,7 @@ export const monkPowers: PowerData[] = [
     attack: 'Dexterity vs. Fortitude',
     hit: '3d10 + Dexterity modifier damage.',
     miss: 'Half damage.',
-    effect: 'You slide the target 5 squares and then shift 5 squares to a square adjacent to it. Make a secondary attack against the target. Secondary',
+    effect: 'You slide the target 5 squares and then shift 5 squares to a square adjacent to it. Make a secondary attack against the target. Secondary Attack: Dexterity vs. Fortitude. Hit: 10 + Dexterity modifier damage. The target falls prone, and it is dazed until the end of your next turn. Miss: Half damage, and the target falls prone. After the secondary attack, you fly your speed; this movement doesn\'t provoke opportunity attacks.',
   },
   {
     id: 'monk-inevitable-fist',
@@ -1029,7 +1029,7 @@ export const monkPowers: PowerData[] = [
     defense: 'Fortitude',
     target: 'One creature Primary',
     attack: 'Dexterity vs. Fortitude',
-    hit: '2d10 + Dexterity modifier radiant damage. Make a secondary attack that is a close burst 1 centered on the primary target. Secondary',
+    hit: '2d10 + Dexterity modifier radiant damage. Make a secondary attack that is a close burst 1 centered on the primary target. Secondary Target: Each enemy in the burst. Secondary Attack: Dexterity vs. Fortitude. Hit: The secondary target is blinded until the end of your next turn.',
     special: 'Movement Technique (Move Action): You move your speed + 4.',
   },
   {
@@ -1213,7 +1213,7 @@ export const monkPowers: PowerData[] = [
     defense: 'Fortitude',
     target: 'One creature Primary',
     attack: 'Dexterity vs. Fortitude',
-    hit: '3d10 + Dexterity modifier damage. You teleport to a square adjacent to an enemy within 6 squares of you. Then make a secondary attack. Secondary',
+    hit: '3d10 + Dexterity modifier damage. You teleport to a square adjacent to an enemy within 6 squares of you. Then make a secondary attack. Secondary Target: One enemy other than the primary target. Secondary Attack: Dexterity vs. Fortitude. Hit: The primary and secondary targets are dazed until the end of your next turn.',
     special: 'Movement Technique (Move Action): You teleport to a square adjacent to an enemy within 6 squares of you.',
   },
 
@@ -1267,7 +1267,7 @@ export const monkPowers: PowerData[] = [
     attack: 'Dexterity vs. Reflex',
     hit: '6d8 + Dexterity modifier damage.',
     miss: 'The target is either dazed or weakened (save ends).',
-    effect: 'Make a secondary attack against the target. Secondary',
+    effect: 'Make a secondary attack against the target. Secondary Attack: Dexterity vs. Reflex. Hit: The target is stunned (save ends). Miss: The target is either dazed or weakened (save ends).',
   },
 
 ];

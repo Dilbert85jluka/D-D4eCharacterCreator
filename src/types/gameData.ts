@@ -122,6 +122,18 @@ export interface PowerData {
   hit?: string;
   miss?: string;
   effect?: string;
+  /** Secondary attack stage — for powers with chained secondary attacks (e.g. Thunder Ram Assault). All optional; render only if at least one is present. */
+  secondaryTarget?: string;
+  secondaryAttack?: string;
+  secondaryHit?: string;
+  secondaryMiss?: string;
+  secondaryEffect?: string;
+  /** Tertiary attack stage — rare 3-step chains (e.g. Druid's Ferocious Maul). */
+  tertiaryTarget?: string;
+  tertiaryAttack?: string;
+  tertiaryHit?: string;
+  tertiaryMiss?: string;
+  tertiaryEffect?: string;
   special?: string;
   flavor?: string;
   /** True for wizard cantrips (Ghost Sound, Light, Mage Hand, Prestidigitation).
