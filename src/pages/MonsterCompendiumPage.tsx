@@ -22,7 +22,7 @@ const ALL_CREATURE_TYPES: MonsterCreatureType[] = [
 ];
 
 const DEFAULT_FILTERS: MonsterFilters = {
-  sources:       ['mm1', 'mm2', 'mm3', 'dmg', 'dmg2', 'mv', 'mvttnv'],
+  sources:       ['mm1', 'mm2', 'mm3', 'dmg', 'dmg2', 'mv', 'mvttnv', 'dracochromatic', 'dracometallic'],
   roles:         ['Brute', 'Soldier', 'Artillery', 'Lurker', 'Controller', 'Skirmisher', 'Solo', 'Minion'],
   roleModifiers: ['Standard', 'Elite', 'Solo', 'Minion'],
   types:         [...ALL_CREATURE_TYPES],
@@ -133,6 +133,8 @@ const SOURCES: { key: MonsterSource; label: string }[] = [
   { key: 'dmg2', label: 'DMG2' },
   { key: 'mv', label: 'MV' },
   { key: 'mvttnv', label: "MV:TttNV" },
+  { key: 'dracochromatic', label: 'Draco: Chromatic' },
+  { key: 'dracometallic', label: 'Draco: Metallic' },
   { key: 'homebrew', label: 'Homebrew' },
 ];
 

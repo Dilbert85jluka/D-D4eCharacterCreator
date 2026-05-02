@@ -1,4 +1,4 @@
-export type MonsterSource = 'mm1' | 'mm2' | 'mm3' | 'dmg' | 'dmg2' | 'mv' | 'mvttnv' | 'homebrew';
+export type MonsterSource = 'mm1' | 'mm2' | 'mm3' | 'dmg' | 'dmg2' | 'mv' | 'mvttnv' | 'dracochromatic' | 'dracometallic' | 'homebrew';
 
 export type MonsterRole =
   | 'Brute'

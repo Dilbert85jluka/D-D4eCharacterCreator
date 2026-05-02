@@ -535,10 +535,43 @@ export function Step10_Review() {
       )}
 
       {/* Powers */}
-      {(wizard.selectedPowerIds.length > 0 || wizard.dilettantePowerId) && (
+      {(() => {
+        const subrace = race?.subraces?.find((sr) => sr.id === wizard.subraceId);
+        const racialPowerIds = [
+          ...(race?.racialPowerIds ?? []),
+          ...(subrace?.racialPowerIds ?? []),
+        ];
+        const hasAnyPowers =
+          wizard.selectedPowerIds.length > 0 || wizard.dilettantePowerId || racialPowerIds.length > 0;
+        if (!hasAnyPowers) return null;
+        return (
         <section className="mb-4">
           <h4 className="text-sm font-semibold text-stone-600 mb-2 uppercase tracking-wide">Powers</h4>
           <div className="space-y-1">
+            {/* Racial powers (from race + subrace) */}
+            {racialPowerIds.map((pid) => {
+              const pw = getPowerById(pid);
+              if (!pw) return null;
+              const isOpen = expandedPowerId === pid;
+              return (
+                <div key={`racial-${pid}`}>
+                  <button
+                    type="button"
+                    onClick={() => togglePower(pid)}
+                    className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors min-h-[44px] border ${
+                      isOpen ? 'bg-amber-50 border-amber-300' : 'bg-emerald-50/40 border-emerald-200 hover:border-emerald-300'
+                    }`}
+                  >
+                    <span className={`text-sm underline decoration-dotted underline-offset-2 ${isOpen ? 'text-amber-800 font-semibold' : 'text-stone-800'}`}>{pw.name}</span>
+                    <Badge color={pw.usage === 'at-will' ? 'green' : pw.usage === 'encounter' ? 'blue' : 'purple'}>
+                      {pw.usage === 'at-will' ? 'At-Will' : pw.usage.charAt(0).toUpperCase() + pw.usage.slice(1)}
+                    </Badge>
+                    <Badge color="green">Race</Badge>
+                  </button>
+                  {isOpen && <PowerDetail power={pw} />}
+                </div>
+              );
+            })}
             {wizard.selectedPowerIds.map((pid) => {
               const pw = getPowerById(pid);
               if (!pw) return null;
@@ -585,7 +618,8 @@ export function Step10_Review() {
             })()}
           </div>
         </section>
-      )}
+        );
+      })()}
 
       {/* Feats */}
       {wizard.selectedFeatIds.length > 0 && (

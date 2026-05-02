@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { EditorProps } from './HomebrewEditorModal';
 import { EditorLayout, Field, inputCls, selectCls, textareaCls } from './EditorLayout';
 import { useHomebrewStore } from '../../store/useHomebrewStore';
-import type { RaceData, RacialTrait, RacialSkillBonus } from '../../types/gameData';
+import type { RaceData, RacialTrait, RacialSkillBonus, PowerData } from '../../types/gameData';
 import type { Ability } from '../../types/character';
 import { SKILLS } from '../../data/skills';
 import { CHOOSABLE_LANGUAGES } from '../../data/languages';
+import { ALL_POWERS } from '../../data/powers';
 
 const ABILITIES: { id: Ability; label: string }[] = [
   { id: 'str', label: 'Strength' },
@@ -124,7 +125,25 @@ function SkillBonusRow({ bonus, index, onUpdate, onRemove, usedSkillIds }: {
 export function RaceEditor({ editingItem, userId, onClose }: EditorProps) {
   const addItem = useHomebrewStore((s) => s.addItem);
   const updateItem = useHomebrewStore((s) => s.updateItem);
+  const homebrewItems = useHomebrewStore((s) => s.items);
   const existing = editingItem?.data as RaceData | undefined;
+
+  // Eligible racial powers = all homebrew powers (any classId) + all official powers
+  // tagged classId='racial'. Each carries an `isHomebrew` flag for display.
+  const eligiblePowers = useMemo(() => {
+    const homebrewIdSet = new Set(
+      homebrewItems.filter((i) => i.contentType === 'power').map((i) => i.id),
+    );
+    const homebrew = homebrewItems
+      .filter((i) => i.contentType === 'power')
+      .map((i) => ({ power: i.data as PowerData, isHomebrew: true }));
+    const official = ALL_POWERS
+      .filter((p) => p.classId === 'racial' && !homebrewIdSet.has(p.id))
+      .map((p) => ({ power: p, isHomebrew: false }));
+    return [...homebrew, ...official].sort((a, b) =>
+      a.power.name.localeCompare(b.power.name),
+    );
+  }, [homebrewItems]);
 
   const [form, setForm] = useState<RaceData>(existing ? { ...existing } : defaults());
   const [campaignIds, setCampaignIds] = useState<string[]>(editingItem?.campaignIds ?? []);
@@ -160,6 +179,24 @@ export function RaceEditor({ editingItem, userId, onClose }: EditorProps) {
   const [bonusFeat, setBonusFeat] = useState(existing?.bonusFeat ?? false);
   const [bonusSkill, setBonusSkill] = useState(existing?.bonusSkill ?? false);
   const [bonusAtWill, setBonusAtWill] = useState(existing?.bonusAtWill ?? false);
+
+  // --- Racial powers state ---
+  const [racialPowerIds, setRacialPowerIds] = useState<string[]>(existing?.racialPowerIds ?? []);
+  const [powerSearch, setPowerSearch] = useState('');
+  const [powerFilter, setPowerFilter] = useState<'all' | 'homebrew' | 'official'>('all');
+  const visiblePowers = useMemo(() => {
+    const q = powerSearch.trim().toLowerCase();
+    return eligiblePowers.filter(({ power, isHomebrew }) => {
+      if (powerFilter === 'homebrew' && !isHomebrew) return false;
+      if (powerFilter === 'official' && isHomebrew) return false;
+      if (q && !power.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [eligiblePowers, powerSearch, powerFilter]);
+  const togglePower = (id: string) =>
+    setRacialPowerIds((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
+  // Linked IDs that don't match any currently-loaded power — show so user knows they exist.
+  const orphanPowerIds = racialPowerIds.filter((id) => !eligiblePowers.some(({ power }) => power.id === id));
 
   const toggleCampaign = (id: string) =>
     setCampaignIds((prev) => prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]);
@@ -208,7 +245,7 @@ export function RaceEditor({ editingItem, userId, onClose }: EditorProps) {
       skillBonuses: skillBonuses.filter((sb) => sb.skillId),
       traits: traits.filter((t) => t.name.trim()),
       languages,
-      racialPowerIds: existing?.racialPowerIds ?? [],
+      racialPowerIds,
       fortitudeBonus: fortBonus || undefined,
       reflexBonus: refBonus || undefined,
       willBonus: willBonus || undefined,
@@ -441,6 +478,119 @@ export function RaceEditor({ editingItem, userId, onClose }: EditorProps) {
             Bonus at-will power (like Half-Elf Dilettante)
           </label>
         </div>
+      </div>
+
+      {/* ── Racial Powers ── */}
+      <div>
+        <label className="block text-sm font-semibold text-stone-700 mb-1.5">Racial Powers</label>
+        <p className="text-xs text-stone-400 mb-2">
+          Pick official racial powers and/or your own homebrew powers. Selected powers appear on the character sheet under Racial Features.
+        </p>
+
+        {/* Source filter pills */}
+        <div className="flex gap-1 mb-2">
+          {(['all', 'official', 'homebrew'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setPowerFilter(f)}
+              className={[
+                'px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors min-h-[32px] capitalize',
+                powerFilter === f
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200',
+              ].join(' ')}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+
+        <input
+          className={inputCls + ' mb-2'}
+          type="text"
+          value={powerSearch}
+          onChange={(e) => setPowerSearch(e.target.value)}
+          placeholder={`Search ${eligiblePowers.length} power${eligiblePowers.length !== 1 ? 's' : ''}...`}
+        />
+
+        {visiblePowers.length > 0 ? (
+          <div className="border border-stone-200 rounded-lg max-h-56 overflow-y-auto divide-y divide-stone-100">
+            {visiblePowers.map(({ power: p, isHomebrew }) => {
+              const selected = racialPowerIds.includes(p.id);
+              return (
+                <label
+                  key={p.id}
+                  className={[
+                    'flex items-start gap-2 px-3 py-2 cursor-pointer transition-colors',
+                    selected ? 'bg-amber-50' : 'hover:bg-stone-50',
+                  ].join(' ')}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={() => togglePower(p.id)}
+                    className="mt-0.5 rounded"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-stone-800 truncate">{p.name}</span>
+                      <span
+                        className={[
+                          'text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded font-bold',
+                          isHomebrew ? 'bg-violet-100 text-violet-700' : 'bg-stone-100 text-stone-500',
+                        ].join(' ')}
+                      >
+                        {isHomebrew ? 'Homebrew' : 'Official'}
+                      </span>
+                      <span className="text-[10px] uppercase tracking-wide bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded font-bold">
+                        {p.usage}
+                      </span>
+                      {p.actionType && (
+                        <span className="text-[10px] uppercase tracking-wide bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded">
+                          {p.actionType}
+                        </span>
+                      )}
+                    </div>
+                    {p.flavor && (
+                      <p className="text-xs italic text-stone-400 mt-0.5 line-clamp-1">{p.flavor}</p>
+                    )}
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-xs text-stone-400 italic">
+            {eligiblePowers.length === 0
+              ? 'No powers available. Create a homebrew power in the Workshop\'s Powers section.'
+              : 'No powers match that search.'}
+          </p>
+        )}
+
+        {orphanPowerIds.length > 0 && (
+          <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-2 space-y-1">
+            <p className="text-xs font-semibold text-amber-800">
+              {orphanPowerIds.length} linked power{orphanPowerIds.length !== 1 ? 's' : ''} not currently loaded:
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {orphanPowerIds.map((id) => (
+                <span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-amber-300 text-amber-800 rounded text-[11px] font-mono">
+                  {id}
+                  <button
+                    onClick={() => togglePower(id)}
+                    className="hover:text-red-600 font-bold"
+                    title="Remove"
+                  >
+                    &times;
+                  </button>
+                </span>
+              ))}
+            </div>
+            <p className="text-[11px] text-amber-700">
+              These powers aren't loaded yet (homebrew not imported, or unknown ID). They'll resolve at runtime if found.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ── Racial Traits ── */}

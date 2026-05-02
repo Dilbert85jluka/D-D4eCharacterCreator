@@ -5,9 +5,11 @@ import { dmgMonsters } from './dmg';
 import { dmg2Monsters } from './dmg2';
 import { mvMonsters } from './mv';
 import { mvttnvMonsters } from './mvttnv';
+import { dracochromaticMonsters } from './dracochromatic';
+import { dracometallicMonsters } from './dracometallic';
 import type { MonsterData, MonsterFilters } from '../../types/monster';
 
-export { mm1Monsters, mm2Monsters, mm3Monsters, dmgMonsters, dmg2Monsters, mvMonsters, mvttnvMonsters };
+export { mm1Monsters, mm2Monsters, mm3Monsters, dmgMonsters, dmg2Monsters, mvMonsters, mvttnvMonsters, dracochromaticMonsters, dracometallicMonsters };
 
 const OFFICIAL_MONSTERS: MonsterData[] = [
   ...mm1Monsters,
@@ -17,6 +19,8 @@ const OFFICIAL_MONSTERS: MonsterData[] = [
   ...dmg2Monsters,
   ...mvMonsters,
   ...mvttnvMonsters,
+  ...dracochromaticMonsters,
+  ...dracometallicMonsters,
 ];
 
 /** Mutable merged array: official monsters + any registered homebrew monsters.
