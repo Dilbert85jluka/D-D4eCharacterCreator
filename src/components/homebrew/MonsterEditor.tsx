@@ -13,7 +13,36 @@ const ROLE_MODIFIERS: (MonsterRoleModifier | '')[] = ['', 'Elite', 'Solo', 'Mini
 const SIZES: MonsterSize[] = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan'];
 const ORIGINS: MonsterOrigin[] = ['Natural', 'Fey', 'Shadow', 'Elemental', 'Immortal', 'Aberrant', 'Undead', 'Astral'];
 const ALIGNMENTS = ['Lawful Good', 'Good', 'Unaligned', 'Evil', 'Chaotic Evil'] as const;
-const ACTION_TYPES: MonsterPower['action'][] = ['Standard', 'Move', 'Minor', 'Free', 'Triggered', 'Trait', 'Aura'];
+/**
+ * Action dropdown options. Each option maps a user-facing label to an internal action bucket plus an
+ * optional `actionLabel` override (used to disambiguate Triggered into Immediate Interrupt/Reaction/etc.).
+ * The first matching entry on load is selected by `(action, actionLabel)`.
+ */
+const ACTION_OPTIONS: { key: string; label: string; action: MonsterPower['action']; actionLabel?: string }[] = [
+  { key: 'trait',          label: 'No Action (Trait)',   action: 'Trait' },
+  { key: 'standard',       label: 'Standard Action',     action: 'Standard' },
+  { key: 'move',           label: 'Move Action',         action: 'Move' },
+  { key: 'minor',          label: 'Minor Action',        action: 'Minor' },
+  { key: 'free',           label: 'Free Action',         action: 'Free' },
+  { key: 'imm-interrupt',  label: 'Immediate Interrupt', action: 'Triggered', actionLabel: 'Immediate Interrupt' },
+  { key: 'imm-reaction',   label: 'Immediate Reaction',  action: 'Triggered', actionLabel: 'Immediate Reaction' },
+  { key: 'opportunity',    label: 'Opportunity Action',  action: 'Triggered', actionLabel: 'Opportunity Action' },
+  { key: 'triggered',      label: 'Triggered (other)',   action: 'Triggered' },
+  { key: 'aura',           label: 'Aura',                action: 'Aura' },
+];
+
+/** Pick the dropdown option key that matches a power's (action, actionLabel). */
+function actionOptionKeyFor(power: MonsterPower): string {
+  if (power.actionLabel) {
+    const labelMatch = ACTION_OPTIONS.find((o) => o.actionLabel === power.actionLabel);
+    if (labelMatch) return labelMatch.key;
+  }
+  const fallback = ACTION_OPTIONS.find((o) => o.action === power.action && !o.actionLabel);
+  return fallback?.key ?? 'standard';
+}
+
+/** Common recharge values shown as autocomplete hints in the Usage field. */
+const RECHARGE_SUGGESTIONS = ['At-Will', 'Encounter', 'Daily', 'Recharge 6', 'Recharge 5-6', 'Recharge 4-6', 'Recharge 3-6'];
 
 function defaults(): MonsterData {
   return {
@@ -324,31 +353,93 @@ export function MonsterEditor({ editingItem, userId, onClose }: EditorProps) {
           </p>
         )}
         <div className="space-y-3">
-          {form.powers.map((p, idx) => (
+          {form.powers.map((p, idx) => {
+            const isTrait = p.action === 'Trait' || p.action === 'Aura';
+            const isTriggered = p.action === 'Triggered';
+            return (
             <div key={idx} className="border border-stone-200 rounded-lg p-3 bg-stone-50 space-y-2">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <Field label="Name">
-                  <input className={inputCls} value={p.name} onChange={(e) => updatePower(idx, { name: e.target.value })} placeholder="Bite" />
+                  <input className={inputCls} value={p.name} onChange={(e) => updatePower(idx, { name: e.target.value })} placeholder="Bite / Aquatic / Frightful Presence" />
                 </Field>
                 <Field label="Action">
-                  <select className={selectCls} value={p.action} onChange={(e) => updatePower(idx, { action: e.target.value as MonsterPower['action'] })}>
-                    {ACTION_TYPES.map((a) => <option key={a} value={a}>{a}</option>)}
+                  <select
+                    className={selectCls}
+                    value={actionOptionKeyFor(p)}
+                    onChange={(e) => {
+                      const opt = ACTION_OPTIONS.find((o) => o.key === e.target.value);
+                      if (!opt) return;
+                      updatePower(idx, { action: opt.action, actionLabel: opt.actionLabel });
+                    }}
+                  >
+                    {ACTION_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
                   </select>
                 </Field>
-                <Field label="Recharge">
-                  <input className={inputCls} value={p.recharge ?? ''} onChange={(e) => updatePower(idx, { recharge: e.target.value || undefined })}
-                    placeholder="Encounter / Recharge 5-6" />
+                <Field label="Usage">
+                  <input className={inputCls} list={`recharge-list-${idx}`} value={p.recharge ?? ''}
+                    onChange={(e) => updatePower(idx, { recharge: e.target.value || undefined })}
+                    placeholder="At-Will / Encounter / Recharge 5-6 / Daily" />
+                  <datalist id={`recharge-list-${idx}`}>
+                    {RECHARGE_SUGGESTIONS.map((r) => <option key={r} value={r} />)}
+                  </datalist>
                 </Field>
               </div>
+
               <Field label="Keywords (comma-separated)">
                 <ListInput value={p.keywords ?? []} onChange={(v) => updatePower(idx, { keywords: v })}
                   placeholder="Fire, Weapon" />
               </Field>
-              <Field label="Description">
+
+              {/* Structured attack/effect fields — all optional. Hidden for Trait/Aura unless explicitly used. */}
+              {!isTrait && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Field label="Range">
+                    <input className={inputCls} value={p.range ?? ''} onChange={(e) => updatePower(idx, { range: e.target.value || undefined })}
+                      placeholder="Melee 1 / Ranged 10 / Close burst 2" />
+                  </Field>
+                  <Field label="Target">
+                    <input className={inputCls} value={p.target ?? ''} onChange={(e) => updatePower(idx, { target: e.target.value || undefined })}
+                      placeholder="One creature / Each enemy in burst" />
+                  </Field>
+                  <Field label="Attack">
+                    <input className={inputCls} value={p.attack ?? ''} onChange={(e) => updatePower(idx, { attack: e.target.value || undefined })}
+                      placeholder="+10 vs AC / +8 vs Reflex" />
+                  </Field>
+                  {isTriggered && (
+                    <Field label="Trigger">
+                      <input className={inputCls} value={p.trigger ?? ''} onChange={(e) => updatePower(idx, { trigger: e.target.value || undefined })}
+                        placeholder="When the monster is hit by a melee attack" />
+                    </Field>
+                  )}
+                </div>
+              )}
+
+              {!isTrait && (
+                <div className="space-y-2">
+                  <Field label="Hit">
+                    <textarea className={textareaCls} value={p.hit ?? ''} onChange={(e) => updatePower(idx, { hit: e.target.value || undefined })} rows={2}
+                      placeholder="1d8 + 5 damage, and the target is dazed (save ends)." />
+                  </Field>
+                  <Field label="Miss">
+                    <textarea className={textareaCls} value={p.miss ?? ''} onChange={(e) => updatePower(idx, { miss: e.target.value || undefined })} rows={1}
+                      placeholder="Half damage." />
+                  </Field>
+                  <Field label="Effect">
+                    <textarea className={textareaCls} value={p.effect ?? ''} onChange={(e) => updatePower(idx, { effect: e.target.value || undefined })} rows={2}
+                      placeholder="The target is marked until the end of the monster's next turn." />
+                  </Field>
+                </div>
+              )}
+
+              <Field label={isTrait ? 'Description' : 'Notes (free-form)'}>
                 <textarea className={textareaCls} value={p.description}
-                  onChange={(e) => updatePower(idx, { description: e.target.value })} rows={2}
-                  placeholder="Melee 1; +10 vs AC; 1d8+5 damage." />
+                  onChange={(e) => updatePower(idx, { description: e.target.value })}
+                  rows={isTrait ? 3 : 2}
+                  placeholder={isTrait
+                    ? 'The bloodthorn can breathe underwater. In aquatic combat, it gains a +2 bonus to attack rolls against nonaquatic creatures.'
+                    : 'Optional. Any additional notes; also used as the fallback for monsters where you skipped the structured fields above.'} />
               </Field>
+
               <div className="flex justify-end">
                 <button
                   type="button"
@@ -359,7 +450,8 @@ export function MonsterEditor({ editingItem, userId, onClose }: EditorProps) {
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </EditorLayout>

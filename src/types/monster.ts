@@ -42,9 +42,26 @@ export type MonsterCreatureType =
 
 export interface MonsterPower {
   name: string;
+  /**
+   * Action bucket — categorizes the power for filtering and color coding.
+   * - 'Trait' = passive feature, no action cost (e.g. "Aquatic", "Threatening Reach")
+   * - 'Triggered' covers Immediate Interrupt, Immediate Reaction, Opportunity Action, and other triggered/reactive abilities.
+   *   Use `actionLabel` to disambiguate which specific triggered type the user authored.
+   * - 'Aura' is for passive effects that emanate from the monster (e.g. "Aura of Fear, aura 2").
+   */
   action: 'Standard' | 'Move' | 'Minor' | 'Free' | 'Triggered' | 'Trait' | 'Aura';
+  /** Optional display label that overrides the action chip text — e.g. 'Immediate Interrupt', 'Immediate Reaction', 'Opportunity Action'. */
+  actionLabel?: string;
   keywords?: string[];
   recharge?: string; // 'Encounter', 'Recharge 5-6', 'Recharge 4-6', etc.
+  // ── Structured power components — all optional. When present, MonsterModal renders them as labeled rows above the description.
+  range?: string;    // e.g. 'Melee 1', 'Ranged 10', 'Close burst 2', 'Close blast 3', 'Area burst 1 within 10'
+  target?: string;   // e.g. 'One creature', 'Each enemy in burst'
+  attack?: string;   // e.g. '+10 vs AC', '+8 vs Reflex'
+  trigger?: string;  // For Triggered/Immediate actions — the condition that fires the power
+  hit?: string;
+  miss?: string;
+  effect?: string;
   description: string;
 }
 

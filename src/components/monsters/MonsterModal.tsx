@@ -167,11 +167,13 @@ export function MonsterModal({
           {/* Powers */}
           <div className="space-y-2">
             <h3 className="font-bold text-stone-700 text-sm uppercase tracking-wide">Powers</h3>
-            {monster.powers.map((power, idx) => (
+            {monster.powers.map((power, idx) => {
+              const hasStructured = !!(power.range || power.target || power.attack || power.trigger || power.hit || power.miss || power.effect);
+              return (
               <div key={idx} className="border border-stone-200 rounded-lg overflow-hidden">
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-stone-50 border-b border-stone-200">
                   <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${actionChipClass(power.action)}`}>
-                    {power.action}
+                    {power.actionLabel ?? power.action}
                   </span>
                   {power.recharge && (
                     <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
@@ -185,11 +187,25 @@ export function MonsterModal({
                     </span>
                   )}
                 </div>
-                <div className="px-3 py-2 text-xs text-stone-700 leading-relaxed">
-                  {power.description}
+                <div className="px-3 py-2 text-xs text-stone-700 leading-relaxed space-y-1">
+                  {hasStructured && (
+                    <>
+                      {power.range && <p><span className="font-semibold text-stone-600">Range:</span> {power.range}</p>}
+                      {power.target && <p><span className="font-semibold text-stone-600">Target:</span> {power.target}</p>}
+                      {power.trigger && <p><span className="font-semibold text-orange-700">Trigger:</span> {power.trigger}</p>}
+                      {power.attack && <p><span className="font-semibold text-stone-600">Attack:</span> {power.attack}</p>}
+                      {power.hit && <p><span className="font-semibold text-emerald-700">Hit:</span> {power.hit}</p>}
+                      {power.miss && <p><span className="font-semibold text-red-600">Miss:</span> {power.miss}</p>}
+                      {power.effect && <p><span className="font-semibold text-blue-700">Effect:</span> {power.effect}</p>}
+                    </>
+                  )}
+                  {power.description && (
+                    <p className={hasStructured ? 'text-stone-500 italic' : ''}>{power.description}</p>
+                  )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Footer: alignment + languages */}
