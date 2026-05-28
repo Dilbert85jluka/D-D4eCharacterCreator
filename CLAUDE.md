@@ -18,6 +18,8 @@ Designed for tablet use (touch targets ≥44px, responsive layouts).
 **Preview build:** `npm run preview` → serves `dist/` on http://localhost:4173
 **App version:** `1.1.0` — Sourced from `package.json` `version` field, injected at build time via Vite `define` as `__APP_VERSION__` global constant (declared in `src/vite-env.d.ts`). Displayed at the bottom of the sidebar menu. To bump the version, update `package.json` `version` — no other changes needed.
 
+**Node version:** Node 22 LTS (`engines.node` in package.json, `.nvmrc` pin, GitHub Actions `node-version: '22.x'`). Bumped from Node 20 in May 2026 when Node 20 hit end-of-life. The Azure App Service runtime stack (configured in the Azure portal, not in this repo) must also be set to Node 22 — bump it in Azure ▸ App Service ▸ Configuration ▸ General settings ▸ Stack settings if the deployment ever fails with a runtime mismatch warning.
+
 ---
 
 ## Tech Stack
