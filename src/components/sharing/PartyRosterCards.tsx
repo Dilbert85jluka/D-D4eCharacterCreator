@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { getRaceById } from '../../data/races';
 import { getClassById } from '../../data/classes';
 import type { CharacterSummary, CampaignMember, Profile } from '../../types/sharing';
@@ -90,6 +91,17 @@ export function CharacterCard({ summary, onClick }: CharacterCardProps) {
     : 0;
   const colorKey = getHpColorKey(summary.current_hp, summary.max_hp);
 
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const hasPortrait = Boolean(summary.portrait_url);
+
+  // Close lightbox on Escape key
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setLightboxOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightboxOpen]);
+
   return (
     <div
       className={[
@@ -100,14 +112,50 @@ export function CharacterCard({ summary, onClick }: CharacterCardProps) {
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
     >
-      {/* Portrait */}
-      <div className="w-12 h-12 rounded-xl bg-amber-100 border border-amber-200 flex-shrink-0 flex items-center justify-center text-xl overflow-hidden">
-        {summary.portrait_url ? (
-          <img src={summary.portrait_url} alt="" className="w-full h-full object-cover" />
-        ) : (
+      {/* Portrait — clickable to enlarge when an image is present */}
+      {hasPortrait ? (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setLightboxOpen(true); }}
+          className="w-12 h-12 rounded-xl bg-amber-100 border border-amber-200 flex-shrink-0 flex items-center justify-center text-xl overflow-hidden cursor-zoom-in hover:ring-2 hover:ring-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all"
+          title="View portrait"
+          aria-label={`View portrait of ${summary.name}`}
+        >
+          <img src={summary.portrait_url ?? ''} alt={`Portrait of ${summary.name}`} className="w-full h-full object-cover" />
+        </button>
+      ) : (
+        <div className="w-12 h-12 rounded-xl bg-amber-100 border border-amber-200 flex-shrink-0 flex items-center justify-center text-xl overflow-hidden">
           <span className="text-amber-500">?</span>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Portrait lightbox overlay */}
+      {lightboxOpen && hasPortrait && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 cursor-zoom-out"
+          onClick={(e) => { e.stopPropagation(); setLightboxOpen(false); }}
+          role="dialog"
+          aria-label={`Portrait of ${summary.name}`}
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setLightboxOpen(false); }}
+            className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none w-12 h-12 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 transition-colors"
+            aria-label="Close portrait"
+          >
+            ×
+          </button>
+          <img
+            src={summary.portrait_url ?? ''}
+            alt={`Portrait of ${summary.name}`}
+            className="max-w-[min(90vw,90vh)] max-h-[90vh] object-contain rounded-2xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <p className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/90 text-sm bg-black/40 px-3 py-1 rounded-full font-medium">
+            {summary.name}
+          </p>
+        </div>
+      )}
 
       {/* Info */}
       <div className="flex-1 min-w-0">

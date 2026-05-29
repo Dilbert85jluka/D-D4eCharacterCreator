@@ -13,7 +13,7 @@ import { extractSummary, createSyncDebouncer } from '../lib/summarySync';
  */
 export function useCharacterSync(character: Character | undefined) {
   const user = useAuthStore((s) => s.user);
-  const derived = useCharacterDerived(character as Character);
+  const derived = useCharacterDerived(character);
   // Use state (not ref) so changes to the campaign ID re-trigger the sync effect
   const [campaignId, setCampaignId] = useState<string | null>(null);
   const debouncerRef = useRef(createSyncDebouncer());

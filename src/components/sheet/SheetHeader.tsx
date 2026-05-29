@@ -173,12 +173,18 @@ export function SheetHeader({ character, derived }: Props) {
           {/* ── Top row: portrait · name · right-side controls ── */}
           <div className="flex items-start gap-4">
 
-            {/* Portrait — click to open portrait management page */}
+            {/* Portrait — click to open portrait management page (disabled in read-only views, e.g. another player's sheet in a campaign) */}
             <button
-              onClick={() => navigate('portrait', character.id)}
-              className="w-16 h-16 rounded-xl bg-amber-700 flex items-center justify-center text-3xl flex-shrink-0 overflow-hidden hover:ring-2 hover:ring-amber-400 active:ring-amber-300 transition-all focus:outline-none focus:ring-2 focus:ring-amber-400"
-              title="Change portrait"
-              aria-label="Change character portrait"
+              onClick={() => { if (!readOnly) navigate('portrait', character.id); }}
+              disabled={readOnly}
+              className={[
+                'w-16 h-16 rounded-xl bg-amber-700 flex items-center justify-center text-3xl flex-shrink-0 overflow-hidden transition-all focus:outline-none',
+                readOnly
+                  ? 'cursor-default'
+                  : 'hover:ring-2 hover:ring-amber-400 active:ring-amber-300 focus:ring-2 focus:ring-amber-400',
+              ].join(' ')}
+              title={readOnly ? '' : 'Change portrait'}
+              aria-label={readOnly ? 'Character portrait' : 'Change character portrait'}
             >
               {character.portrait
                 ? <img src={character.portrait} alt="Portrait" className="w-full h-full object-cover" />

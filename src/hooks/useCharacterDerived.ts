@@ -21,8 +21,31 @@ function rowIf(condition: boolean, label: string, value: number): DefenseBreakdo
   return condition ? [{ label, value }] : [];
 }
 
-export function useCharacterDerived(character: Character): DerivedStats {
+/**
+ * Sentinel returned when the hook is called with no character (e.g. SheetPage is
+ * mid-redirect after the active character ID points to something not in the local
+ * store — typical when a player-roster character summary's full data isn't loaded).
+ * Every field is zero/empty/safe-to-render so consumers like useCharacterSync don't
+ * crash before the redirect effect runs.
+ */
+const EMPTY_DERIVED: DerivedStats = {
+  finalAbilityScores: { str: 10, con: 10, dex: 10, int: 10, wis: 10, cha: 10 },
+  abilityModifiers:   { str: 0,  con: 0,  dex: 0,  int: 0,  wis: 0,  cha: 0  },
+  abilityBreakdowns:  { str: [], con: [], dex: [], int: [], wis: [], cha: [] },
+  armorClass: 10, fortitude: 10, reflex: 10, will: 10,
+  defenseBreakdowns:  { ac: [], fort: [], ref: [], will: [] },
+  maxHp: 0, bloodiedValue: 0, healingSurgeValue: 0, surgesPerDay: 0,
+  initiative: 0, speed: 6,
+  skillBonuses: {}, skillBreakdowns: {},
+  meleeBasicAttack: 0, rangedBasicAttack: 0,
+  weaponEnhancementBonus: 0,
+  equippedWeaponProficiency: 0,
+  savingThrowBonus: 0,
+};
+
+export function useCharacterDerived(character: Character | undefined): DerivedStats {
   return useMemo(() => {
+    if (!character) return EMPTY_DERIVED;
     const race = getRaceById(character.raceId);
     const cls = getClassById(character.classId);
     const halfLevel = Math.floor(character.level / 2);

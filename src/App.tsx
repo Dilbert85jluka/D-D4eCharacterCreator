@@ -23,6 +23,8 @@ import { useCampaignCloudSync } from './hooks/useCampaignCloudSync';
 import { useHomebrewStore } from './store/useHomebrewStore';
 import { useHomebrewContentSync } from './hooks/useHomebrewContentSync';
 import { useHomebrewCloudSync } from './hooks/useHomebrewCloudSync';
+import { useCampaignHomebrewSync } from './hooks/useCampaignHomebrewSync';
+import { useSharingStore } from './store/useSharingStore';
 
 export default function App() {
   const currentView    = useAppStore((s) => s.currentView);
@@ -33,6 +35,7 @@ export default function App() {
   const loadAllSessions   = useSessionsStore((s) => s.loadAllSessions);
   const loadAllEncounters = useEncountersStore((s) => s.loadAllEncounters);
   const loadHomebrew      = useHomebrewStore((s) => s.loadHomebrew);
+  const loadSharedCampaigns = useSharingStore((s) => s.loadSharedCampaigns);
   const initializeAuth  = useAuthStore((s) => s.initialize);
   const user = useAuthStore((s) => s.user);
   const isInitialized = useAuthStore((s) => s.isInitialized);
@@ -76,6 +79,14 @@ export default function App() {
   useCampaignCloudSync();
   useHomebrewCloudSync();
   useHomebrewContentSync();
+  useCampaignHomebrewSync();
+
+  // Load joined campaigns once on login so the campaign-homebrew sync hook above
+  // has data to seed from, and so the sidebar can render the joined-campaigns list
+  // without waiting for the user to visit the campaign management page.
+  useEffect(() => {
+    if (user) loadSharedCampaigns(user.id);
+  }, [user, loadSharedCampaigns]);
 
 
   // Show nothing while auth is initializing (checking existing session)
