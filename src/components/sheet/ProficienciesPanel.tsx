@@ -1,6 +1,7 @@
 import { getClassById } from '../../data/classes';
 import { getParagonPathById } from '../../data/paragonPaths';
 import type { Character } from '../../types/character';
+import { getWeaponProficiencyLabels } from '../../utils/proficiencies';
 
 interface Props {
   character: Character;
@@ -20,12 +21,10 @@ const FEAT_SHIELD: Record<string, string> = {
   'shield-proficiency-heavy': 'Heavy Shield',
 };
 
-const FEAT_WEAPON: Record<string, string[]> = {
-  'weapon-proficiency-bastard-sword': ['Bastard Sword'],
-  'weapon-proficiency-greatbow':      ['Greatbow'],
-  'dwarven-weapon-training':          ['Throwing Hammer', 'Warhammer'],
-  'eladrin-soldier':                  ['Longsword', 'Bastard Sword'],
-};
+// Weapon proficiencies are sourced from `getWeaponProficiencyLabels(character)` so that
+// the displayed list, the attack-bonus check in CombatActionsPanel, and any future
+// consumers all share one source of truth (including class build-choice grants like
+// Runepriest Wrathful Hammer).
 
 // ── Render helper ─────────────────────────────────────────────────────────────
 function ProficiencySection({
@@ -68,9 +67,10 @@ function ProficiencySection({
 export function ProficienciesPanel({ character }: Props) {
   const cls = getClassById(character.classId);
 
-  // Start with class base proficiencies
+  // Start with class base proficiencies for armor / shields / implements
+  // (Weapon list is built by the shared `getWeaponProficiencyLabels(character)` helper below
+  // so the panel display and the combat-attack-bonus check stay in sync.)
   const armor      = new Set<string>(cls?.armorProficiencies ?? []);
-  const weapons    = new Set<string>(cls?.weaponProficiencies ?? []);
   const shields    = new Set<string>(cls?.shieldProficiency ? ['Shield'] : []);
   const implements_ = new Set<string>(cls?.implements ?? []);
 
@@ -78,23 +78,16 @@ export function ProficienciesPanel({ character }: Props) {
   for (const featId of character.selectedFeatIds) {
     if (FEAT_ARMOR[featId])  armor.add(FEAT_ARMOR[featId]);
     if (FEAT_SHIELD[featId]) shields.add(FEAT_SHIELD[featId]);
-    if (FEAT_WEAPON[featId]) FEAT_WEAPON[featId].forEach((w) => weapons.add(w));
-  }
-
-  // Add proficiencies from multiclass feat choices
-  for (const prof of Object.values(character.mcFeatProficiencyChoices ?? {})) {
-    weapons.add(prof);
   }
 
   // Add proficiencies from paragon path (level 11+)
   if (character.level >= 11 && character.paragonPath) {
     const path = getParagonPathById(character.paragonPath);
-    path?.bonuses?.extraWeaponProficiencies?.forEach((p) => weapons.add(p));
     path?.bonuses?.extraArmorProficiencies?.forEach((p) => armor.add(p));
   }
 
   const armorList      = Array.from(armor);
-  const weaponList     = Array.from(weapons);
+  const weaponList     = getWeaponProficiencyLabels(character);
   const shieldList     = Array.from(shields);
   const implementList  = Array.from(implements_);
 

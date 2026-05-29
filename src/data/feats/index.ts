@@ -3010,6 +3010,8 @@ const OFFICIAL_FEATS: FeatData[] = [
     tier: 'Heroic',
     prerequisites: {},
     benefit: `You gain a +2 feat bonus to AC while wearing either cloth armor or no armor.`,
+    // useCharacterDerived treats unequipped armor as 'Cloth', so this single condition covers both branches of the feat text.
+    bonuses: { ac: 2, acArmorCondition: 'Cloth' },
   },
   {
     id: 'unfailing-vigor',

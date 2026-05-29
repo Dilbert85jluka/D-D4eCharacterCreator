@@ -1,22 +1,12 @@
 import type { Character, DerivedStats, Ability } from '../../types/character';
 import type { WeaponData } from '../../types/gameData';
-import type { ClassData } from '../../types/gameData';
 import { WEAPONS } from '../../data/equipment/weapons';
-import { getClassById } from '../../data/classes';
 import { formatModifier } from '../../utils/abilityScores';
+import { isProficientWithWeapon } from '../../utils/proficiencies';
 
 interface Props {
   character: Character;
   derived: DerivedStats;
-}
-
-function isProficientWith(weapon: WeaponData, cls: ClassData): boolean {
-  const profs = cls.weaponProficiencies.map((p) => p.toLowerCase());
-  return profs.some(
-    (p) =>
-      p === weapon.category.toLowerCase() ||
-      p === weapon.name.toLowerCase(),
-  );
 }
 
 function weaponAbilityMod(weapon: WeaponData, mods: Record<Ability, number>): number {
@@ -63,7 +53,6 @@ function weaponFeatDamageBonus(weapon: WeaponData, character: Character): { bonu
 }
 
 export function CombatActionsPanel({ character, derived }: Props) {
-  const cls = getClassById(character.classId);
   const halfLevel = Math.floor(character.level / 2);
   const mods = derived.abilityModifiers;
 
@@ -97,7 +86,7 @@ export function CombatActionsPanel({ character, derived }: Props) {
 
         {/* Equipped weapon cards */}
         {equippedWeapons.map(({ item, weapon }) => {
-          const proficient = cls ? isProficientWith(weapon, cls) : false;
+          const proficient = isProficientWithWeapon(character, weapon);
           const abilityMod = weaponAbilityMod(weapon, mods);
           const profBonus = proficient ? weapon.proficiencyBonus : 0;
           const weaponTalentBonus = (character.classId === 'fighter' && proficient) ? 1 : 0;
