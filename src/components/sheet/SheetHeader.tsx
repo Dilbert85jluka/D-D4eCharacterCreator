@@ -51,6 +51,23 @@ export function SheetHeader({ character, derived }: Props) {
   // Collapsible info section (race, role, player, alignment/deity) — default expanded; user can collapse to save vertical space on mobile
   const [infoExpanded, setInfoExpanded] = useState(true);
 
+  // Full-banner minimize. When true the entire sticky header shrinks to a thin
+  // strip (portrait thumb + name + level + expand toggle) so users on small
+  // phone screens (iPhone landscape, narrow portrait) can scroll the rest of
+  // the sheet without losing ~140px to the banner. Persisted per-character so
+  // the choice survives navigation and reloads.
+  const collapseKey = `dnd4e-sheet-header-collapsed:${character.id}`;
+  const [bannerCollapsed, setBannerCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem(collapseKey) === '1'; } catch { return false; }
+  });
+  const toggleBannerCollapsed = () => {
+    setBannerCollapsed((v) => {
+      const next = !v;
+      try { localStorage.setItem(collapseKey, next ? '1' : '0'); } catch { /* private mode — ignore */ }
+      return next;
+    });
+  };
+
   // Saving throw result — null = not yet rolled, object = last roll
   const [saveResult, setSaveResult] = useState<{
     roll: number;
@@ -165,6 +182,31 @@ export function SheetHeader({ character, derived }: Props) {
     cls?.role === 'Defender'   ? '🛡️' :
     cls?.role === 'Leader'     ? '⚕️' : '🗡️';
 
+  // ── Minimized banner — slim sticky strip for maximum sheet scroll area on small screens ──
+  if (bannerCollapsed) {
+    return (
+      <div className="bg-amber-950 text-white px-3 py-1.5 sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto flex items-center gap-2">
+          <div className="w-7 h-7 rounded-md bg-amber-700 flex-shrink-0 flex items-center justify-center text-sm overflow-hidden">
+            {character.portrait
+              ? <img src={character.portrait} alt="" className="w-full h-full object-cover" />
+              : <span>{rolePlaceholder}</span>}
+          </div>
+          <span className="font-bold text-sm text-white truncate flex-1 min-w-0">{character.name}</span>
+          <span className="text-[10px] font-bold bg-amber-600 px-1.5 py-0.5 rounded-md flex-shrink-0">Lv {character.level}</span>
+          <button
+            onClick={toggleBannerCollapsed}
+            className="flex-shrink-0 text-amber-300 hover:text-white active:text-amber-200 text-xs font-semibold px-2 py-1 rounded-lg border border-amber-800 hover:bg-amber-900 transition-colors min-h-[32px] min-w-[44px]"
+            title="Expand character banner"
+            aria-label="Expand character banner"
+          >
+            ▼
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="bg-amber-950 text-white px-4 py-4 sticky top-0 z-10">
@@ -217,15 +259,25 @@ export function SheetHeader({ character, derived }: Props) {
                 </h1>
               )}
 
-              {/* Collapse toggle for info rows */}
-              <button
-                onClick={() => setInfoExpanded((v) => !v)}
-                className="flex-shrink-0 text-amber-300 hover:text-white active:text-amber-200 text-xs font-semibold px-2 py-1 rounded-lg border border-amber-800 hover:bg-amber-900 transition-colors min-h-[32px]"
-                title={infoExpanded ? 'Hide character info' : 'Show character info'}
-                aria-label={infoExpanded ? 'Hide character info' : 'Show character info'}
-              >
-                {infoExpanded ? '▲ Info' : '▼ Info'}
-              </button>
+              {/* Collapse toggles — Info hides just the info rows; Min hides the whole banner */}
+              <div className="flex items-start gap-1 flex-shrink-0">
+                <button
+                  onClick={() => setInfoExpanded((v) => !v)}
+                  className="text-amber-300 hover:text-white active:text-amber-200 text-xs font-semibold px-2 py-1 rounded-lg border border-amber-800 hover:bg-amber-900 transition-colors min-h-[32px]"
+                  title={infoExpanded ? 'Hide character info' : 'Show character info'}
+                  aria-label={infoExpanded ? 'Hide character info' : 'Show character info'}
+                >
+                  {infoExpanded ? '▲ Info' : '▼ Info'}
+                </button>
+                <button
+                  onClick={toggleBannerCollapsed}
+                  className="text-amber-300 hover:text-white active:text-amber-200 text-xs font-semibold px-2 py-1 rounded-lg border border-amber-800 hover:bg-amber-900 transition-colors min-h-[32px]"
+                  title="Minimize banner — collapses to a thin strip so you can scroll the sheet"
+                  aria-label="Minimize character banner"
+                >
+                  ▲ Min
+                </button>
+              </div>
             </div>
           </div>
 
