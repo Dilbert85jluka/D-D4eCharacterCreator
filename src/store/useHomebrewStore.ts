@@ -4,53 +4,14 @@ import { db } from '../db/database';
 import type { HomebrewItem, HomebrewContentType } from '../types/homebrew';
 import { deleteCloudHomebrew } from '../lib/homebrewCloudService';
 import { useAuthStore } from './useAuthStore';
-import type { RaceData, ClassData, PowerData, FeatData, WeaponData, ArmorData, GearData, MagicItemData, MagicArmorData, MagicWeaponData, MagicImplementData, ConsumableData } from '../types/gameData';
-import { registerHomebrewRaces, unregisterHomebrewRaces } from '../data/races';
-import { registerHomebrewClasses, unregisterHomebrewClasses } from '../data/classes';
-import { registerHomebrewPowers, unregisterHomebrewPowers } from '../data/powers';
-import { registerHomebrewFeats, unregisterHomebrewFeats } from '../data/feats';
-import {
-  registerHomebrewWeapons, unregisterHomebrewWeapons,
-  registerHomebrewArmor, unregisterHomebrewArmor,
-  registerHomebrewGear, unregisterHomebrewGear,
-  registerHomebrewConsumables, unregisterHomebrewConsumables,
-  registerHomebrewMagicItems, unregisterHomebrewMagicItems,
-  registerHomebrewMagicArmor, unregisterHomebrewMagicArmor,
-  registerHomebrewMagicWeapons, unregisterHomebrewMagicWeapons,
-  registerHomebrewMagicImplements, unregisterHomebrewMagicImplements,
-} from '../data/equipment';
-import { registerHomebrewMonsters, unregisterHomebrewMonsters } from '../data/monsters';
-import type { MonsterData } from '../types/monster';
+import { setLocalHomebrew } from '../lib/homebrewRegistry';
 
+// Local homebrew is registered into the merged data-layer registry through the
+// homebrewRegistry singleton — which also holds campaign-shared homebrew. This
+// indirection prevents the two sources from wiping each other out (each
+// per-type register call REPLACES the homebrew section).
 function syncToDataLayer(items: HomebrewItem[]) {
-  // Group items by contentType and register them into the static data arrays
-  const races = items.filter((i) => i.contentType === 'race').map((i) => i.data as RaceData);
-  const classes = items.filter((i) => i.contentType === 'class').map((i) => i.data as ClassData);
-  const powers = items.filter((i) => i.contentType === 'power').map((i) => i.data as PowerData);
-  const feats = items.filter((i) => i.contentType === 'feat').map((i) => i.data as FeatData);
-  const weapons = items.filter((i) => i.contentType === 'weapon').map((i) => i.data as WeaponData);
-  const armor = items.filter((i) => i.contentType === 'armor').map((i) => i.data as ArmorData);
-  const gear = items.filter((i) => i.contentType === 'gear').map((i) => i.data as GearData);
-  const consumables = items.filter((i) => i.contentType === 'consumable').map((i) => i.data as ConsumableData);
-  const magicItems = items.filter((i) => i.contentType === 'magicItem').map((i) => i.data as MagicItemData);
-  const magicArmor = items.filter((i) => i.contentType === 'magicArmor').map((i) => i.data as MagicArmorData);
-  const magicWeapons = items.filter((i) => i.contentType === 'magicWeapon').map((i) => i.data as MagicWeaponData);
-  const magicImplements = items.filter((i) => i.contentType === 'magicImplement').map((i) => i.data as MagicImplementData);
-  const monsters = items.filter((i) => i.contentType === 'monster').map((i) => i.data as MonsterData);
-
-  if (races.length) registerHomebrewRaces(races); else unregisterHomebrewRaces();
-  if (classes.length) registerHomebrewClasses(classes); else unregisterHomebrewClasses();
-  if (powers.length) registerHomebrewPowers(powers); else unregisterHomebrewPowers();
-  if (feats.length) registerHomebrewFeats(feats); else unregisterHomebrewFeats();
-  if (weapons.length) registerHomebrewWeapons(weapons); else unregisterHomebrewWeapons();
-  if (armor.length) registerHomebrewArmor(armor); else unregisterHomebrewArmor();
-  if (gear.length) registerHomebrewGear(gear); else unregisterHomebrewGear();
-  if (consumables.length) registerHomebrewConsumables(consumables); else unregisterHomebrewConsumables();
-  if (magicItems.length) registerHomebrewMagicItems(magicItems); else unregisterHomebrewMagicItems();
-  if (magicArmor.length) registerHomebrewMagicArmor(magicArmor); else unregisterHomebrewMagicArmor();
-  if (magicWeapons.length) registerHomebrewMagicWeapons(magicWeapons); else unregisterHomebrewMagicWeapons();
-  if (magicImplements.length) registerHomebrewMagicImplements(magicImplements); else unregisterHomebrewMagicImplements();
-  if (monsters.length) registerHomebrewMonsters(monsters); else unregisterHomebrewMonsters();
+  setLocalHomebrew(items);
 }
 
 interface HomebrewState {

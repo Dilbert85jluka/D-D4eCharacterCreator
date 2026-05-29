@@ -304,6 +304,48 @@ export interface MagicArmorBonuses {
   skillsByLevel?: Record<string, [number, number][]>;
 }
 
+/**
+ * Discrete enhancement-bonus targets — used by all four magic item types.
+ * Stored as an array so a single homebrew item can grant multiple targets
+ * (e.g. +1 Will AND +1 attack rolls). Official items + legacy data keep the
+ * `enhancementType` string field; new homebrew uses `enhancementTargets`.
+ * `resolveEnhancementTargets(item)` parses either form.
+ */
+export type EnhancementTarget = 'AC' | 'fortitude' | 'reflex' | 'will' | 'attack' | 'damage';
+
+export const ENHANCEMENT_TARGET_LABELS: Record<EnhancementTarget, string> = {
+  AC:        'AC',
+  fortitude: 'Fortitude',
+  reflex:    'Reflex',
+  will:      'Will',
+  attack:    'Attack rolls',
+  damage:    'Damage rolls',
+};
+
+/**
+ * Resolve an item's enhancement targets, preferring the structured array form
+ * (`enhancementTargets`) and falling back to parsing the legacy string field
+ * (`enhancementType`). Used by useCharacterDerived and the combat-actions
+ * panel so the displayed/applied bonuses match what the editor saved.
+ */
+export function resolveEnhancementTargets(item: {
+  enhancementType?: string;
+  enhancementTargets?: EnhancementTarget[];
+}): EnhancementTarget[] {
+  if (item.enhancementTargets?.length) return item.enhancementTargets;
+  const s = (item.enhancementType ?? '').toLowerCase();
+  if (!s) return [];
+  // 'ac and reflex' is the shield case — both targets apply
+  const out: EnhancementTarget[] = [];
+  if (s.includes('ac'))       out.push('AC');
+  if (s.includes('attack'))   out.push('attack');
+  if (s.includes('damage'))   out.push('damage');
+  if (s.includes('fortitude') || /\bfort\b/.test(s)) out.push('fortitude');
+  if (s.includes('reflex')    || /\bref\b/.test(s))  out.push('reflex');
+  if (s.includes('will'))     out.push('will');
+  return out;
+}
+
 export interface MagicArmorData {
   id: string;
   name: string;
@@ -392,7 +434,10 @@ export interface MagicImplementData {
   id: string;
   name: string;
   type: ImplementType;
+  /** Legacy single-string enhancement target — preserved for already-shipped data. */
   enhancementType: string;
+  /** Preferred multi-target list — defaults to ['attack', 'damage'] when omitted. */
+  enhancementTargets?: EnhancementTarget[];
   critical?: string;
   property?: string;
   power?: string;
@@ -438,8 +483,10 @@ export interface MagicItemData {
   id: string;
   name: string;
   slot: MagicItemSlot;
-  /** Enhancement target — only neck items: "Fortitude, Reflex, and Will" */
+  /** Legacy single-string enhancement target — preserved for already-shipped data. */
   enhancementType?: string;
+  /** Preferred multi-target list. Lets homebrew grant e.g. just +1 Will, or +1 Will and +1 attack rolls. */
+  enhancementTargets?: EnhancementTarget[];
   /** Passive property text */
   property?: string;
   /** Activatable power text */

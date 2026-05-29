@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { Character, DerivedStats, Ability, AbilityScores, AbilityBreakdownRow, DefenseBreakdownRow, SkillBreakdown } from '../types/character';
+import { resolveEnhancementTargets } from '../types/gameData';
 import { getRaceById } from '../data/races';
 import { getClassById } from '../data/classes';
 import { getParagonPathById } from '../data/paragonPaths';
@@ -20,6 +21,34 @@ import { calculateSkillBonus } from '../utils/skillUtils';
 function rowIf(condition: boolean, label: string, value: number): DefenseBreakdownRow[] {
   return condition ? [{ label, value }] : [];
 }
+
+/**
+ * Sentinel returned when `useCharacterDerived` is called with no character (e.g.
+ * SheetPage is mid-redirect after the active character ID points to something
+ * not in the local store — typical when a player-roster character summary's
+ * full data isn't loaded). Every field is zero/empty/safe-to-render so
+ * consumers like useCharacterSync don't crash before the redirect effect runs.
+ *
+ * Lives in the wrapper hook below — `deriveCharacterStats` itself takes a
+ * concrete `Character` so it's safe to call directly from character creation
+ * to initialize currentHp / currentSurges to full ("fresh from an extended rest").
+ */
+const EMPTY_DERIVED: DerivedStats = {
+  finalAbilityScores: { str: 10, con: 10, dex: 10, int: 10, wis: 10, cha: 10 },
+  abilityModifiers:   { str: 0,  con: 0,  dex: 0,  int: 0,  wis: 0,  cha: 0  },
+  abilityBreakdowns:  { str: [], con: [], dex: [], int: [], wis: [], cha: [] },
+  armorClass: 10, fortitude: 10, reflex: 10, will: 10,
+  defenseBreakdowns:  { ac: [], fort: [], ref: [], will: [] },
+  maxHp: 0, bloodiedValue: 0, healingSurgeValue: 0, surgesPerDay: 0,
+  initiative: 0, speed: 6,
+  skillBonuses: {}, skillBreakdowns: {},
+  meleeBasicAttack: 0, rangedBasicAttack: 0,
+  weaponEnhancementBonus: 0,
+  equippedWeaponProficiency: 0,
+  savingThrowBonus: 0,
+  magicItemAttackBonus: 0,
+  magicItemDamageBonus: 0,
+};
 
 /**
  * Pure derivation of all computed character stats — the single source of truth for
@@ -290,7 +319,12 @@ export function deriveCharacterStats(character: Character): DerivedStats {
     const racialRefBonus = race?.reflexBonus ?? 0;
     const racialWillBonus = race?.willBonus ?? 0;
 
-    // Sum passive bonuses from all equipped magic items (tiered structure)
+    // Sum passive bonuses from all equipped magic items (tiered structure).
+    // Granular targets: the editor now stores `enhancementTargets: EnhancementTarget[]`
+    // so an item can grant any combination of AC / Fort / Ref / Will / attack / damage.
+    // Falls back to parsing the legacy `enhancementType` string for already-shipped data
+    // (e.g. official amulets where `enhancementType === 'Fortitude, Reflex, and Will'`
+    // resolves to ['fortitude', 'reflex', 'will']).
     const magicBonuses = character.equipment
       .filter((e) => e.equipped)
       .reduce(
@@ -298,20 +332,29 @@ export function deriveCharacterStats(character: Character): DerivedStats {
           const item = MAGIC_ITEMS.find((m) => m.id === e.itemId);
           if (!item) return acc;
           const tier = item.tiers.find(t => t.level === e.magicItemTier) ?? item.tiers[0];
-          if (!tier) return acc;
+          if (!tier || tier.enhancement <= 0) return acc;
 
-          // Neck slot items: enhancement bonus applies to Fort/Ref/Will
-          if (item.slot === 'neck' && item.enhancementType && tier.enhancement > 0) {
-            return {
-              ...acc,
-              fortitude: acc.fortitude + tier.enhancement,
-              reflex:    acc.reflex    + tier.enhancement,
-              will:      acc.will      + tier.enhancement,
-            };
+          let effective = resolveEnhancementTargets(item);
+          // Legacy behavior: any future neck item that lacks both fields still gets the
+          // standard 4e all-NAD treatment. (Existing official neck items have the
+          // legacy 'Fortitude, Reflex, and Will' string which the resolver parses.)
+          if (effective.length === 0 && item.slot === 'neck') {
+            effective = ['fortitude', 'reflex', 'will'];
           }
-          return acc;
+          if (effective.length === 0) return acc;
+
+          const n = tier.enhancement;
+          return {
+            ...acc,
+            ac:        acc.ac        + (effective.includes('AC')        ? n : 0),
+            fortitude: acc.fortitude + (effective.includes('fortitude') ? n : 0),
+            reflex:    acc.reflex    + (effective.includes('reflex')    ? n : 0),
+            will:      acc.will      + (effective.includes('will')      ? n : 0),
+            attack:    acc.attack    + (effective.includes('attack')    ? n : 0),
+            damage:    acc.damage    + (effective.includes('damage')    ? n : 0),
+          };
         },
-        { ac: 0, fortitude: 0, reflex: 0, will: 0, initiative: 0, speed: 0, healingSurgeBonus: 0, surgesPerDay: 0 },
+        { ac: 0, fortitude: 0, reflex: 0, will: 0, attack: 0, damage: 0, initiative: 0, speed: 0, healingSurgeBonus: 0, surgesPerDay: 0 },
       );
 
     // Paragon path bonuses (apply only at level 11+)
@@ -504,16 +547,21 @@ export function deriveCharacterStats(character: Character): DerivedStats {
       speed,
       skillBonuses,
       skillBreakdowns,
-      meleeBasicAttack: mods.str + halfLevel + (equippedWeaponData && !equippedWeaponData.category.includes('Ranged') ? equippedWeaponData.proficiencyBonus + weaponEnhancementBonus : 0),
-      rangedBasicAttack: mods.dex + halfLevel + (equippedWeaponData && equippedWeaponData.category.includes('Ranged') ? equippedWeaponData.proficiencyBonus + weaponEnhancementBonus : 0),
+      meleeBasicAttack: mods.str + halfLevel + (equippedWeaponData && !equippedWeaponData.category.includes('Ranged') ? equippedWeaponData.proficiencyBonus + weaponEnhancementBonus : 0) + magicBonuses.attack,
+      rangedBasicAttack: mods.dex + halfLevel + (equippedWeaponData && equippedWeaponData.category.includes('Ranged') ? equippedWeaponData.proficiencyBonus + weaponEnhancementBonus : 0) + magicBonuses.attack,
       weaponEnhancementBonus,
       equippedWeaponName: equippedWeaponData?.name,
       equippedWeaponDamage: equippedWeaponData?.damage,
       equippedWeaponProficiency: equippedWeaponData?.proficiencyBonus ?? 0,
       savingThrowBonus,
+      magicItemAttackBonus: magicBonuses.attack,
+      magicItemDamageBonus: magicBonuses.damage,
     };
 }
 
-export function useCharacterDerived(character: Character): DerivedStats {
-  return useMemo(() => deriveCharacterStats(character), [character]);
+export function useCharacterDerived(character: Character | undefined): DerivedStats {
+  return useMemo(
+    () => (character ? deriveCharacterStats(character) : EMPTY_DERIVED),
+    [character],
+  );
 }

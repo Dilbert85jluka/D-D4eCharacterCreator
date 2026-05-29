@@ -2,15 +2,13 @@ import { useState } from 'react';
 import type { EditorProps } from './HomebrewEditorModal';
 import { EditorLayout, Field, inputCls, selectCls, textareaCls } from './EditorLayout';
 import { TierEditor } from './TierEditor';
+import { EnhancementTargetsPicker } from './EnhancementTargetsPicker';
 import { useHomebrewStore } from '../../store/useHomebrewStore';
-import type { MagicImplementData, ImplementType } from '../../types/gameData';
+import type { MagicImplementData, ImplementType, EnhancementTarget } from '../../types/gameData';
+import { resolveEnhancementTargets } from '../../types/gameData';
 
 const IMPLEMENT_TYPES: ImplementType[] = ['Holy Symbol', 'Orb', 'Rod', 'Staff', 'Wand', 'Totem', 'Ki Focus', 'Tome'];
 const RARITIES = ['Common', 'Uncommon', 'Rare'] as const;
-
-const ENHANCEMENT_TYPES = [
-  { value: 'attack rolls and damage rolls', label: 'Attack rolls and damage rolls' },
-] as const;
 
 const DICE_TYPES = ['d6', 'd8', 'd10', 'd12'] as const;
 
@@ -44,6 +42,10 @@ export function MagicImplementEditor({ editingItem, userId, onClose }: EditorPro
   const set = <K extends keyof MagicImplementData>(key: K, val: MagicImplementData[K]) =>
     setForm((f) => ({ ...f, [key]: val }));
 
+  // Initialize from structured field if present, otherwise from legacy string
+  // ('attack rolls and damage rolls' → ['attack', 'damage'] for existing items).
+  const [targets, setTargets] = useState<EnhancementTarget[]>(resolveEnhancementTargets(form));
+
   const toggleCampaign = (id: string) =>
     setCampaignIds((prev) => prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]);
 
@@ -51,7 +53,15 @@ export function MagicImplementEditor({ editingItem, userId, onClose }: EditorPro
 
   const handleSave = async () => {
     const critical = hasCritical ? `+${critQty}${critDie} damage per plus` : undefined;
-    const data: MagicImplementData = { ...form, id: existing?.id ?? '', critical };
+    const data: MagicImplementData = {
+      ...form,
+      id: existing?.id ?? '',
+      critical,
+      // Persist the structured targets and clear the legacy string so the runtime
+      // reads exclusively from `enhancementTargets`.
+      enhancementTargets: targets.length > 0 ? targets : undefined,
+      enhancementType: '',
+    };
     if (editingItem) {
       await updateItem({ ...editingItem, name: data.name, data, campaignIds });
     } else {
@@ -78,12 +88,14 @@ export function MagicImplementEditor({ editingItem, userId, onClose }: EditorPro
             {RARITIES.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </Field>
-        <Field label="Enhancement Type">
-          <select className={selectCls} value={form.enhancementType} onChange={(e) => set('enhancementType', e.target.value)}>
-            {ENHANCEMENT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
-        </Field>
       </div>
+      <Field label="Enhancement Bonus Targets">
+        <EnhancementTargetsPicker
+          value={targets}
+          onChange={setTargets}
+          hint="Each selected target receives the tier's enhancement number when this implement is the active one. Pick multiple to grant several bonuses (default for 4e implements is attack + damage rolls)."
+        />
+      </Field>
       <Field label="Critical">
         <div className="space-y-2">
           <label className="flex items-center gap-2 cursor-pointer">

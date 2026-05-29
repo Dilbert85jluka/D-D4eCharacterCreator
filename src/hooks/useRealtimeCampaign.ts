@@ -72,9 +72,11 @@ export function useRealtimeCampaign(campaignId: string | null) {
           (payload) => {
             const updated = payload.new as SharedCampaign;
             updateSharedCampaign(updated);
-            if (updated.homebrew_content) {
-              registerCampaignHomebrew(updated.homebrew_content);
-            }
+            // Re-register this campaign's homebrew with the merged registry. (App-wide
+            // subscriptions in useCampaignHomebrewSync also fire on this event, but
+            // calling here too is idempotent — same sharedCampaignId key just overwrites
+            // the same bucket.)
+            registerCampaignHomebrew(updated.id, updated.homebrew_content ?? []);
           },
         )
         .subscribe();

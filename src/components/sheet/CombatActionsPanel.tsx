@@ -90,7 +90,12 @@ export function CombatActionsPanel({ character, derived }: Props) {
           const abilityMod = weaponAbilityMod(weapon, mods);
           const profBonus = proficient ? weapon.proficiencyBonus : 0;
           const weaponTalentBonus = (character.classId === 'fighter' && proficient) ? 1 : 0;
-          const attackBonus = abilityMod + halfLevel + profBonus + weaponTalentBonus;
+          // Magic-item enhancements with target 'attack' / 'damage' apply to all weapon
+          // attacks/damage rolls while the item is equipped. Magic-weapon enhancement is
+          // tracked separately via `weaponEnhancementBonus` and only applies to that weapon.
+          const magicItemAttack = derived.magicItemAttackBonus;
+          const magicItemDamage = derived.magicItemDamageBonus;
+          const attackBonus = abilityMod + halfLevel + profBonus + weaponTalentBonus + magicItemAttack;
           const isRanged = weapon.category.toLowerCase().includes('ranged');
           const featDmg = weaponFeatDamageBonus(weapon, character);
 
@@ -145,17 +150,19 @@ export function CombatActionsPanel({ character, derived }: Props) {
                     {halfLevel > 0 ? ` +${halfLevel} lvl` : ''}
                     {proficient ? ` +${weapon.proficiencyBonus} prof` : ' (no prof)'}
                     {weaponTalentBonus > 0 ? ' +1 talent' : ''}
+                    {magicItemAttack > 0 && <span className="text-amber-600"> +{magicItemAttack} magic item</span>}
                   </div>
                 </div>
                 <div className="w-px h-8 bg-stone-200" />
                 <div className="text-center">
                   <div className="text-xs text-stone-400 font-medium">Damage</div>
                   <div className="text-base font-bold text-stone-800">
-                    {formatDamageTotal(weapon, abilityMod, featDmg.bonus)}
+                    {formatDamageTotal(weapon, abilityMod, featDmg.bonus + magicItemDamage)}
                   </div>
                   <div className="text-xs text-stone-400">
                     {weapon.damage} + {isRanged ? 'DEX' : 'STR'} {formatModifier(abilityMod)}
                     {featDmg.bonus > 0 && <span className="text-amber-600"> +{featDmg.bonus} {featDmg.source}</span>}
+                    {magicItemDamage > 0 && <span className="text-amber-600"> +{magicItemDamage} magic item</span>}
                   </div>
                 </div>
               </div>
