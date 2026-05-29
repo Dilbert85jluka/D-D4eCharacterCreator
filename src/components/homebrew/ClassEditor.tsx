@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { EditorProps } from './HomebrewEditorModal';
 import { EditorLayout, Field, inputCls, selectCls, textareaCls } from './EditorLayout';
 import { useHomebrewStore } from '../../store/useHomebrewStore';
-import type { ClassData, ClassFeature } from '../../types/gameData';
+import type { ClassData, ClassFeature, PowerData } from '../../types/gameData';
 import type { Ability } from '../../types/character';
 import { SKILLS } from '../../data/skills';
 import { ALL_POWERS } from '../../data/powers';
+import { getClassById } from '../../data/classes';
 
 const ROLES: ClassData['role'][] = ['Controller', 'Defender', 'Leader', 'Striker'];
 const POWER_SOURCES: ClassData['powerSource'][] = ['Arcane', 'Divine', 'Martial', 'Primal', 'Psionic'];
@@ -129,6 +130,7 @@ function MultiToggle({ items, selected, onToggle, label }: {
 export function ClassEditor({ editingItem, userId, onClose }: EditorProps) {
   const addItem = useHomebrewStore((s) => s.addItem);
   const updateItem = useHomebrewStore((s) => s.updateItem);
+  const homebrewItems = useHomebrewStore((s) => s.items);
   const existing = editingItem?.data as ClassData | undefined;
 
   const [form, setForm] = useState<ClassData>(existing ? { ...existing } : defaults());
@@ -152,7 +154,8 @@ export function ClassEditor({ editingItem, userId, onClose }: EditorProps) {
 
   // --- Class Powers (auto-granted) ---
   const [classPowerIds, setClassPowerIds] = useState<string[]>(existing?.classPowerIds ?? []);
-  const [pendingPowerId, setPendingPowerId] = useState('');
+  const [powerSearch, setPowerSearch] = useState('');
+  const [powerFilter, setPowerFilter] = useState<'all' | 'homebrew' | 'official'>('all');
 
   const toggleCampaign = (id: string) =>
     setCampaignIds((prev) => prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]);
@@ -175,20 +178,38 @@ export function ClassEditor({ editingItem, userId, onClose }: EditorProps) {
     setFeatures((f) => f.map((ft, i) => (i === idx ? updated : ft)));
   const removeFeature = (idx: number) => setFeatures((f) => f.filter((_, i) => i !== idx));
 
-  // --- Class Power CRUD ---
-  // Show powers that match this class's ID (for editing existing class) or any homebrew power
-  const classId = editingItem?.id ?? '';
-  const availableClassPowers = ALL_POWERS.filter(
-    (p) => (p.classId === classId || p.id.startsWith('homebrew-')) && !classPowerIds.includes(p.id),
-  );
-  const addClassPower = () => {
-    if (pendingPowerId && !classPowerIds.includes(pendingPowerId)) {
-      setClassPowerIds((prev) => [...prev, pendingPowerId]);
-      setPendingPowerId('');
-    }
-  };
-  const removeClassPower = (id: string) => setClassPowerIds((prev) => prev.filter((pid) => pid !== id));
-  const getClassPowerName = (id: string) => ALL_POWERS.find((p) => p.id === id)?.name ?? id;
+  // --- Class Power picker ---
+  // Eligible class powers = all homebrew powers (any classId) + all official class powers.
+  // Each carries an `isHomebrew` flag for display.
+  const eligiblePowers = useMemo(() => {
+    const homebrewIdSet = new Set(
+      homebrewItems.filter((i) => i.contentType === 'power').map((i) => i.id),
+    );
+    const homebrew = homebrewItems
+      .filter((i) => i.contentType === 'power')
+      .map((i) => ({ power: i.data as PowerData, isHomebrew: true }));
+    const official = ALL_POWERS
+      .filter((p) => !homebrewIdSet.has(p.id))
+      .map((p) => ({ power: p, isHomebrew: false }));
+    return [...homebrew, ...official].sort((a, b) =>
+      a.power.name.localeCompare(b.power.name),
+    );
+  }, [homebrewItems]);
+
+  const visiblePowers = useMemo(() => {
+    const q = powerSearch.trim().toLowerCase();
+    return eligiblePowers.filter(({ power, isHomebrew }) => {
+      if (powerFilter === 'homebrew' && !isHomebrew) return false;
+      if (powerFilter === 'official' && isHomebrew) return false;
+      if (q && !power.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [eligiblePowers, powerSearch, powerFilter]);
+
+  const toggleClassPower = (id: string) =>
+    setClassPowerIds((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
+  // Linked IDs that don't match any currently-loaded power — shown so the user knows they exist.
+  const orphanPowerIds = classPowerIds.filter((id) => !eligiblePowers.some(({ power }) => power.id === id));
 
   const handleSave = async () => {
     const data: ClassData = {
@@ -422,39 +443,124 @@ export function ClassEditor({ editingItem, userId, onClose }: EditorProps) {
       <div>
         <label className="block text-sm font-semibold text-stone-700 mb-1.5">Class Powers</label>
         <p className="text-xs text-stone-400 mb-2">
-          Auto-granted powers for this class (like racial powers). Create powers first in the Powers tab, then link them here.
-          They will appear on the Class Features sheet and can be pinned to Quick Access.
+          Pick official class powers and/or your own homebrew powers. Selected powers are auto-granted to characters of this class and appear on the Class Features sheet.
         </p>
-        {classPowerIds.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            {classPowerIds.map((pid) => (
-              <span key={pid} className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
-                {getClassPowerName(pid)}
-                <button onClick={() => removeClassPower(pid)} className="hover:text-red-600 font-bold">&times;</button>
-              </span>
-            ))}
+
+        {/* Source filter pills */}
+        <div className="flex gap-1 mb-2">
+          {(['all', 'official', 'homebrew'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setPowerFilter(f)}
+              className={[
+                'px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors min-h-[32px] capitalize',
+                powerFilter === f
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200',
+              ].join(' ')}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+
+        <input
+          className={inputCls + ' mb-2'}
+          type="text"
+          value={powerSearch}
+          onChange={(e) => setPowerSearch(e.target.value)}
+          placeholder={`Search ${eligiblePowers.length} power${eligiblePowers.length !== 1 ? 's' : ''}...`}
+        />
+
+        {visiblePowers.length > 0 ? (
+          <div className="border border-stone-200 rounded-lg max-h-56 overflow-y-auto divide-y divide-stone-100">
+            {visiblePowers.slice(0, 200).map(({ power: p, isHomebrew }) => {
+              const selected = classPowerIds.includes(p.id);
+              const sourceClass = !isHomebrew ? getClassById(p.classId)?.name : undefined;
+              return (
+                <label
+                  key={p.id}
+                  className={[
+                    'flex items-start gap-2 px-3 py-2 cursor-pointer transition-colors',
+                    selected ? 'bg-amber-50' : 'hover:bg-stone-50',
+                  ].join(' ')}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={() => toggleClassPower(p.id)}
+                    className="mt-0.5 rounded"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-stone-800 truncate">{p.name}</span>
+                      <span
+                        className={[
+                          'text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded font-bold',
+                          isHomebrew ? 'bg-violet-100 text-violet-700' : 'bg-stone-100 text-stone-500',
+                        ].join(' ')}
+                      >
+                        {isHomebrew ? 'Homebrew' : 'Official'}
+                      </span>
+                      {sourceClass && (
+                        <span className="text-[10px] uppercase tracking-wide bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold">
+                          {sourceClass} L{p.level}
+                        </span>
+                      )}
+                      <span className="text-[10px] uppercase tracking-wide bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded font-bold">
+                        {p.usage}
+                      </span>
+                      {p.actionType && (
+                        <span className="text-[10px] uppercase tracking-wide bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded">
+                          {p.actionType}
+                        </span>
+                      )}
+                    </div>
+                    {p.flavor && (
+                      <p className="text-xs italic text-stone-400 mt-0.5 line-clamp-1">{p.flavor}</p>
+                    )}
+                  </div>
+                </label>
+              );
+            })}
+            {visiblePowers.length > 200 && (
+              <div className="px-3 py-2 text-xs text-stone-400 italic text-center">
+                Showing first 200 of {visiblePowers.length} — narrow the search to see more.
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-stone-400 italic">
+            {eligiblePowers.length === 0
+              ? 'No powers available. Create a homebrew power in the Workshop\'s Powers section.'
+              : 'No powers match that search.'}
+          </p>
+        )}
+
+        {orphanPowerIds.length > 0 && (
+          <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-2 space-y-1">
+            <p className="text-xs font-semibold text-amber-800">
+              {orphanPowerIds.length} linked power{orphanPowerIds.length !== 1 ? 's' : ''} not currently loaded:
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {orphanPowerIds.map((id) => (
+                <span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-amber-300 text-amber-800 rounded text-[11px] font-mono">
+                  {id}
+                  <button
+                    onClick={() => toggleClassPower(id)}
+                    className="hover:text-red-600 font-bold"
+                    title="Remove"
+                  >
+                    &times;
+                  </button>
+                </span>
+              ))}
+            </div>
+            <p className="text-[11px] text-amber-700">
+              These powers aren't loaded yet (homebrew not imported, or unknown ID). They'll resolve at runtime if found.
+            </p>
           </div>
         )}
-        <div className="flex gap-2">
-          <select className={selectCls} value={pendingPowerId} onChange={(e) => setPendingPowerId(e.target.value)}>
-            <option value="">Select a power...</option>
-            {availableClassPowers.map((p) => (
-              <option key={p.id} value={p.id}>{p.name} (Lvl {p.level} {p.usage})</option>
-            ))}
-          </select>
-          <button
-            onClick={addClassPower}
-            disabled={!pendingPowerId}
-            className={[
-              'px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors min-h-[36px] flex-shrink-0',
-              pendingPowerId
-                ? 'bg-amber-600 text-white hover:bg-amber-500'
-                : 'bg-stone-200 text-stone-400 cursor-not-allowed',
-            ].join(' ')}
-          >
-            + Add
-          </button>
-        </div>
       </div>
     </EditorLayout>
   );
