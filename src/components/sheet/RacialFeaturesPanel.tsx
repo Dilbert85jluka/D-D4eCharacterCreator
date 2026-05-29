@@ -1,7 +1,7 @@
 import type { Character } from '../../types/character';
-import type { RacialTrait } from '../../types/gameData';
+import type { RacialTrait, PowerData } from '../../types/gameData';
 import { getRaceById } from '../../data/races';
-import { getPowerById } from '../../data/powers';
+import { getPowerById, getPowerByName } from '../../data/powers';
 
 interface Props {
   character: Character;
@@ -10,6 +10,20 @@ interface Props {
 const ABILITY_LABELS: Record<string, string> = {
   str: 'STR', con: 'CON', dex: 'DEX', int: 'INT', wis: 'WIS', cha: 'CHA',
 };
+
+/**
+ * Resolve the power a racial trait refers to, so it can be shown as a full card.
+ * 1. An explicit trait.powerId always wins.
+ * 2. Otherwise, for homebrew races only, fall back to an exact trait-name → power-name
+ *    match (e.g. a homebrew Korred's "Meld Into Stone" trait resolves to the
+ *    "Meld into Stone" power). Restricted to homebrew to avoid surprising matches on
+ *    official races whose trait names may coincide with unrelated power names.
+ */
+function resolveTraitPower(trait: RacialTrait, allowNameMatch: boolean): PowerData | undefined {
+  if (trait.powerId) return getPowerById(trait.powerId);
+  if (allowNameMatch) return getPowerByName(trait.name);
+  return undefined;
+}
 
 function TraitCard({ trait }: { trait: RacialTrait }) {
   return (
@@ -62,8 +76,14 @@ function RacialPowerCard({ powerId }: { powerId: string }) {
       </div>
       {/* Body */}
       <div className="p-4 bg-white space-y-1.5">
+        {power.range && (
+          <p className="text-xs font-semibold text-indigo-700">{power.range}</p>
+        )}
         {power.keywords.length > 0 && (
           <p className="text-[10px] text-stone-500 italic">{power.keywords.join(', ')}</p>
+        )}
+        {power.requirement && (
+          <p className="text-xs text-stone-600"><span className="font-semibold">Requirement:</span> {power.requirement}</p>
         )}
         {power.trigger && (
           <p className="text-xs text-stone-600"><span className="font-semibold">Trigger:</span> {power.trigger}</p>
@@ -103,6 +123,7 @@ export function RacialFeaturesPanel({ character }: Props) {
   );
 
   const subrace = race.subraces?.find(sr => sr.id === character.subraceId);
+  const isHomebrewRace = character.raceId.startsWith('homebrew-');
 
   // Build ability bonus display
   const abilityParts: string[] = [];
@@ -187,9 +208,15 @@ export function RacialFeaturesPanel({ character }: Props) {
         {raceTraits.length > 0 && (
           <div className="space-y-3">
             <p className="text-xs font-bold text-stone-400 uppercase tracking-wide">Racial Traits</p>
-            {raceTraits.map((trait) => (
-              <TraitCard key={trait.name} trait={trait} />
-            ))}
+            {raceTraits.map((trait) => {
+              const linkedPower = resolveTraitPower(trait, isHomebrewRace);
+              return (
+                <div key={trait.name} className="space-y-2">
+                  <TraitCard trait={trait} />
+                  {linkedPower && <RacialPowerCard powerId={linkedPower.id} />}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -197,9 +224,15 @@ export function RacialFeaturesPanel({ character }: Props) {
         {subrace && subraceTraits.length > 0 && (
           <div className="space-y-3">
             <p className="text-xs font-bold text-stone-400 uppercase tracking-wide">{subrace.name} Traits</p>
-            {subraceTraits.map((trait) => (
-              <TraitCard key={trait.name} trait={trait} />
-            ))}
+            {subraceTraits.map((trait) => {
+              const linkedPower = resolveTraitPower(trait, isHomebrewRace);
+              return (
+                <div key={trait.name} className="space-y-2">
+                  <TraitCard trait={trait} />
+                  {linkedPower && <RacialPowerCard powerId={linkedPower.id} />}
+                </div>
+              );
+            })}
           </div>
         )}
 

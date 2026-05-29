@@ -70,6 +70,25 @@ export function getPowerById(id: string): PowerData | undefined {
   return ALL_POWERS.find((p) => p.id === id);
 }
 
+/** Normalize a power/trait name for loose matching (lowercase, punctuation-insensitive). */
+function normalizePowerName(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/**
+ * Find a power by its display name (case- and punctuation-insensitive exact match).
+ * Used to auto-resolve homebrew racial traits that reference a power by name
+ * (e.g. a trait named "Meld Into Stone" → the power "Meld into Stone").
+ * Returns the first exact match, preferring a utility power when several share a name.
+ */
+export function getPowerByName(name: string): PowerData | undefined {
+  const target = normalizePowerName(name);
+  if (!target) return undefined;
+  const matches = ALL_POWERS.filter((p) => normalizePowerName(p.name) === target);
+  if (matches.length === 0) return undefined;
+  return matches.find((p) => p.powerType === 'utility') ?? matches[0];
+}
+
 export function getPowersByClass(
   classId: string,
   usage?: PowerUsage,

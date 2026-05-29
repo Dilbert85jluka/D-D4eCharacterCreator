@@ -46,6 +46,7 @@ function ActionBadge({ action }: { action: PowerData['actionType'] }) {
     'immediate-interrupt': 'Imm. Interrupt',
     'immediate-reaction':  'Imm. Reaction',
     opportunity:           'Opportunity',
+    'no-action':           'No Action',
   };
   return (
     <span className="text-xs font-semibold bg-stone-100 border border-stone-300 text-stone-600 px-2 py-0.5 rounded-full">

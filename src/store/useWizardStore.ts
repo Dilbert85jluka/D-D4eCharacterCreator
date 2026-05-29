@@ -7,6 +7,7 @@ import { getClassById } from '../data/classes';
 import { getRaceById } from '../data/races';
 import { getStartingGoldByClass } from '../data/equipment';
 import { calculateMaxHp } from '../utils/hitPoints';
+import { deriveCharacterStats } from '../hooks/useCharacterDerived';
 import { parseRaceLanguages } from '../data/languages';
 import { getMulticlassId } from '../data/feats';
 import { getPowerById } from '../data/powers';
@@ -673,7 +674,7 @@ export const useWizardStore = create<WizardState>()(
         }
       : undefined;
 
-    return {
+    const built: Omit<Character, 'id' | 'createdAt' | 'updatedAt'> = {
       name: s.name,
       playerName: s.playerName,
       raceId: s.raceId,
@@ -777,6 +778,19 @@ export const useWizardStore = create<WizardState>()(
         : '',
       personality: '',
       backstory: '',
+    };
+
+    // Start the character at full HP and full healing surges — as if fresh from an
+    // extended rest. deriveCharacterStats is the same formula the sheet uses, so these
+    // never drift: surgesPerDay now includes the Constitution modifier and racial/feat
+    // bonuses (the prior code used only the class base, which left new characters short),
+    // and maxHp includes feat bonuses like Toughness. A deliberate lower customHp set in
+    // the wizard's Hit Points step is still honored.
+    const derived = deriveCharacterStats(built as Character);
+    return {
+      ...built,
+      currentHp: s.customHp ?? derived.maxHp,
+      currentSurges: derived.surgesPerDay,
     };
   },
 

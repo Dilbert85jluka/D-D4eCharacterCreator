@@ -6,7 +6,7 @@ import type { RaceData, RacialTrait, RacialSkillBonus, PowerData } from '../../t
 import type { Ability } from '../../types/character';
 import { SKILLS } from '../../data/skills';
 import { CHOOSABLE_LANGUAGES } from '../../data/languages';
-import { ALL_POWERS } from '../../data/powers';
+import { ALL_POWERS, getPowerById } from '../../data/powers';
 
 const ABILITIES: { id: Ability; label: string }[] = [
   { id: 'str', label: 'Strength' },
@@ -45,6 +45,17 @@ function TraitRow({ trait, index, onUpdate, onRemove }: {
   onUpdate: (index: number, updated: RacialTrait) => void;
   onRemove: (index: number) => void;
 }) {
+  const [powerQuery, setPowerQuery] = useState('');
+  const linkedPower = trait.powerId ? getPowerById(trait.powerId) : undefined;
+  const powerMatches = useMemo(() => {
+    const q = powerQuery.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return ALL_POWERS.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 8);
+  }, [powerQuery]);
+
+  const powerMeta = (p: PowerData) =>
+    `${p.classId}${p.level > 0 ? ` L${p.level}` : ''} ${p.usage}${p.powerType === 'utility' ? ' utility' : ''}`;
+
   return (
     <div className="border border-stone-200 rounded-lg p-3 space-y-2 bg-stone-50">
       <div className="flex items-center gap-2">
@@ -77,6 +88,51 @@ function TraitRow({ trait, index, onUpdate, onRemove }: {
         />
         Situational / conditional bonus (displayed but not auto-applied)
       </label>
+
+      {/* Linked power — shows the full action as a card on the character sheet */}
+      <div className="pt-2 border-t border-stone-200">
+        <p className="text-[11px] font-semibold text-stone-500 mb-1">Linked power (optional)</p>
+        {linkedPower ? (
+          <div className="flex items-center justify-between gap-2 bg-white border border-stone-200 rounded-lg px-2.5 py-1.5">
+            <span className="text-xs text-stone-700 truncate">
+              <span className="font-semibold">{linkedPower.name}</span>
+              <span className="text-stone-400"> — {powerMeta(linkedPower)}</span>
+            </span>
+            <button
+              onClick={() => { onUpdate(index, { ...trait, powerId: undefined }); setPowerQuery(''); }}
+              className="text-xs font-semibold text-red-600 hover:text-red-700 flex-shrink-0"
+            >
+              Unlink
+            </button>
+          </div>
+        ) : (
+          <>
+            <input
+              className={inputCls}
+              value={powerQuery}
+              onChange={(e) => setPowerQuery(e.target.value)}
+              placeholder="Search a power to link (e.g. Meld into Stone)…"
+            />
+            {powerMatches.length > 0 && (
+              <div className="mt-1 max-h-40 overflow-y-auto border border-stone-200 rounded-lg bg-white divide-y divide-stone-100">
+                {powerMatches.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => { onUpdate(index, { ...trait, powerId: p.id }); setPowerQuery(''); }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-stone-50 text-xs"
+                  >
+                    <span className="font-semibold text-stone-700">{p.name}</span>
+                    <span className="text-stone-400"> — {powerMeta(p)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="text-[10px] text-stone-400 mt-1">
+              Links the trait to a real power so its full action card appears on the character sheet. For homebrew races, a trait whose name exactly matches a power name links automatically.
+            </p>
+          </>
+        )}
+      </div>
     </div>
   );
 }

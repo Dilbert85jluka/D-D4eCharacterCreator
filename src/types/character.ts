@@ -9,7 +9,8 @@ export type PowerAction =
   | 'free'
   | 'immediate-interrupt'
   | 'immediate-reaction'
-  | 'opportunity';
+  | 'opportunity'
+  | 'no-action';
 
 export type Alignment =
   | 'Lawful Good'

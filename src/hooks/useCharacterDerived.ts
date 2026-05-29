@@ -21,8 +21,14 @@ function rowIf(condition: boolean, label: string, value: number): DefenseBreakdo
   return condition ? [{ label, value }] : [];
 }
 
-export function useCharacterDerived(character: Character): DerivedStats {
-  return useMemo(() => {
+/**
+ * Pure derivation of all computed character stats — the single source of truth for
+ * maxHp, surgesPerDay, defenses, skills, etc. The `useCharacterDerived` hook below
+ * memoizes this. Character creation also calls it directly to initialize currentHp /
+ * currentSurges to full ("fresh from an extended rest"), so those never drift from
+ * the formula the sheet displays.
+ */
+export function deriveCharacterStats(character: Character): DerivedStats {
     const race = getRaceById(character.raceId);
     const cls = getClassById(character.classId);
     const halfLevel = Math.floor(character.level / 2);
@@ -506,5 +512,8 @@ export function useCharacterDerived(character: Character): DerivedStats {
       equippedWeaponProficiency: equippedWeaponData?.proficiencyBonus ?? 0,
       savingThrowBonus,
     };
-  }, [character]);
+}
+
+export function useCharacterDerived(character: Character): DerivedStats {
+  return useMemo(() => deriveCharacterStats(character), [character]);
 }

@@ -13,6 +13,12 @@ export interface RacialTrait {
   source?: string;
   /** True if the bonus is situational ("+1 when bloodied", "+5 vs poison saves") — displayed but NOT auto-applied */
   conditional?: boolean;
+  /** Optional link to a PowerData id. When set, the trait's full power (action, range, effect, etc.)
+   *  is rendered as a card beneath the trait on the Racial Features panel — so a trait that "grants"
+   *  or "refers to" a power (e.g. a homebrew race trait pointing at druid-meld-into-stone) doesn't
+   *  require the player to look the power up. For homebrew races, an exact trait-name → power-name
+   *  match also resolves automatically when powerId is absent (see RacialFeaturesPanel). */
+  powerId?: string;
 }
 
 /** Sub-race option (e.g. Shifter → Longtooth or Razorclaw) */
