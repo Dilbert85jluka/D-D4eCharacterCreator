@@ -112,16 +112,28 @@ export function CharacterCard({ summary, onClick }: CharacterCardProps) {
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
     >
-      {/* Portrait — clickable to enlarge when an image is present */}
+      {/* Portrait — clickable to enlarge when an image is present.
+          Hover state grows the thumbnail and overlays a "+" zoom-in cue. */}
       {hasPortrait ? (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); setLightboxOpen(true); }}
-          className="w-12 h-12 rounded-xl bg-amber-100 border border-amber-200 flex-shrink-0 flex items-center justify-center text-xl overflow-hidden cursor-zoom-in hover:ring-2 hover:ring-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all"
+          className="group relative w-12 h-12 rounded-xl bg-amber-100 border border-amber-200 flex-shrink-0 overflow-hidden cursor-zoom-in hover:ring-2 hover:ring-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400 hover:scale-110 transition-all duration-200"
           title="View portrait"
           aria-label={`View portrait of ${summary.name}`}
         >
-          <img src={summary.portrait_url ?? ''} alt={`Portrait of ${summary.name}`} className="w-full h-full object-cover" />
+          <img
+            src={summary.portrait_url ?? ''}
+            alt={`Portrait of ${summary.name}`}
+            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110"
+          />
+          {/* Hover overlay — darkens the image and reveals a magnifier "+" cue */}
+          <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-white text-xl font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
+              <circle cx="11" cy="11" r="7" />
+              <path strokeLinecap="round" d="M11 8v6M8 11h6M20 20l-3.5-3.5" />
+            </svg>
+          </span>
         </button>
       ) : (
         <div className="w-12 h-12 rounded-xl bg-amber-100 border border-amber-200 flex-shrink-0 flex items-center justify-center text-xl overflow-hidden">

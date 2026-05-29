@@ -2,17 +2,13 @@ import { useState } from 'react';
 import type { EditorProps } from './HomebrewEditorModal';
 import { EditorLayout, Field, inputCls, selectCls, textareaCls } from './EditorLayout';
 import { TierEditor } from './TierEditor';
+import { EnhancementTargetsPicker } from './EnhancementTargetsPicker';
 import { useHomebrewStore } from '../../store/useHomebrewStore';
-import type { MagicItemData, MagicItemSlot } from '../../types/gameData';
+import type { MagicItemData, MagicItemSlot, EnhancementTarget } from '../../types/gameData';
+import { resolveEnhancementTargets } from '../../types/gameData';
 
 const SLOTS: MagicItemSlot[] = ['head', 'neck', 'arms', 'hands', 'ring', 'waist', 'feet', 'companion', 'wondrous'];
 const RARITIES = ['Common', 'Uncommon', 'Rare'] as const;
-const ENHANCEMENT_TYPES = [
-  { value: '', label: 'None' },
-  { value: 'AC', label: 'AC' },
-  { value: 'attack rolls and damage rolls', label: 'Attack rolls and damage rolls' },
-  { value: 'Fortitude, Reflex, and Will', label: 'Fortitude, Reflex, and Will' },
-] as const;
 
 function defaults(): MagicItemData {
   return { id: '', name: '', slot: 'wondrous', tiers: [{ level: 1, enhancement: 0, cost: 360 }], rarity: 'Uncommon', source: 'Homebrew' };
@@ -29,13 +25,26 @@ export function MagicItemEditor({ editingItem, userId, onClose }: EditorProps) {
   const set = <K extends keyof MagicItemData>(key: K, val: MagicItemData[K]) =>
     setForm((f) => ({ ...f, [key]: val }));
 
+  // Initialize the multi-target picker from the structured field if present,
+  // otherwise parse the legacy enhancementType string (so editing an official
+  // amulet shows the three NAD chips checked).
+  const initialTargets: EnhancementTarget[] = resolveEnhancementTargets(form);
+  const [targets, setTargets] = useState<EnhancementTarget[]>(initialTargets);
+
   const toggleCampaign = (id: string) =>
     setCampaignIds((prev) => prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]);
 
   const canSave = form.name.trim().length > 0 && form.tiers.length > 0;
 
   const handleSave = async () => {
-    const data: MagicItemData = { ...form, id: existing?.id ?? '' };
+    const data: MagicItemData = {
+      ...form,
+      id: existing?.id ?? '',
+      // Persist the structured targets and drop the legacy string so the runtime
+      // reads from `enhancementTargets` only (and we don't keep stale text in sync).
+      enhancementTargets: targets.length > 0 ? targets : undefined,
+      enhancementType: undefined,
+    };
     if (editingItem) {
       await updateItem({ ...editingItem, name: data.name, data, campaignIds });
     } else {
@@ -62,12 +71,14 @@ export function MagicItemEditor({ editingItem, userId, onClose }: EditorProps) {
             {RARITIES.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </Field>
-        <Field label="Enhancement Type">
-          <select className={selectCls} value={form.enhancementType ?? ''} onChange={(e) => set('enhancementType', e.target.value || undefined)}>
-            {ENHANCEMENT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
-        </Field>
       </div>
+      <Field label="Enhancement Bonus Targets">
+        <EnhancementTargetsPicker
+          value={targets}
+          onChange={setTargets}
+          hint="Each selected target receives the tier's enhancement number while this item is equipped. Pick multiple to grant several bonuses (e.g. +1 Will and +1 attack rolls)."
+        />
+      </Field>
       <Field label="Property">
         <textarea className={textareaCls} value={form.property ?? ''} onChange={(e) => set('property', e.target.value)} placeholder="Passive bonus when equipped" rows={2} />
       </Field>

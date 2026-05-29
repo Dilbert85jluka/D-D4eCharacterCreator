@@ -308,4 +308,8 @@ export interface DerivedStats {
   equippedWeaponProficiency: number;
   /** Flat bonus added to saving throw rolls (d20, needing 10+ to succeed) */
   savingThrowBonus: number;
+  /** Attack-roll enhancement summed from equipped magic items (slot-based) whose `enhancementTargets` include 'attack'. CombatActionsPanel adds this to weapon attack rolls. Magic weapons feed `weaponEnhancementBonus` separately. */
+  magicItemAttackBonus: number;
+  /** Damage-roll enhancement summed from equipped magic items whose `enhancementTargets` include 'damage'. */
+  magicItemDamageBonus: number;
 }
