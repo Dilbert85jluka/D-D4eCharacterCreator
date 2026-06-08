@@ -78,6 +78,37 @@ const fieldCls =
 const labelCls = 'block text-xs font-bold text-stone-500 uppercase tracking-wider mb-1';
 const hintCls  = 'text-xs text-stone-400 mb-1.5';
 
+/**
+ * Reusable maroon-headered card matching the look of `NpcSection` so every
+ * top-level campaign-edit section (Name, Description, Notes, Characters, NPCs)
+ * has consistent visual weight. `action` renders inline in the header bar
+ * (e.g. "+ Add Character", "Edit Notes" toggle).
+ */
+function SectionCard({
+  title,
+  subtitle,
+  action,
+  children,
+}: {
+  title: React.ReactNode;
+  subtitle?: React.ReactNode;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+      <div className="bg-amber-800 px-4 py-2 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-white font-bold text-sm uppercase tracking-wide">{title}</h3>
+          {subtitle && <p className="text-amber-300 text-xs mt-0.5">{subtitle}</p>}
+        </div>
+        {action && <div className="flex-shrink-0">{action}</div>}
+      </div>
+      <div className="p-4">{children}</div>
+    </div>
+  );
+}
+
 function monsterRoleCls(role: MonsterRole): string {
   switch (role) {
     case 'Brute':      return 'bg-red-100 text-red-700';
@@ -1325,8 +1356,7 @@ export function CampaignManagementPage() {
                 <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
 
                   {/* Name */}
-                  <section>
-                    <label className={labelCls}>Campaign Name <span className="text-red-400">*</span></label>
+                  <SectionCard title={<>Campaign Name <span className="text-red-400 normal-case font-normal">*</span></>}>
                     <input
                       type="text"
                       value={campaignDraft.name}
@@ -1336,28 +1366,27 @@ export function CampaignManagementPage() {
                                  text-stone-800 outline-none focus:border-amber-500 focus:ring-2
                                  focus:ring-amber-200 transition-colors placeholder:font-normal placeholder:text-stone-400"
                     />
-                  </section>
+                  </SectionCard>
 
-                  {/* Notes edit/read toggle */}
-                  <div className="flex items-center justify-between">
-                    <label className={labelCls}>Campaign Notes</label>
-                    <button
-                      onClick={() => setEditingNotes(!editingNotes)}
-                      className={[
-                        'px-4 py-2 rounded-lg text-sm font-bold min-h-[44px] transition-colors',
-                        editingNotes
-                          ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                          : 'bg-amber-600 text-white hover:bg-amber-700',
-                      ].join(' ')}
-                    >
-                      {editingNotes ? 'Done Editing' : 'Edit Notes'}
-                    </button>
-                  </div>
-
-                  {/* Description */}
-                  <section>
-                    <label className={labelCls}>Description</label>
-                    <p className={hintCls}>DM-facing notes — world details, plot hooks, campaign overview.</p>
+                  {/* Description — Edit Notes toggle lives in the header here and flips all three notes sections at once */}
+                  <SectionCard
+                    title="Description"
+                    subtitle="DM-facing notes — world details, plot hooks, campaign overview."
+                    action={
+                      <button
+                        onClick={() => setEditingNotes(!editingNotes)}
+                        className={[
+                          'px-3 py-1.5 rounded-lg text-xs font-bold transition-colors min-h-[36px]',
+                          editingNotes
+                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                            : 'bg-amber-600 text-white hover:bg-amber-500',
+                        ].join(' ')}
+                        title={editingNotes ? 'Stop editing notes' : 'Edit description, private and public notes'}
+                      >
+                        {editingNotes ? 'Done Editing' : 'Edit Notes'}
+                      </button>
+                    }
+                  >
                     {editingNotes ? (
                       <RichTextEditor
                         content={campaignDraft.description}
@@ -1369,12 +1398,13 @@ export function CampaignManagementPage() {
                         <RichTextDisplay content={campaignDraft.description} />
                       </div>
                     )}
-                  </section>
+                  </SectionCard>
 
                   {/* Private Notes (DM only) */}
-                  <section>
-                    <label className={labelCls}>Private Notes (DM Only)</label>
-                    <p className={hintCls}>Only you can see these — session prep, secret plot details, NPC motivations.</p>
+                  <SectionCard
+                    title="Private Notes (DM Only)"
+                    subtitle="Only you can see these — session prep, secret plot details, NPC motivations."
+                  >
                     {editingNotes ? (
                       <RichTextEditor
                         content={campaignDraft.privateNotes}
@@ -1386,12 +1416,13 @@ export function CampaignManagementPage() {
                         <RichTextDisplay content={campaignDraft.privateNotes} />
                       </div>
                     )}
-                  </section>
+                  </SectionCard>
 
                   {/* Public Notes */}
-                  <section>
-                    <label className={labelCls}>Public Notes for Players</label>
-                    <p className={hintCls}>Information shared with your players — handouts, lore, house rules.</p>
+                  <SectionCard
+                    title="Public Notes for Players"
+                    subtitle="Information shared with your players — handouts, lore, house rules."
+                  >
                     {editingNotes ? (
                       <RichTextEditor
                         content={campaignDraft.publicNotes}
@@ -1403,7 +1434,7 @@ export function CampaignManagementPage() {
                         <RichTextDisplay content={campaignDraft.publicNotes} />
                       </div>
                     )}
-                  </section>
+                  </SectionCard>
 
                   {/* Characters — unified list: DM-added local characters + party-roster-linked player characters */}
                   {(() => {
@@ -1414,21 +1445,17 @@ export function CampaignManagementPage() {
                       : [];
                     const totalCount = campaignDraft.characterIds.length + playerLinkedSummaries.length;
                     return (
-                  <section>
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <p className={labelCls}>Characters</p>
-                        <p className={hintCls}>
-                          {totalCount} character{totalCount !== 1 ? 's' : ''} in this campaign
-                        </p>
-                      </div>
+                  <SectionCard
+                    title="Characters"
+                    subtitle={`${totalCount} character${totalCount !== 1 ? 's' : ''} in this campaign`}
+                    action={
                       <button
                         onClick={() => { setCharSearch(''); setShowCharPicker(true); }}
-                        className="text-xs bg-amber-700 hover:bg-amber-600 text-white font-semibold
-                                   px-3 py-2 rounded-lg transition-colors min-h-[36px]"
+                        className="text-xs bg-amber-600 hover:bg-amber-500 text-white font-bold
+                                   px-3 py-1.5 rounded-lg transition-colors min-h-[36px]"
                       >+ Add Character</button>
-                    </div>
-
+                    }
+                  >
                     {totalCount === 0 ? (
                       <div className="border-2 border-dashed border-stone-200 rounded-xl py-8 text-center">
                         <p className="text-stone-400 text-sm mb-3">No characters added yet.</p>
@@ -1512,30 +1539,24 @@ export function CampaignManagementPage() {
                         })}
                       </div>
                     )}
-                  </section>
+                  </SectionCard>
                     );
                   })()}
 
                   {/* Party Roster (Online) — only visible when campaign is shared */}
                   {activeCampaign?.sharedCampaignId && (
-                    <section>
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <p className={labelCls}>Party Roster (Online)</p>
-                          <p className={hintCls}>
-                            {activeCampaignMembers.length} member{activeCampaignMembers.length !== 1 ? 's' : ''} connected via invite code
-                          </p>
-                        </div>
-                        {(() => {
-                          const sc = sharedCampaigns.find((s) => s.id === activeCampaign.sharedCampaignId);
-                          return sc ? (
-                            <span className="text-xs font-mono text-amber-700 bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-200">
-                              Code: {sc.invite_code}
-                            </span>
-                          ) : null;
-                        })()}
-                      </div>
-
+                    <SectionCard
+                      title="Party Roster (Online)"
+                      subtitle={`${activeCampaignMembers.length} member${activeCampaignMembers.length !== 1 ? 's' : ''} connected via invite code`}
+                      action={(() => {
+                        const sc = sharedCampaigns.find((s) => s.id === activeCampaign.sharedCampaignId);
+                        return sc ? (
+                          <span className="text-xs font-mono text-amber-100 bg-amber-900/60 px-2.5 py-1 rounded-lg border border-amber-700">
+                            Code: {sc.invite_code}
+                          </span>
+                        ) : null;
+                      })()}
+                    >
                       {activeCampaignMembers.length === 0 ? (
                         <div className="border-2 border-dashed border-indigo-200 rounded-xl py-6 text-center">
                           <p className="text-stone-400 text-sm">No players have joined yet</p>
@@ -1569,14 +1590,12 @@ export function CampaignManagementPage() {
                           Unlink your character
                         </button>
                       )}
-                    </section>
+                    </SectionCard>
                   )}
 
                   {/* ── NPC Glossary (DM-authored, default hidden from players) ─────── */}
                   {activeCampaign && (
-                    <section>
-                      <NpcSection campaignId={activeCampaign.id} />
-                    </section>
+                    <NpcSection campaignId={activeCampaign.id} />
                   )}
 
                   <div className="h-6" />

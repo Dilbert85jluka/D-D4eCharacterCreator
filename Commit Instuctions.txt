@@ -1,0 +1,33 @@
+1. Tag your commit message (easiest day-to-day)
+Drop any of these tokens anywhere in your commit message:
+
+Tag	Effect
+[major]	1.1.52 → 2.0.0
+[minor]	1.1.52 → 1.2.0
+[patch]	1.1.52 → 1.1.53 (same as default)
+[none]	No version bump at all
+Example commit messages:
+
+feat: NPC glossary [minor]
+BREAKING: rewrite power data schema [major]
+docs: typo in README [none]
+fix: portrait click crash    (no tag → defaults to patch)
+2. Manual trigger from the Actions tab
+Go to Actions ▸ Build and deploy ▸ Run workflow — you'll get a dropdown with patch / minor / major / none. Overrides any commit tag.
+
+3. Bump locally + add [none] (avoids double-bump)
+npm run version:major     # or :minor / :patch
+git add package.json package-lock.json
+git commit -m "chore: bump to 2.0.0 [none]"
+git push
+The [none] tag tells the workflow to skip its own bump so you don't go from 1.x → 2.0 → 2.0.1 in one push.
+
+4. Or just ask me
+If you tell me "make the next version 2.0.0" or "bump minor before I push," I'll edit package.json directly and you can commit with [none].
+
+Files changed
+.github/workflows/main_d-d4echaractercreator.yml — replaced the hardcoded patch step with a "Determine version bump type" step that reads workflow input → commit tag → default, plus an if: guard on the bump step so [none] actually skips
+package.json — added version:patch / version:minor / version:major npm scripts
+CLAUDE.md — documented the convention next to the existing version info
+CHANGELOG.md — entry under [Unreleased]
+tsc -b exit 0. The YAML structure (version_bump: input, id: vbump, [major] grep, != 'none' guard) all verified present.

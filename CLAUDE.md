@@ -16,7 +16,16 @@ Designed for tablet use (touch targets ≥44px, responsive layouts).
 **Dev server:** `npm run dev` → http://localhost:5173 (hot-reload)
 **Build:** `npm run build` → outputs to `dist/`
 **Preview build:** `npm run preview` → serves `dist/` on http://localhost:4173
-**App version:** `1.1.0` — Sourced from `package.json` `version` field, injected at build time via Vite `define` as `__APP_VERSION__` global constant (declared in `src/vite-env.d.ts`). Displayed at the bottom of the sidebar menu. To bump the version, update `package.json` `version` — no other changes needed.
+**App version:** `1.1.0` — Sourced from `package.json` `version` field, injected at build time via Vite `define` as `__APP_VERSION__` global constant (declared in `src/vite-env.d.ts`). Displayed at the bottom of the sidebar menu. To bump the version manually, edit `package.json` `version` — no other changes needed.
+
+**Version bump on push:** The GitHub Actions workflow auto-bumps the version on every push to `main` and commits it with `[skip ci]`. Bump type is chosen by (priority order):
+1. **Manual workflow run** — trigger from Actions tab with a dropdown choosing `patch` / `minor` / `major` / `none`.
+2. **Commit message tag** — include `[major]`, `[minor]`, `[patch]`, or `[none]` anywhere in the commit message. Examples: `feat: NPC glossary [minor]`, `BREAKING: rewrite power data [major]`, `docs: typo [none]`.
+3. **Default** — `patch` if no input or tag is present.
+
+**Two paths, pick one — don't double-bump:**
+- **Let the workflow bump for you** (recommended): commit your changes with the desired tag in the message (e.g. `feat: NPC glossary [minor]`). The workflow does `npm version <tag>` and commits the bump on top of yours.
+- **Bump locally yourself**: run `npm run version:patch` / `version:minor` / `version:major`, commit it together with your changes, and add `[none]` to your commit message so the workflow doesn't bump again. Example: `git commit -m "chore: bump to 2.0.0 [none]"` after a local `npm run version:major`.
 
 **Node version:** Node 22 LTS (`engines.node` in package.json, `.nvmrc` pin, GitHub Actions `node-version: '22.x'`). Bumped from Node 20 in May 2026 when Node 20 hit end-of-life. The Azure App Service runtime stack (configured in the Azure portal, not in this repo) must also be set to Node 22 — bump it in Azure ▸ App Service ▸ Configuration ▸ General settings ▸ Stack settings if the deployment ever fails with a runtime mismatch warning.
 

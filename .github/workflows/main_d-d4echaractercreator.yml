@@ -8,6 +8,17 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Which part of the version to bump (manual trigger only — overrides commit tags)'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - none
 
 jobs:
   build:
@@ -27,11 +38,45 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: Auto-increment patch version
+      # Decide whether to bump major / minor / patch / none.
+      # Priority:
+      #   1. workflow_dispatch input (manual trigger from the Actions tab)
+      #   2. tag in the commit message: [major], [minor], [patch], or [none]
+      #   3. default: patch
+      - name: Determine version bump type
+        id: vbump
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BUMP="${{ github.event.inputs.version_bump }}"
+            SOURCE="workflow_dispatch input"
+          else
+            MSG="${{ github.event.head_commit.message }}"
+            if echo "$MSG" | grep -qE '\[major\]'; then
+              BUMP=major
+              SOURCE="[major] tag in commit message"
+            elif echo "$MSG" | grep -qE '\[minor\]'; then
+              BUMP=minor
+              SOURCE="[minor] tag in commit message"
+            elif echo "$MSG" | grep -qE '\[none\]'; then
+              BUMP=none
+              SOURCE="[none] tag in commit message (skipping version bump)"
+            elif echo "$MSG" | grep -qE '\[patch\]'; then
+              BUMP=patch
+              SOURCE="[patch] tag in commit message"
+            else
+              BUMP=patch
+              SOURCE="default (no tag found)"
+            fi
+          fi
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+          echo "Selected version bump: $BUMP (source: $SOURCE)"
+
+      - name: Bump version
+        if: steps.vbump.outputs.bump != 'none'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          NEW_VERSION=$(npm version patch --no-git-tag-version)
+          NEW_VERSION=$(npm version ${{ steps.vbump.outputs.bump }} --no-git-tag-version)
           git add package.json package-lock.json
           git commit -m "chore: bump version to ${NEW_VERSION} [skip ci]"
           git push
