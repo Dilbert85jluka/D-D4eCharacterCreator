@@ -21,6 +21,8 @@ import { LoginPage } from './components/auth/LoginPage';
 import { useCharacterCloudSync } from './hooks/useCharacterCloudSync';
 import { useCampaignCloudSync } from './hooks/useCampaignCloudSync';
 import { useHomebrewStore } from './store/useHomebrewStore';
+import { useNpcsStore } from './store/useNpcsStore';
+import { useNpcContentSync } from './hooks/useNpcContentSync';
 import { useHomebrewContentSync } from './hooks/useHomebrewContentSync';
 import { useHomebrewCloudSync } from './hooks/useHomebrewCloudSync';
 import { useCampaignHomebrewSync } from './hooks/useCampaignHomebrewSync';
@@ -35,6 +37,7 @@ export default function App() {
   const loadAllSessions   = useSessionsStore((s) => s.loadAllSessions);
   const loadAllEncounters = useEncountersStore((s) => s.loadAllEncounters);
   const loadHomebrew      = useHomebrewStore((s) => s.loadHomebrew);
+  const loadAllNpcs       = useNpcsStore((s) => s.loadAllNpcs);
   const loadSharedCampaigns = useSharingStore((s) => s.loadSharedCampaigns);
   const initializeAuth  = useAuthStore((s) => s.initialize);
   const user = useAuthStore((s) => s.user);
@@ -46,6 +49,7 @@ export default function App() {
   useEffect(() => { loadAllSessions(); }, [loadAllSessions]);
   useEffect(() => { loadAllEncounters(); }, [loadAllEncounters]);
   useEffect(() => { loadHomebrew(); }, [loadHomebrew]);
+  useEffect(() => { loadAllNpcs(); }, [loadAllNpcs]);
   // Initialize Supabase auth (checks existing session, subscribes to changes)
   useEffect(() => { initializeAuth(); }, [initializeAuth]);
 
@@ -80,6 +84,7 @@ export default function App() {
   useHomebrewCloudSync();
   useHomebrewContentSync();
   useCampaignHomebrewSync();
+  useNpcContentSync();
 
   // Load joined campaigns once on login so the campaign-homebrew sync hook above
   // has data to seed from, and so the sidebar can render the joined-campaigns list

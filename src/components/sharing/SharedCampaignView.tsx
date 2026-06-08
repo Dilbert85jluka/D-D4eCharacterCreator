@@ -6,6 +6,7 @@ import { useRealtimeCampaign } from '../../hooks/useRealtimeCampaign';
 import { ShareCampaignModal } from './ShareCampaignModal';
 import { LinkCharacterModal } from './LinkCharacterModal';
 import { MemberCard } from './PartyRosterCards';
+import { PublicNpcSection } from './PublicNpcSection';
 import { CharacterSheet } from '../sheet/CharacterSheet';
 import type { CharacterSummary, PublicSession } from '../../types/sharing';
 import { RichTextDisplay } from '../ui/RichTextDisplay';
@@ -216,6 +217,9 @@ export function SharedCampaignView({ campaignId }: SharedCampaignViewProps) {
           })}
         </div>
       </div>
+
+      {/* NPC Glossary — player-safe view of DM-revealed NPCs */}
+      <PublicNpcSection npcs={campaign?.npc_content ?? []} />
 
       {/* Action Buttons */}
       <div className="space-y-3 pt-2">

@@ -6,6 +6,7 @@ import type { CampaignBundle } from '../lib/campaignCloudService';
 import { sessionRepository } from '../db/sessionRepository';
 import { encounterRepository } from '../db/encounterRepository';
 import { useEncountersStore } from './useEncountersStore';
+import { npcRepository } from '../db/npcRepository';
 import { useSessionsStore } from './useSessionsStore';
 import type { Campaign } from '../types/campaign';
 import { db } from '../db/database';
@@ -50,10 +51,11 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
     })),
 
   deleteCampaign: async (id) => {
-    // Cascade-delete all encounters and sessions belonging to this campaign
+    // Cascade-delete all encounters, sessions, and NPCs belonging to this campaign
     await encounterRepository.deleteAllForCampaign(id);
     useEncountersStore.getState().deleteAllForCampaign(id);
     await sessionRepository.deleteAllForCampaign(id);
+    await npcRepository.deleteByCampaignId(id);
     await campaignRepository.delete(id);
     set((s) => ({ campaigns: s.campaigns.filter((c) => c.id !== id) }));
     // Cloud soft-delete (fire and forget)

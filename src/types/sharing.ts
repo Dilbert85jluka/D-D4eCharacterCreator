@@ -2,6 +2,7 @@
 
 import type { Character } from './character';
 import type { HomebrewItem } from './homebrew';
+import type { PublicNPC } from './npc';
 
 export interface Profile {
   id: string;           // matches auth.users.id
@@ -41,6 +42,9 @@ export interface SharedCampaign {
   updated_at: string;
   campaign_content: CampaignContent | null;
   homebrew_content: HomebrewItem[] | null;
+  /** Player-safe view of DM-authored NPCs that the DM has flagged visible. `privateDescription`,
+   *  `currentHp`, `maxHp`, and `level` are stripped before push — see `toPublicNPC` in `types/npc.ts`. */
+  npc_content: PublicNPC[] | null;
 }
 
 export interface CampaignMember {

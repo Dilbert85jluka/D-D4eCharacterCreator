@@ -4,6 +4,7 @@ import type { Campaign } from '../types/campaign';
 import type { CampaignSession } from '../types/session';
 import type { SessionEncounter } from '../types/encounter';
 import type { HomebrewItem } from '../types/homebrew';
+import type { CampaignNPC } from '../types/npc';
 
 export class Dnd4eDatabase extends Dexie {
   characters!: Table<Character, string>;
@@ -11,6 +12,7 @@ export class Dnd4eDatabase extends Dexie {
   sessions!: Table<CampaignSession, string>;
   encounters!: Table<SessionEncounter, string>;
   homebrew!: Table<HomebrewItem, string>;
+  npcs!: Table<CampaignNPC, string>;
 
   constructor() {
     super('Dnd4eCharacterCreator');
@@ -74,6 +76,17 @@ export class Dnd4eDatabase extends Dexie {
       return tx.table('campaigns').toCollection().modify((campaign) => {
         if (campaign.privateNotes === undefined) campaign.privateNotes = '';
       });
+    });
+
+    // v9: npcs table — DM-authored non-player characters scoped per campaign.
+    // Indexed by id (PK), campaignId (per-campaign queries), and updatedAt (sort).
+    this.version(9).stores({
+      characters: 'id, name, classId, raceId, level, updatedAt',
+      campaigns:  'id, name, updatedAt',
+      sessions:   'id, campaignId, sessionNumber, updatedAt',
+      encounters: 'id, sessionId, campaignId, sortOrder, updatedAt',
+      homebrew:   'id, contentType, name, createdBy, updatedAt, *campaignIds',
+      npcs:       'id, campaignId, name, updatedAt, visibleToPlayers',
     });
   }
 }

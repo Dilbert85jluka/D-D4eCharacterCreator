@@ -23,6 +23,7 @@ import { JoinCampaignModal } from '../components/sharing/JoinCampaignModal';
 import { ShareCampaignModal } from '../components/sharing/ShareCampaignModal';
 import { LinkCharacterModal } from '../components/sharing/LinkCharacterModal';
 import { MemberCard } from '../components/sharing/PartyRosterCards';
+import { NpcSection } from '../components/sharing/NpcSection';
 import type { CharacterSummary } from '../types/sharing';
 import { CharacterSheet } from '../components/sheet/CharacterSheet';
 import { useRealtimeCampaign } from '../hooks/useRealtimeCampaign';
@@ -1568,6 +1569,13 @@ export function CampaignManagementPage() {
                           Unlink your character
                         </button>
                       )}
+                    </section>
+                  )}
+
+                  {/* ── NPC Glossary (DM-authored, default hidden from players) ─────── */}
+                  {activeCampaign && (
+                    <section>
+                      <NpcSection campaignId={activeCampaign.id} />
                     </section>
                   )}
 
