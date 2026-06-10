@@ -42,6 +42,9 @@ export function useCampaignContentSync() {
             an: s.additionalNotes,
             u: s.updatedAt,
           })),
+          // NPC glossary: id + updatedAt + hidden capture every meaningful change
+          // (edits bump updatedAt; hide/unhide changes what extractPublicContent pushes)
+          npcs: (c.npcs ?? []).map((n) => ({ id: n.id, u: n.updatedAt, h: n.hidden })),
         };
       })
     );

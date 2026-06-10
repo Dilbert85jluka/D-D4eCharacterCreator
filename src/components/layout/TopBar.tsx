@@ -33,41 +33,49 @@ export function TopBar() {
         </svg>
       </button>
 
-      {/* Section Nav Tabs */}
+      {/* Section Nav Tabs.
+          Label visibility is breakpoint-gated so the bar never clips on tablet-portrait widths
+          (the five short labels total ~557px and, alongside the "← Characters" button + avatar,
+          overflow the sheet view below ~800px CSS — exactly where Samsung tablets land):
+            • below lg (<1024): icon only — fits every tablet portrait down to ~360px
+            • lg–xl (1024–1279): short labels
+            • xl+ (≥1280): full titles
+          Each tab keeps a title tooltip and aria-label so the icon-only state stays discoverable,
+          and the full sidebar menu still lists every section by name. */}
       <nav className="flex items-stretch h-full gap-1 overflow-x-auto">
         {/* Character Creator tab */}
-        <button onClick={() => navigate('home')} className={tabCls(isCreatorActive)}>
+        <button onClick={() => navigate('home')} className={tabCls(isCreatorActive)} title="Character Creator" aria-label="Character Creator">
           <span className="text-base">⚔️</span>
-          <span className="hidden sm:inline">Character Creator</span>
-          <span className="sm:hidden">Creator</span>
+          <span className="hidden lg:inline xl:hidden">Creator</span>
+          <span className="hidden xl:inline">Character Creator</span>
         </button>
 
         {/* Campaign Management tab */}
-        <button onClick={() => navigate('campaigns')} className={tabCls(isCampaignActive)}>
+        <button onClick={() => navigate('campaigns')} className={tabCls(isCampaignActive)} title="Campaign Management" aria-label="Campaign Management">
           <span className="text-base">🏰</span>
-          <span className="hidden sm:inline">Campaign Management</span>
-          <span className="sm:hidden">Campaigns</span>
+          <span className="hidden lg:inline xl:hidden">Campaigns</span>
+          <span className="hidden xl:inline">Campaign Management</span>
         </button>
 
         {/* Monster Compendium tab */}
-        <button onClick={() => navigate('monsters')} className={tabCls(isCompendiumActive)}>
+        <button onClick={() => navigate('monsters')} className={tabCls(isCompendiumActive)} title="Monster Compendium" aria-label="Monster Compendium">
           <span className="text-base">🐉</span>
-          <span className="hidden sm:inline">Monster Compendium</span>
-          <span className="sm:hidden">Monsters</span>
+          <span className="hidden lg:inline xl:hidden">Monsters</span>
+          <span className="hidden xl:inline">Monster Compendium</span>
         </button>
 
         {/* Magic Item Compendium tab */}
-        <button onClick={() => navigate('magicItems')} className={tabCls(isMagicItemsActive)}>
+        <button onClick={() => navigate('magicItems')} className={tabCls(isMagicItemsActive)} title="Magic Item Compendium" aria-label="Magic Item Compendium">
           <span className="text-base">✨</span>
-          <span className="hidden sm:inline">Magic Item Compendium</span>
-          <span className="sm:hidden">Items</span>
+          <span className="hidden lg:inline xl:hidden">Items</span>
+          <span className="hidden xl:inline">Magic Item Compendium</span>
         </button>
 
         {/* Homebrew Workshop tab */}
-        <button onClick={() => navigate('homebrew')} className={tabCls(isHomebrewActive)}>
+        <button onClick={() => navigate('homebrew')} className={tabCls(isHomebrewActive)} title="Homebrew Workshop" aria-label="Homebrew Workshop">
           <span className="text-base">🔧</span>
-          <span className="hidden sm:inline">Homebrew Workshop</span>
-          <span className="sm:hidden">Homebrew</span>
+          <span className="hidden lg:inline xl:hidden">Homebrew</span>
+          <span className="hidden xl:inline">Homebrew Workshop</span>
         </button>
       </nav>
 

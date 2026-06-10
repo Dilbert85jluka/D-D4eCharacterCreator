@@ -24,6 +24,8 @@ export function extractPublicContent(
     description: campaign.description,
     publicNotes: campaign.publicNotes,
     sessions: publicSessions,
+    // Hidden NPCs never leave the DM's device — players only receive unhidden entries
+    npcs: (campaign.npcs ?? []).filter((n) => !n.hidden),
   };
 }
 

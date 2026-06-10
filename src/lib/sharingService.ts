@@ -1,6 +1,41 @@
 import { supabase } from './supabase';
-import type { SharedCampaign, CampaignMember, CharacterSummary, Profile } from '../types/sharing';
+import type { SharedCampaign, CampaignMember, CharacterSummary, Profile, CampaignContent } from '../types/sharing';
 import type { Character } from '../types/character';
+import type { CampaignNpc } from '../types/campaign';
+
+/** NPC glossary payload for a character's linked campaign (player-side sheet view). */
+export interface CharacterNpcGlossary {
+  campaignName: string;
+  npcs: CampaignNpc[];
+}
+
+/**
+ * Fetch the NPC glossary the DM has published for the campaign this character is linked to.
+ * A character links to at most one shared campaign (character_summaries.id === character id).
+ * Returns null when the character isn't linked, the campaign has no published NPCs yet,
+ * or the device is offline — callers render an empty state.
+ */
+export async function getNpcGlossaryForCharacter(characterId: string): Promise<CharacterNpcGlossary | null> {
+  const { data: summary, error: summaryError } = await supabase
+    .from('character_summaries')
+    .select('campaign_id')
+    .eq('id', characterId)
+    .maybeSingle();
+  if (summaryError || !summary?.campaign_id) return null;
+
+  const { data: sc, error: scError } = await supabase
+    .from('shared_campaigns')
+    .select('name, campaign_content')
+    .eq('id', summary.campaign_id)
+    .maybeSingle();
+  if (scError || !sc) return null;
+
+  const content = sc.campaign_content as CampaignContent | null;
+  return {
+    campaignName: (sc.name as string) ?? 'Campaign',
+    npcs: content?.npcs ?? [],
+  };
+}
 
 /** Generate a unique 6-char invite code via Supabase RPC */
 export async function generateInviteCode(): Promise<string> {

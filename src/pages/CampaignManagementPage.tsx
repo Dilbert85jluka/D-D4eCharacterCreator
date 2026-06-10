@@ -30,6 +30,7 @@ import { useCampaignContentSync } from '../hooks/useCampaignContentSync';
 import { extractPublicContent, pushCampaignContent } from '../lib/campaignContentSync';
 import { RichTextEditor } from '../components/ui/RichTextEditor';
 import { RichTextDisplay } from '../components/ui/RichTextDisplay';
+import { NpcGlossarySection } from '../components/campaigns/NpcGlossarySection';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1403,6 +1404,18 @@ export function CampaignManagementPage() {
                       </div>
                     )}
                   </section>
+
+                  {/* NPC Glossary — DM-managed; hidden NPCs never leave this device */}
+                  {activeCampaign && (
+                    <NpcGlossarySection
+                      campaign={activeCampaign}
+                      onCampaignUpdate={async (updated) => {
+                        const stamped = { ...updated, updatedAt: Date.now() };
+                        await campaignRepository.update(stamped);
+                        updateCampaign(stamped);
+                      }}
+                    />
+                  )}
 
                   {/* Characters — unified list: DM-added local characters + party-roster-linked player characters */}
                   {(() => {

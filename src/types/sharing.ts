@@ -1,6 +1,7 @@
 /** Shared data types for Supabase multi-user campaign sharing */
 
 import type { Character } from './character';
+import type { CampaignNpc } from './campaign';
 import type { HomebrewItem } from './homebrew';
 
 export interface Profile {
@@ -28,6 +29,8 @@ export interface CampaignContent {
   description: string;
   publicNotes: string;
   sessions: PublicSession[];
+  /** NPC Glossary entries the DM has unhidden — hidden NPCs are filtered out before push */
+  npcs?: CampaignNpc[];
 }
 
 export interface SharedCampaign {
