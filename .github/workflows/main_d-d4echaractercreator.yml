@@ -45,22 +45,30 @@ jobs:
       #   3. default: patch
       - name: Determine version bump type
         id: vbump
+        # IMPORTANT: pass commit message via env, NOT via ${{ }} interpolation.
+        # Direct interpolation injects the message as bash source code — multi-line
+        # bodies with parens/brackets/quotes get parsed by the shell and break the
+        # script (e.g. exit 126 "File name too long"). With env: the value is read
+        # at runtime via $COMMIT_MSG and bash never re-parses its contents.
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_BUMP: ${{ github.event.inputs.version_bump }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            BUMP="${{ github.event.inputs.version_bump }}"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            BUMP="$DISPATCH_BUMP"
             SOURCE="workflow_dispatch input"
           else
-            MSG="${{ github.event.head_commit.message }}"
-            if echo "$MSG" | grep -qE '\[major\]'; then
+            if echo "$COMMIT_MSG" | grep -qE '\[major\]'; then
               BUMP=major
               SOURCE="[major] tag in commit message"
-            elif echo "$MSG" | grep -qE '\[minor\]'; then
+            elif echo "$COMMIT_MSG" | grep -qE '\[minor\]'; then
               BUMP=minor
               SOURCE="[minor] tag in commit message"
-            elif echo "$MSG" | grep -qE '\[none\]'; then
+            elif echo "$COMMIT_MSG" | grep -qE '\[none\]'; then
               BUMP=none
               SOURCE="[none] tag in commit message (skipping version bump)"
-            elif echo "$MSG" | grep -qE '\[patch\]'; then
+            elif echo "$COMMIT_MSG" | grep -qE '\[patch\]'; then
               BUMP=patch
               SOURCE="[patch] tag in commit message"
             else
