@@ -59,8 +59,8 @@ export function PowerCard({
       onClick={onClick}
     >
       {/* Header */}
-      <div className={`power-header px-3 py-2 flex items-center justify-between gap-2 text-white`}>
-        <div className="flex items-center gap-2 flex-1 min-w-0">
+      <div className={`power-header px-3 py-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-white`}>
+        <div className="flex items-center gap-2 flex-1 min-w-[6rem]">
           {showCheckbox && (
             <div
               className={`w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center
