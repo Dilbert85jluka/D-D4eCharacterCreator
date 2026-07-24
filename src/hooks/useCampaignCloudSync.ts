@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useCampaignsStore } from '../store/useCampaignsStore';
 import { useSessionsStore } from '../store/useSessionsStore';
 import { useEncountersStore } from '../store/useEncountersStore';
+import { useNpcsStore } from '../store/useNpcsStore';
 import { pushCampaignToCloud, pullAllCampaignsFromCloud } from '../lib/campaignCloudService';
 import type { CampaignBundle } from '../lib/campaignCloudService';
 import { createSyncDebouncer } from '../lib/summarySync';
@@ -10,10 +11,10 @@ import { createSyncDebouncer } from '../lib/summarySync';
 /**
  * Cloud campaign sync hook.
  * - On startup (once): pulls all cloud campaigns and merges into local Dexie (newer wins).
- * - On campaign / session / encounter change (debounced 3s): pushes the affected campaign
- *   bundle (campaign + sessions + encounters) to Supabase. Watching sessions + encounters is
- *   required because modifying an encounter only bumps encounter.updatedAt — the parent
- *   campaign's timestamp stays the same. Without this, encounter edits would stay local-only.
+ * - On campaign / session / encounter / NPC change (debounced 3s): pushes the affected campaign
+ *   bundle (campaign + sessions + encounters + NPCs) to Supabase. Watching sessions, encounters,
+ *   and NPCs is required because modifying one only bumps its own updatedAt — the parent
+ *   campaign's timestamp stays the same. Without this, those edits would stay local-only.
  */
 export function useCampaignCloudSync() {
   const user = useAuthStore((s) => s.user);
@@ -22,6 +23,8 @@ export function useCampaignCloudSync() {
   const mergeCloudCampaigns = useCampaignsStore((s) => s.mergeCloudCampaigns);
   const sessionsByCampaign = useSessionsStore((s) => s.sessionsByCampaign);
   const encountersBySession = useEncountersStore((s) => s.encountersBySession);
+  const npcsByCampaign = useNpcsStore((s) => s.npcsByCampaign);
+  const npcsLoaded = useNpcsStore((s) => s.hasLoaded);
 
   const hasPulledRef = useRef(false);
   const debouncersRef = useRef(new Map<string, ReturnType<typeof createSyncDebouncer>>());
@@ -54,6 +57,11 @@ export function useCampaignCloudSync() {
         }
       } catch (err) {
         console.error('[useCampaignCloudSync] Pull failed:', err);
+      } finally {
+        // Signal content-push hooks (useNpcContentSync) that this device has
+        // merged cloud state (or at least attempted to) — pushing before this
+        // point risks clobbering remote content with incomplete local data.
+        useCampaignsStore.setState({ cloudPullDone: true });
       }
     })();
   }, [user, hasLoaded, mergeCloudCampaigns]);
@@ -72,9 +80,15 @@ export function useCampaignCloudSync() {
       console.debug('[useCampaignCloudSync] Skipping push: initial pull not complete');
       return;
     }
+    if (!npcsLoaded) {
+      // Wait for the NPC store before capturing baseline hashes — otherwise the
+      // NPC load arriving later would look like a change and trigger spurious pushes.
+      console.debug('[useCampaignCloudSync] Skipping push: NPC store not loaded');
+      return;
+    }
 
-    // Build a per-campaign fingerprint: campaign.updatedAt + all its sessions'/encounters' updatedAt.
-    // Only campaigns whose fingerprint actually changed get pushed — saves Supabase writes.
+    // Build a per-campaign fingerprint: campaign.updatedAt + all its sessions'/encounters'/NPCs'
+    // updatedAt. Only campaigns whose fingerprint actually changed get pushed — saves Supabase writes.
     const encountersByCampaign = new Map<string, { id: string; u: number }[]>();
     for (const enc of Object.values(encountersBySession).flat()) {
       if (!encountersByCampaign.has(enc.campaignId)) encountersByCampaign.set(enc.campaignId, []);
@@ -85,9 +99,10 @@ export function useCampaignCloudSync() {
     for (const c of campaigns) {
       const sessions = (sessionsByCampaign[c.id] ?? []).map((s) => ({ id: s.id, u: s.updatedAt }));
       const encounters = encountersByCampaign.get(c.id) ?? [];
+      const npcs = (npcsByCampaign[c.id] ?? []).map((n) => ({ id: n.id, u: n.updatedAt }));
       newHashes.set(
         c.id,
-        JSON.stringify({ u: c.updatedAt, s: sessions, e: encounters }),
+        JSON.stringify({ u: c.updatedAt, s: sessions, e: encounters, n: npcs }),
       );
     }
 
@@ -130,7 +145,7 @@ export function useCampaignCloudSync() {
         }
       });
     }
-  }, [campaigns, sessionsByCampaign, encountersBySession, user, hasLoaded]);
+  }, [campaigns, sessionsByCampaign, encountersBySession, npcsByCampaign, npcsLoaded, user, hasLoaded]);
 
   // ── Cleanup ──
   useEffect(() => {

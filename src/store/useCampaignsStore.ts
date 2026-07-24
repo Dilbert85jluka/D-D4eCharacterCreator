@@ -7,6 +7,7 @@ import { sessionRepository } from '../db/sessionRepository';
 import { encounterRepository } from '../db/encounterRepository';
 import { useEncountersStore } from './useEncountersStore';
 import { npcRepository } from '../db/npcRepository';
+import { useNpcsStore } from './useNpcsStore';
 import { useSessionsStore } from './useSessionsStore';
 import type { Campaign } from '../types/campaign';
 import { db } from '../db/database';
@@ -15,6 +16,11 @@ interface CampaignsState {
   campaigns: Campaign[];
   isLoading: boolean;
   hasLoaded: boolean;
+  /** True once the startup cloud pull has completed (success OR failure) on this
+   *  device. Content-push hooks (e.g. useNpcContentSync) gate on this so a device
+   *  that hasn't merged cloud data yet can't clobber remote content with its own
+   *  incomplete local state. Set by useCampaignCloudSync. */
+  cloudPullDone: boolean;
   error: string | null;
 
   loadCampaigns: () => Promise<void>;
@@ -29,6 +35,7 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
   campaigns: [],
   isLoading: false,
   hasLoaded: false,
+  cloudPullDone: false,
   error: null,
 
   loadCampaigns: async () => {
@@ -78,17 +85,20 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
     const localSessionMap = new Map(allLocalSessions.map((s) => [s.id, s]));
     const allLocalEncounters = await db.encounters.toArray();
     const localEncounterMap = new Map(allLocalEncounters.map((e) => [e.id, e]));
+    const allLocalNpcs = await db.npcs.toArray();
+    const localNpcMap = new Map(allLocalNpcs.map((n) => [n.id, n]));
 
     let campaignsWritten = 0;
     let sessionsWritten = 0;
     let encountersWritten = 0;
+    let npcsWritten = 0;
 
     for (const bundle of cloudBundles) {
-      const { campaign: cloudCampaign, sessions, encounters } = bundle;
+      const { campaign: cloudCampaign, sessions, encounters, npcs } = bundle;
       const local = localMap.get(cloudCampaign.id);
 
       console.debug(
-        `[mergeCloudCampaigns] Bundle "${cloudCampaign.name}": ${sessions.length} sessions, ${encounters.length} encounters`,
+        `[mergeCloudCampaigns] Bundle "${cloudCampaign.name}": ${sessions.length} sessions, ${encounters.length} encounters, ${npcs.length} NPCs`,
       );
 
       // Campaign: newer-wins by updatedAt
@@ -114,20 +124,32 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
           encountersWritten++;
         }
       }
+
+      // NPCs: per-record newer-wins (same rationale as sessions/encounters —
+      // an NPC edit does not bump the parent campaign's updatedAt)
+      for (const npc of npcs) {
+        const localNpc = localNpcMap.get(npc.id);
+        if (!localNpc || npc.updatedAt > localNpc.updatedAt) {
+          await db.npcs.put(npc);
+          npcsWritten++;
+        }
+      }
     }
 
     console.info(
-      `[mergeCloudCampaigns] Wrote ${campaignsWritten} campaign(s), ${sessionsWritten} session(s), ${encountersWritten} encounter(s) from cloud`,
+      `[mergeCloudCampaigns] Wrote ${campaignsWritten} campaign(s), ${sessionsWritten} session(s), ${encountersWritten} encounter(s), ${npcsWritten} NPC(s) from cloud`,
     );
 
     // Reload all stores to pick up merged data
     const updated = await campaignRepository.getAll();
     set({ campaigns: updated });
 
-    // Force-reload sessions and encounters stores to pick up merged data
-    // Sessions store has no guard, encounters store does — reset it
+    // Force-reload sessions, encounters, and NPC stores to pick up merged data
+    // Sessions store has no guard; encounters + NPC stores do — reset them
     await useSessionsStore.getState().loadAllSessions();
     useEncountersStore.setState({ hasLoaded: false });
     await useEncountersStore.getState().loadAllEncounters();
+    useNpcsStore.setState({ hasLoaded: false });
+    await useNpcsStore.getState().loadAllNpcs();
   },
 }));
