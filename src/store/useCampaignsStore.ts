@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { campaignRepository } from '../db/campaignRepository';
 import { useAuthStore } from './useAuthStore';
 import { deleteCloudCampaign } from '../lib/campaignCloudService';
-import type { CampaignBundle } from '../lib/campaignCloudService';
+import type { CampaignBundle, CloudCampaignDeletion } from '../lib/campaignCloudService';
 import { sessionRepository } from '../db/sessionRepository';
 import { encounterRepository } from '../db/encounterRepository';
 import { useEncountersStore } from './useEncountersStore';
@@ -28,7 +28,10 @@ interface CampaignsState {
   updateCampaign: (campaign: Campaign) => void;
   deleteCampaign: (id: string) => Promise<void>;
   getCampaignById: (id: string) => Campaign | undefined;
-  mergeCloudCampaigns: (cloudBundles: CampaignBundle[]) => Promise<void>;
+  mergeCloudCampaigns: (
+    cloudBundles: CampaignBundle[],
+    cloudDeletions?: CloudCampaignDeletion[],
+  ) => Promise<void>;
 }
 
 export const useCampaignsStore = create<CampaignsState>((set, get) => ({
@@ -72,7 +75,7 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
 
   getCampaignById: (id) => get().campaigns.find((c) => c.id === id),
 
-  mergeCloudCampaigns: async (cloudBundles) => {
+  mergeCloudCampaigns: async (cloudBundles, cloudDeletions = []) => {
     const localCampaigns = await campaignRepository.getAll();
     const localMap = new Map(localCampaigns.map((c) => [c.id, c]));
 
@@ -87,6 +90,38 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
     const localEncounterMap = new Map(allLocalEncounters.map((e) => [e.id, e]));
     const allLocalNpcs = await db.npcs.toArray();
     const localNpcMap = new Map(allLocalNpcs.map((n) => [n.id, n]));
+
+    // ── Apply cloud deletions first (campaign deleted on another device) ──
+    // The deletion wins only if it is newer than ALL local activity in the
+    // campaign (campaign fields + sessions + encounters + NPCs) — otherwise the
+    // local copy is kept and the next push deliberately resurrects the cloud
+    // row (last-write-wins at the bundle level).
+    let campaignsDeleted = 0;
+    for (const del of cloudDeletions) {
+      const local = localMap.get(del.campaignId);
+      if (!local) continue;
+      const maxLocalActivity = Math.max(
+        local.updatedAt,
+        ...allLocalSessions.filter((s) => s.campaignId === del.campaignId).map((s) => s.updatedAt),
+        ...allLocalEncounters.filter((e) => e.campaignId === del.campaignId).map((e) => e.updatedAt),
+        ...allLocalNpcs.filter((n) => n.campaignId === del.campaignId).map((n) => n.updatedAt),
+      );
+      if (del.deletedAt >= maxLocalActivity) {
+        await encounterRepository.deleteAllForCampaign(del.campaignId);
+        await sessionRepository.deleteAllForCampaign(del.campaignId);
+        await npcRepository.deleteByCampaignId(del.campaignId);
+        await campaignRepository.delete(del.campaignId);
+        localMap.delete(del.campaignId);
+        campaignsDeleted++;
+        console.info(
+          `[mergeCloudCampaigns] Removed local campaign "${local.name}" — deleted in cloud on another device`,
+        );
+      } else {
+        console.info(
+          `[mergeCloudCampaigns] Keeping local campaign "${local.name}" despite cloud deletion — local activity is newer (next push will restore it)`,
+        );
+      }
+    }
 
     let campaignsWritten = 0;
     let sessionsWritten = 0;
@@ -137,7 +172,7 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
     }
 
     console.info(
-      `[mergeCloudCampaigns] Wrote ${campaignsWritten} campaign(s), ${sessionsWritten} session(s), ${encountersWritten} encounter(s), ${npcsWritten} NPC(s) from cloud`,
+      `[mergeCloudCampaigns] Wrote ${campaignsWritten} campaign(s), ${sessionsWritten} session(s), ${encountersWritten} encounter(s), ${npcsWritten} NPC(s) from cloud; removed ${campaignsDeleted} cloud-deleted campaign(s)`,
     );
 
     // Reload all stores to pick up merged data
