@@ -50,10 +50,12 @@ export function useCampaignCloudSync() {
     (async () => {
       try {
         console.info('[useCampaignCloudSync] Pulling campaigns from cloud…');
-        const cloudCampaigns = await pullAllCampaignsFromCloud(user.id);
-        console.info(`[useCampaignCloudSync] Pulled ${cloudCampaigns.length} campaign(s) from cloud`);
-        if (cloudCampaigns.length > 0) {
-          await mergeCloudCampaigns(cloudCampaigns);
+        const { bundles, deletions } = await pullAllCampaignsFromCloud(user.id);
+        console.info(
+          `[useCampaignCloudSync] Pulled ${bundles.length} campaign(s) and ${deletions.length} deletion marker(s) from cloud`,
+        );
+        if (bundles.length > 0 || deletions.length > 0) {
+          await mergeCloudCampaigns(bundles, deletions);
         }
       } catch (err) {
         console.error('[useCampaignCloudSync] Pull failed:', err);
@@ -138,8 +140,14 @@ export function useCampaignCloudSync() {
       debounce(async () => {
         try {
           console.info(`[useCampaignCloudSync] Pushing "${campaign.name}" to Supabase…`);
-          await pushCampaignToCloud(campaign, user.id);
-          console.info(`[useCampaignCloudSync] ✓ Pushed "${campaign.name}"`);
+          const result = await pushCampaignToCloud(campaign, user.id);
+          if (result === 'skipped-deleted') {
+            console.info(
+              `[useCampaignCloudSync] ⊘ Skipped "${campaign.name}" — deleted in cloud on another device; next startup pull will remove it locally`,
+            );
+          } else {
+            console.info(`[useCampaignCloudSync] ✓ Pushed "${campaign.name}"`);
+          }
         } catch (err) {
           console.error(`[useCampaignCloudSync] ✗ Push failed for "${campaign.name}":`, err);
         }
