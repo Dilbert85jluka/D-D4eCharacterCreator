@@ -17,6 +17,11 @@ export interface SessionEncounter {
   campaignId: string;
   createdAt: number;
   updatedAt: number;
+  /** Tombstone flag — deleted records are kept (with content blanked) so the
+   *  deletion propagates through the cloud bundle merge instead of the record
+   *  resurrecting from another device's push. Filtered out of all reads;
+   *  purged after the tombstone TTL (see src/db/tombstones.ts). */
+  deleted?: boolean;
   /** Ascending display order within the session */
   sortOrder: number;
   title: string;

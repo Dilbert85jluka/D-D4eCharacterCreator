@@ -17,14 +17,20 @@ export interface CampaignBundle {
   npcs: CampaignNPC[];
 }
 
-/** Push a campaign + its sessions + encounters + NPCs to Supabase cloud backup (upsert). */
+/** Push a campaign + its sessions + encounters + NPCs to Supabase cloud backup (upsert).
+ *  Tombstones (deleted: true) ARE included in the bundle — that's how deletions
+ *  propagate to the DM's other devices via the per-record newer-wins merge. */
 export async function pushCampaignToCloud(campaign: Campaign, userId: string): Promise<void> {
-  const sessions = await sessionRepository.getAllForCampaign(campaign.id);
-  const encounters = await encounterRepository.getAllForCampaign(campaign.id);
-  const npcs = await npcRepository.getByCampaignId(campaign.id);
+  const sessions = await sessionRepository.getAllForCampaignIncludingDeleted(campaign.id);
+  const encounters = await encounterRepository.getAllForCampaignIncludingDeleted(campaign.id);
+  const npcs = await npcRepository.getByCampaignIdIncludingDeleted(campaign.id);
 
+  const tombstones =
+    sessions.filter((s) => s.deleted).length +
+    encounters.filter((e) => e.deleted).length +
+    npcs.filter((n) => n.deleted).length;
   console.info(
-    `[pushCampaignToCloud] "${campaign.name}" (id=${campaign.id}) — bundling ${sessions.length} session(s), ${encounters.length} encounter(s), ${npcs.length} NPC(s) from Dexie`,
+    `[pushCampaignToCloud] "${campaign.name}" (id=${campaign.id}) — bundling ${sessions.length} session(s), ${encounters.length} encounter(s), ${npcs.length} NPC(s) from Dexie (${tombstones} tombstone(s))`,
   );
 
   const bundle: CampaignBundle = { campaign, sessions, encounters, npcs };

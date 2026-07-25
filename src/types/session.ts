@@ -6,6 +6,12 @@ export interface CampaignSession {
   createdAt: number;
   updatedAt: number;
 
+  /** Tombstone flag — deleted records are kept (with content blanked) so the
+   *  deletion propagates through the cloud bundle merge instead of the record
+   *  resurrecting from another device's push. Filtered out of all reads;
+   *  purged after the tombstone TTL (see src/db/tombstones.ts). */
+  deleted?: boolean;
+
   /** Display number (1, 2, 3 …) — ascending in the nav tree */
   sessionNumber: number;
 

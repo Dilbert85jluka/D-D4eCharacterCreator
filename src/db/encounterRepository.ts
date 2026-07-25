@@ -9,6 +9,7 @@ export const encounterRepository = {
     return db.encounters
       .where('sessionId')
       .equals(sessionId)
+      .filter((e) => !e.deleted)
       .sortBy('sortOrder');
   },
 
@@ -16,11 +17,20 @@ export const encounterRepository = {
     return db.encounters
       .where('campaignId')
       .equals(campaignId)
+      .filter((e) => !e.deleted)
+      .toArray();
+  },
+
+  /** Includes tombstones — for the cloud bundle push, so deletions propagate to other devices. */
+  async getAllForCampaignIncludingDeleted(campaignId: string): Promise<SessionEncounter[]> {
+    return db.encounters
+      .where('campaignId')
+      .equals(campaignId)
       .toArray();
   },
 
   async getAll(): Promise<SessionEncounter[]> {
-    return db.encounters.orderBy('sortOrder').toArray();
+    return db.encounters.orderBy('sortOrder').filter((e) => !e.deleted).toArray();
   },
 
   async getById(id: string): Promise<SessionEncounter | undefined> {
@@ -50,16 +60,42 @@ export const encounterRepository = {
     await db.encounters.update(id, { ...changes, updatedAt: Date.now() });
   },
 
+  /** Soft-delete: converts the record into a tombstone (content blanked, updatedAt
+   *  bumped) so the deletion wins the per-record newer-wins merge on other devices. */
   async delete(id: string): Promise<void> {
-    await db.encounters.delete(id);
+    const existing = await db.encounters.get(id);
+    if (!existing) return;
+    await db.encounters.put({
+      ...existing,
+      deleted: true,
+      updatedAt: Date.now(),
+      description: '',
+      monsterEntries: [],
+      characterIds: [],
+      initiativeState: null,
+    });
   },
 
-  /** Delete all encounters for a session (called when session is deleted) */
+  /** Soft-delete all encounters for a session (called when session is deleted) —
+   *  tombstoned so they don't resurrect alongside the tombstoned parent session. */
   async deleteAllForSession(sessionId: string): Promise<void> {
-    await db.encounters.where('sessionId').equals(sessionId).delete();
+    const now = Date.now();
+    await db.encounters
+      .where('sessionId')
+      .equals(sessionId)
+      .filter((e) => !e.deleted)
+      .modify((e) => {
+        e.deleted = true;
+        e.updatedAt = now;
+        e.description = '';
+        e.monsterEntries = [];
+        e.characterIds = [];
+        e.initiativeState = null;
+      });
   },
 
-  /** Delete all encounters for a campaign (called when campaign is deleted) */
+  /** Hard-delete all encounters for a campaign (called when campaign is
+   *  deleted — no tombstones needed, the cloud campaign row is soft-deleted whole). */
   async deleteAllForCampaign(campaignId: string): Promise<void> {
     await db.encounters.where('campaignId').equals(campaignId).delete();
   },

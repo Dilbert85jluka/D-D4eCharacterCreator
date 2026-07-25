@@ -27,6 +27,7 @@ import { useHomebrewContentSync } from './hooks/useHomebrewContentSync';
 import { useHomebrewCloudSync } from './hooks/useHomebrewCloudSync';
 import { useCampaignHomebrewSync } from './hooks/useCampaignHomebrewSync';
 import { useSharingStore } from './store/useSharingStore';
+import { purgeExpiredTombstones } from './db/tombstones';
 
 export default function App() {
   const currentView    = useAppStore((s) => s.currentView);
@@ -50,6 +51,8 @@ export default function App() {
   useEffect(() => { loadAllEncounters(); }, [loadAllEncounters]);
   useEffect(() => { loadHomebrew(); }, [loadHomebrew]);
   useEffect(() => { loadAllNpcs(); }, [loadAllNpcs]);
+  // Purge session/encounter/NPC tombstones past their 60-day TTL (fire-and-forget)
+  useEffect(() => { purgeExpiredTombstones(); }, []);
   // Initialize Supabase auth (checks existing session, subscribes to changes)
   useEffect(() => { initializeAuth(); }, [initializeAuth]);
 

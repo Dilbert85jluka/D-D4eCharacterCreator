@@ -49,6 +49,12 @@ export interface CampaignNPC {
   /** Default false. When true, the NPC appears on the player-facing campaign view. */
   visibleToPlayers: boolean;
 
+  /** Tombstone flag — deleted records are kept (with portrait + descriptions
+   *  blanked) so the deletion propagates through the cloud bundle merge instead
+   *  of the NPC resurrecting from another device's push. Filtered out of all
+   *  reads; purged after the tombstone TTL (see src/db/tombstones.ts). */
+  deleted?: boolean;
+
   createdAt: number;
   updatedAt: number;
 }
