@@ -20,7 +20,9 @@ import { extractPublicNpcs, pushNpcContent } from '../lib/npcContentSync';
 export function useNpcContentSync() {
   const user = useAuthStore((s) => s.user);
   const campaigns = useCampaignsStore((s) => s.campaigns);
+  const cloudPullDone = useCampaignsStore((s) => s.cloudPullDone);
   const npcsByCampaign = useNpcsStore((s) => s.npcsByCampaign);
+  const npcsLoaded = useNpcsStore((s) => s.hasLoaded);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Per-campaign last-successfully-pushed fingerprint. Push failures clear
   // the entry so the next render retries — without this, an initial failure
@@ -30,6 +32,12 @@ export function useNpcContentSync() {
 
   useEffect(() => {
     if (!user) return;
+    // Never push before (a) the local NPC store is in memory and (b) this device
+    // has merged the cloud campaign backup (which carries the NPCs). Without
+    // these gates, a device that simply hasn't loaded/received the NPCs yet
+    // would push an empty list and wipe npc_content for every player — the
+    // "NPCs disappear when the DM opens the app on another device" bug.
+    if (!npcsLoaded || !cloudPullDone) return;
 
     const sharedLocal = campaigns.filter((c) => c.sharedCampaignId);
     if (sharedLocal.length === 0) return;
@@ -74,5 +82,5 @@ export function useNpcContentSync() {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [user, campaigns, npcsByCampaign]);
+  }, [user, campaigns, npcsByCampaign, npcsLoaded, cloudPullDone]);
 }
