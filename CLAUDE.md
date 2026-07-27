@@ -519,6 +519,8 @@ Floating action button (🎲) fixed bottom-right on the character sheet. Opens a
 - For a single d20 (skill checks, saving throws, attack rolls) pass `1`
 - The function uses Web Audio API synthesis — no audio files, works fully offline
 - Never add a new roll mechanic without importing and calling `playDiceRollSound`
+- **Must be called from a user gesture** (tap/click handler) — iOS requires it to start/resume audio
+- iOS handling inside `diceSound.ts` (do not regress): ONE shared `AudioContext` (never closed — iOS caps live contexts at ~4), `resume()`d inside the gesture on every roll (covers `suspended` + WebKit's nonstandard `interrupted` state after backgrounding), plus a looping silent-WAV `<audio>` element (data URI generated in code) that flips the WebKit audio session to the "playback" category so the sound plays even when the device's mute switch / Control Center mute is on
 
 ---
 

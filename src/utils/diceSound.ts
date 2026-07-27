@@ -52,22 +52,114 @@ function burst(ctx: AudioContext, time: number, opts: BurstOpts): void {
   src.stop(time + totalSec);
 }
 
+// ── iOS audio session handling ──────────────────────────────────────────────
+//
+// Two WebKit behaviors silence Web Audio on iPhone/iPad if unhandled:
+//
+// 1. AudioContexts start `suspended` (autoplay policy — worst in installed-PWA
+//    standalone mode) and drop to WebKit's nonstandard `interrupted` state after
+//    backgrounding or Siri. A non-running context accepts scheduled sounds and
+//    plays nothing, with no error. So we keep ONE shared context (iOS also caps
+//    concurrently-live contexts at ~4) and resume() it inside the tap gesture
+//    on every roll.
+//
+// 2. WebKit classifies Web Audio as "ambient" audio, which the mute switch /
+//    Control Center mute silences entirely (while regular media keeps playing).
+//    Keeping a looping *silent* HTML5 <audio> element playing flips the audio
+//    session to the "playback" category, which ignores the mute switch — the
+//    same trick games use. The silent clip is a ~0.05 s zero-sample WAV built
+//    in code as a data URI, preserving the no-audio-files / offline rule.
+
+let sharedCtx: AudioContext | null = null;
+let unmuteEl: HTMLAudioElement | null = null;
+
+function buildSilentWavDataUri(): string {
+  const sampleRate = 8000;
+  const numSamples = 400; // 0.05 s of silence
+  const dataSize = numSamples * 2; // 16-bit mono
+  const buf = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buf);
+  const writeStr = (off: number, s: string) => {
+    for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
+  };
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true);       // fmt chunk size
+  view.setUint16(20, 1, true);        // PCM
+  view.setUint16(22, 1, true);        // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true); // byte rate
+  view.setUint16(32, 2, true);        // block align
+  view.setUint16(34, 16, true);       // bits per sample
+  writeStr(36, 'data');
+  view.setUint32(40, dataSize, true);
+  // sample bytes are already zero — silence
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return 'data:audio/wav;base64,' + btoa(bin);
+}
+
+function ensurePlaybackSession(): void {
+  try {
+    if (!unmuteEl) {
+      const el = document.createElement('audio');
+      el.src = buildSilentWavDataUri();
+      el.loop = true;
+      el.setAttribute('playsinline', '');
+      unmuteEl = el;
+    }
+    // play() must come from the user gesture; also restarts the loop after iOS
+    // pauses it on backgrounding.
+    if (unmuteEl.paused) void unmuteEl.play().catch(() => {});
+  } catch {
+    // Unmute hack unavailable — sound still works unless the device is muted
+  }
+}
+
+function getSharedContext(): AudioContext | null {
+  const Ctx =
+    window.AudioContext ??
+    (window as unknown as { webkitAudioContext?: typeof AudioContext })
+      .webkitAudioContext;
+  if (!Ctx) return null;
+  if (!sharedCtx || sharedCtx.state === 'closed') sharedCtx = new Ctx();
+  return sharedCtx;
+}
+
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /**
- * Play a dice-rolling sound.
+ * Play a dice-rolling sound. Must be called from a user gesture (tap/click)
+ * so iOS allows the AudioContext to start/resume.
  * @param totalDice  Number of dice being rolled — affects density of the sound.
  *                   Use 1 for a single skill-check d20.
  */
 export function playDiceRollSound(totalDice = 1): void {
   try {
-    const Ctx =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext: typeof AudioContext })
-        .webkitAudioContext;
-    if (!Ctx) return;
+    ensurePlaybackSession();
+    const ctx = getSharedContext();
+    if (!ctx) return;
+    if (ctx.state !== 'running') {
+      // Covers 'suspended' and WebKit's 'interrupted'. resume() is initiated
+      // synchronously within the gesture; scheduling waits for it so the
+      // bursts aren't swallowed by a not-yet-running context.
+      void ctx
+        .resume()
+        .then(() => scheduleRollSound(ctx, totalDice))
+        .catch(() => {});
+      return;
+    }
+    scheduleRollSound(ctx, totalDice);
+  } catch {
+    // Audio unavailable or blocked — fail silently
+  }
+}
 
-    const ctx = new Ctx();
+function scheduleRollSound(ctx: AudioContext, totalDice: number): void {
+  try {
     const now = ctx.currentTime;
 
     // ── 1. Hand rattle (0 – 0.25 s) ──────────────────────────────────────────
@@ -169,7 +261,9 @@ export function playDiceRollSound(totalDice = 1): void {
       }
     }
 
-    setTimeout(() => ctx.close().catch(() => {}), 2600);
+    // Note: the shared context is deliberately never closed — recreating
+    // contexts per roll can exhaust iOS's live-context cap (~4) and re-trips
+    // the autoplay policy.
   } catch {
     // Audio unavailable or blocked — fail silently
   }
