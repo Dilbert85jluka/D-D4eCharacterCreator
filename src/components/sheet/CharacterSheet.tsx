@@ -303,17 +303,21 @@ export function CharacterSheet({ character, readOnly = false }: Props) {
         </div>
       )}
 
-      {/* ── Floating Dice Roller FAB ── */}
+      {/* ── Floating Dice Roller FAB + docked bottom tray ── */}
       {!readOnly && (
         <>
-          <button
-            onClick={() => setShowDiceRoller(true)}
-            className="fixed bottom-6 right-6 z-40 w-16 h-16 rounded-full bg-amber-700 hover:bg-amber-600 active:bg-amber-800 text-white shadow-lg flex items-center justify-center text-2xl transition-colors"
-            title="Dice Roller"
-            aria-label="Open dice roller"
-          >
-            🎲
-          </button>
+          {!showDiceRoller && (
+            <button
+              onClick={() => setShowDiceRoller(true)}
+              className="fixed bottom-6 right-6 z-40 w-16 h-16 rounded-full bg-amber-700 hover:bg-amber-600 active:bg-amber-800 text-white shadow-lg flex items-center justify-center text-2xl transition-colors"
+              title="Dice Roller"
+              aria-label="Open dice roller"
+            >
+              🎲
+            </button>
+          )}
+          {/* Spacer so the bottom of the sheet can scroll up above the docked tray */}
+          {showDiceRoller && <div className="h-72" aria-hidden="true" />}
           <DiceRollerModal isOpen={showDiceRoller} onClose={() => setShowDiceRoller(false)} />
         </>
       )}

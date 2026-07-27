@@ -499,19 +499,20 @@ Racial bonuses applied on top of base scores.
 
 ## Dice Roller (src/components/dice/DiceRollerModal.tsx)
 
-Floating action button (🎲) fixed bottom-right on the character sheet. Opens a modal with:
+Floating action button (🎲) fixed bottom-right on the character sheet. Opens a **docked bottom tray** (NOT a blocking modal — no backdrop) so the sheet above stays scrollable and tappable: look at your attack's modifiers and dice count, pick dice, and roll, all on one screen.
 
-- **8 dice:** d20, d12, d10, d% (percentile), d8, d6, d4, d2 — in a 2×4 grid
-- **Quantity selector:** +/− buttons per die type, 0–10
-- **Roll:** Counts reset to 0 immediately; dice sound plays; "Rolling…" shown for ~2.2 s while sound plays; results appear after sound finishes
-- **Results:** Individual roll chips, color-coded per die type; large total at bottom
-- **Clear:** Resets results and counts
+- **8 dice:** d20, d12, d10, d% (percentile), d8, d6, d4, d2 — one compact row on `sm:`+ (`grid-cols-8`), 2×4 on phones (`grid-cols-4`)
+- **Quantity selector:** tap a die chip to add one (count badge on the chip, max 10); thin − bar below each chip removes one
+- **Roll:** Counts reset to 0 immediately; dice sound plays; "Dice are tumbling…" shown for ~2.2 s while sound plays; results appear after sound finishes
+- **Results:** Inline row next to the Roll button — roll chips color-coded per die type, horizontally scrollable, total at right
+- **History:** 🕘 History toggle in the header shows the last 10 rolls (newest first): HH:MM time, per-die-group `N×dX` badge + individual rolls, total. In-memory only (persists while the sheet stays open — the tray component stays mounted when closed since `CharacterSheet` always renders it; not persisted to DB)
+- **Clear:** Resets results and counts (header button, only shown when there's something to clear)
 
 ### Key implementation notes
 - `colorMap` lookup object holds all Tailwind class strings statically (Tailwind v4 requirement — no template literals)
-- Results are computed eagerly (before counts reset) then revealed via `setTimeout(…, 2200)` to sync with sound
-- Modal triggered from `CharacterSheet.tsx` local state (`showDiceRoller`)
-- `z-40` for FAB, `z-50` for modal overlay (consistent with other modals)
+- Results are computed eagerly (before counts reset) then revealed via `setTimeout(…, 2200)` to sync with sound; the history entry is appended in the same timeout
+- Tray triggered from `CharacterSheet.tsx` local state (`showDiceRoller`); FAB is hidden while the tray is open; a `h-72` spacer div is appended to the sheet so the last content can scroll above the tray
+- Tray container: `fixed bottom-0 left-0 right-0 z-40` with `pointer-events-none` on the outer wrapper and `pointer-events-auto` on the panel (`max-w-2xl mx-auto`) — page content beside/above the panel stays clickable; real modals (`z-50`) cover the tray
 
 ### RULE: Always play dice sound when rolling
 **Whenever any dice are rolled anywhere in the app, `playDiceRollSound()` from `src/utils/diceSound.ts` MUST be called.**
