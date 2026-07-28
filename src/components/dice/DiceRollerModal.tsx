@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { playDiceRollSound } from '../../utils/diceSound';
-import { DiceRollAnimation } from './DiceRollAnimation';
+import { DiceRollAnimation, DICE_LINGER_MS, DICE_FADE_MS } from './DiceRollAnimation';
 import type { DiceSpriteSpec } from './DiceRollAnimation';
 
 interface Props {
@@ -60,6 +60,10 @@ const HISTORY_LIMIT = 10;
 
 // Cap animated sprites so a 10-die roll doesn't turn into confetti
 const MAX_SPRITES = 8;
+
+// Settled dice linger on screen (so players can read them) and fade out AFTER
+// the tray reveals the result chips at ~2.2s. Unmount once the fade finishes.
+const SPRITE_CLEANUP_MS = 2200 + DICE_LINGER_MS + DICE_FADE_MS + 300;
 
 // ── Main component ─────────────────────────────────────────────────────────────────────────────
 //
@@ -131,12 +135,19 @@ export function DiceRollerModal({ isOpen, onClose }: Props) {
           });
         }
       }
-      setAnimSprites(sprites.slice(0, MAX_SPRITES));
+      const capped = sprites.slice(0, MAX_SPRITES);
+      setAnimSprites(capped);
+      // Unmount the overlay after linger + fade. Reference-equality guard so a
+      // re-roll during the linger isn't wiped by the previous roll's timer —
+      // the new roll replaces animSprites, making this a no-op.
+      setTimeout(() => {
+        setAnimSprites((prev) => (prev === capped ? null : prev));
+      }, SPRITE_CLEANUP_MS);
     }
 
-    // Reveal results after sound finishes (~2.2 s), then log to history
+    // Reveal results after sound finishes (~2.2 s), then log to history.
+    // The settled dice deliberately stay on screen past this point.
     setTimeout(() => {
-      setAnimSprites(null);
       setResults(newResults);
       setRolling(false);
       setHistory((prev) =>
