@@ -154,7 +154,7 @@ const SECTIONS: Section[] = [
         </p>
         <ul className={ul}>
           <li>Build a roll with d2 / d4 / d6 / d8 / d10 / d% / d12 / d20 — tap a die to add one (up to 10 of each, count badge on the chip), tap the <span className={k}>−</span> bar below it to remove one.</li>
-          <li>Tap <span className={k}>Roll</span> — dice sound plays (Web Audio synthesized, no audio files), results appear after the ~2-second sound finishes.</li>
+          <li>Tap <span className={k}>Roll</span> — dice sound plays (Web Audio synthesized, no audio files) while sprite dice tumble and bounce across the screen, faces spinning through random numbers before settling on your actual rolls. Results appear in the tray after the ~2-second sound finishes.</li>
           <li>Result chips are color-coded per die and appear right next to the Roll button, with the total at the right. Tap <span className={k}>Clear</span> to reset.</li>
           <li>Tap <span className={k}>🕘 History</span> in the tray header to see your last 10 rolls (time, individual dice, and total). History lasts while the sheet is open — it isn't saved.</li>
         </ul>

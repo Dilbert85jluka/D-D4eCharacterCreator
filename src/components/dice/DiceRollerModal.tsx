@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { playDiceRollSound } from '../../utils/diceSound';
+import { DiceRollAnimation } from './DiceRollAnimation';
+import type { DiceSpriteSpec } from './DiceRollAnimation';
 
 interface Props {
   isOpen: boolean;
@@ -56,6 +58,9 @@ const EMPTY_COUNTS: Counts = { d20: 0, d12: 0, d10: 0, 'd%': 0, d8: 0, d6: 0, d4
 
 const HISTORY_LIMIT = 10;
 
+// Cap animated sprites so a 10-die roll doesn't turn into confetti
+const MAX_SPRITES = 8;
+
 // ── Main component ─────────────────────────────────────────────────────────────────────────────
 //
 // Docked bottom tray (not a blocking modal): no backdrop, so the character sheet
@@ -69,6 +74,7 @@ export function DiceRollerModal({ isOpen, onClose }: Props) {
   const [rolling, setRolling] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [animSprites, setAnimSprites] = useState<DiceSpriteSpec[] | null>(null);
 
   if (!isOpen) return null;
 
@@ -108,8 +114,29 @@ export function DiceRollerModal({ isOpen, onClose }: Props) {
     setRolling(true);
     setResults(null);
 
+    // Launch the tumbling-dice animation (skipped for reduced-motion users) —
+    // sprites carry the real rolled values and settle on them before reveal
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    if (!reduceMotion) {
+      const sprites: DiceSpriteSpec[] = [];
+      const rollId = Date.now();
+      for (const group of newResults) {
+        for (let i = 0; i < group.rolls.length; i++) {
+          sprites.push({
+            id: `${rollId}-${group.label}-${i}`,
+            label: group.label,
+            sides: group.sides,
+            value: group.rolls[i],
+            color: group.color,
+          });
+        }
+      }
+      setAnimSprites(sprites.slice(0, MAX_SPRITES));
+    }
+
     // Reveal results after sound finishes (~2.2 s), then log to history
     setTimeout(() => {
+      setAnimSprites(null);
       setResults(newResults);
       setRolling(false);
       setHistory((prev) =>
@@ -132,6 +159,8 @@ export function DiceRollerModal({ isOpen, onClose }: Props) {
   };
 
   return (
+    <>
+      {animSprites !== null && <DiceRollAnimation sprites={animSprites} />}
     <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
       <div className="max-w-2xl mx-auto pointer-events-auto bg-white rounded-t-2xl border border-b-0 border-stone-300 shadow-[0_-6px_24px_rgba(0,0,0,0.28)]">
 
@@ -306,5 +335,6 @@ export function DiceRollerModal({ isOpen, onClose }: Props) {
         </div>
       </div>
     </div>
+    </>
   );
 }
