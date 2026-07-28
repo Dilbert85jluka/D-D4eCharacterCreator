@@ -35,6 +35,11 @@ export const DICE_LINGER_MS = 3000;
 /** Fade-out duration once the linger ends (ms). Keep in sync with the
  *  `duration-700` class on the overlay. */
 export const DICE_FADE_MS = 700;
+/** Length of the synthesized dice-roll sound — results reveal when it ends. */
+export const DICE_SOUND_MS = 2200;
+/** Total overlay lifetime: sound + linger + fade + small buffer. Owners of a
+ *  DiceRollAnimation should clear their sprite state after this long. */
+export const DICE_OVERLAY_CLEANUP_MS = DICE_SOUND_MS + DICE_LINGER_MS + DICE_FADE_MS + 300;
 
 // Static fill classes — Tailwind v4 requires full literal class strings
 const fillMap: Record<DieSpriteColor, string> = {

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { playDiceRollSound } from '../../utils/diceSound';
+import { useD20RollAnimation } from '../dice/useD20RollAnimation';
+import { DICE_SOUND_MS } from '../dice/DiceRollAnimation';
 import type { Character, DerivedStats, SkillBreakdown } from '../../types/character';
 import type { SkillData } from '../../types/gameData';
 import { SKILLS } from '../../data/skills';
@@ -38,6 +40,7 @@ function buildTooltip(skill: SkillData, breakdown: SkillBreakdown): string {
 
 export function SkillsPanel({ character, derived }: Props) {
   const [lastRoll, setLastRoll] = useState<SkillRoll | null>(null);
+  const { animationEl, launchD20 } = useD20RollAnimation();
 
   // Auto-dismiss result after 4 seconds
   useEffect(() => {
@@ -51,11 +54,21 @@ export function SkillsPanel({ character, derived }: Props) {
     const bonus = breakdown?.total ?? derived.skillBonuses[skill.id] ?? 0;
     const roll = Math.floor(Math.random() * 20) + 1;
     playDiceRollSound(1);
-    setLastRoll({ skillId: skill.id, skillName: skill.name, roll, bonus, total: roll + bonus });
+    const entry: SkillRoll = { skillId: skill.id, skillName: skill.name, roll, bonus, total: roll + bonus };
+    if (launchD20(roll)) {
+      // d20 tumbles across the screen — reveal the result card when the
+      // sound finishes and the die has settled (same timing as the tray)
+      setLastRoll(null);
+      setTimeout(() => setLastRoll(entry), DICE_SOUND_MS);
+    } else {
+      // prefers-reduced-motion: instant reveal, as before
+      setLastRoll(entry);
+    }
   };
 
   return (
     <div className="bg-white rounded-xl border border-stone-200 overflow-hidden flex flex-col h-full">
+      {animationEl}
       <div className="bg-amber-800 px-4 py-2 flex-shrink-0">
         <h3 className="text-white font-bold text-sm uppercase tracking-wide">Skills</h3>
       </div>
