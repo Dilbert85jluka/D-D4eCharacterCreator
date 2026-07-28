@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { playDiceRollSound } from '../../utils/diceSound';
+import { useD20RollAnimation } from '../dice/useD20RollAnimation';
+import { DICE_SOUND_MS } from '../dice/DiceRollAnimation';
 import type { Character, DerivedStats, Ability } from '../../types/character';
 import { ABILITY_ABBR, ABILITY_NAMES, ABILITIES, formatModifier } from '../../utils/abilityScores';
 import { characterRepository } from '../../db/characterRepository';
@@ -22,6 +24,7 @@ export function AbilityBlock({ character, derived }: Props) {
   const [editing, setEditing] = useState(false);
   const [activeAbility, setActiveAbility] = useState<Ability | null>(null);
   const [lastRoll, setLastRoll] = useState<AbilityRoll | null>(null);
+  const { animationEl, launchD20 } = useD20RollAnimation();
 
   // Auto-dismiss roll result after 4 seconds
   useEffect(() => {
@@ -44,12 +47,21 @@ export function AbilityBlock({ character, derived }: Props) {
     const mod = derived.abilityModifiers[ab];
     const roll = Math.floor(Math.random() * 20) + 1;
     playDiceRollSound(1);
-    setLastRoll({
+    const entry: AbilityRoll = {
       abilityName: ABILITY_NAMES[ab],
       roll,
       bonus: mod,
       total: roll + mod,
-    });
+    };
+    if (launchD20(roll)) {
+      // d20 tumbles across the screen — reveal the result card when the
+      // sound finishes and the die has settled (same timing as the tray)
+      setLastRoll(null);
+      setTimeout(() => setLastRoll(entry), DICE_SOUND_MS);
+    } else {
+      // prefers-reduced-motion: instant reveal, as before
+      setLastRoll(entry);
+    }
   };
 
   const activeRows = activeAbility ? derived.abilityBreakdowns[activeAbility] : null;
@@ -61,6 +73,7 @@ export function AbilityBlock({ character, derived }: Props) {
       className="bg-white rounded-xl border border-stone-200 overflow-hidden"
       onMouseLeave={() => { if (!editing) setActiveAbility(null); }}
     >
+      {animationEl}
       <div className="bg-amber-800 px-4 py-2 flex items-center justify-between">
         <h3 className="text-white font-bold text-sm uppercase tracking-wide">Ability Scores</h3>
         <button
