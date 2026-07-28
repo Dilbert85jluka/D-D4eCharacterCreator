@@ -30,6 +30,12 @@ interface Props {
   sprites: DiceSpriteSpec[];
 }
 
+/** How long settled dice stay fully visible before fading (ms). */
+export const DICE_LINGER_MS = 3000;
+/** Fade-out duration once the linger ends (ms). Keep in sync with the
+ *  `duration-700` class on the overlay. */
+export const DICE_FADE_MS = 700;
+
 // Static fill classes — Tailwind v4 requires full literal class strings
 const fillMap: Record<DieSpriteColor, string> = {
   amber:  'fill-amber-600',
@@ -119,23 +125,36 @@ export function DiceRollAnimation({ sprites }: Props) {
 
   // ~90ms tick drives the face flicker while sprites are still tumbling.
   // Ticking stops once the last sprite settles — the overlay then renders
-  // static final faces until the parent unmounts it at result-reveal time.
+  // static final faces, lingers so players can read them, and fades out.
+  // The parent unmounts it after the fade completes.
   const startRef = useRef(performance.now());
   const [now, setNow] = useState(() => performance.now());
+  const [fading, setFading] = useState(false);
   useEffect(() => {
     startRef.current = performance.now();
+    setFading(false);
     const lastSettle = Math.max(...motions.map((m) => m.delayMs + m.durationMs));
     const interval = setInterval(() => {
       setNow(performance.now());
       if (performance.now() - startRef.current > lastSettle + 100) clearInterval(interval);
     }, 90);
-    return () => clearInterval(interval);
+    const fadeTimer = setTimeout(() => setFading(true), lastSettle + DICE_LINGER_MS);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(fadeTimer);
+    };
   }, [motions]);
 
   const elapsed = now - startRef.current;
 
   return (
-    <div className="fixed inset-0 z-30 pointer-events-none overflow-hidden" aria-hidden="true">
+    <div
+      className={[
+        'fixed inset-0 z-30 pointer-events-none overflow-hidden transition-opacity duration-700 ease-out',
+        fading ? 'opacity-0' : 'opacity-100',
+      ].join(' ')}
+      aria-hidden="true"
+    >
       {sprites.map((sprite, i) => {
         const m = motions[i];
         // Settle slightly before the motion ends so the final face is readable
