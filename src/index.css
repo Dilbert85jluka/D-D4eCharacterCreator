@@ -157,6 +157,32 @@ body {
 }
 .tiptap td, .tiptap th { position: relative; }
 
+/* ── Dice roll animation (src/components/dice/DiceRollAnimation.tsx) ──────
+   Three nested layers per die sprite:
+   - X travel: decelerating skid across the screen (cubic-bezier on the element)
+   - Y bounce: diminishing hops — falls accelerate (ease-in), rises decelerate
+     (ease-out), set per-keyframe so the element animation stays linear
+   - Spin: decelerating tumble
+   --dice-end-x and --dice-spin are set inline per sprite for variety. */
+@keyframes dice-roll-x {
+  from { transform: translateX(0); }
+  to   { transform: translateX(var(--dice-end-x, 70vw)); }
+}
+@keyframes dice-roll-bounce {
+  0%   { transform: translateY(-180px); animation-timing-function: ease-in; }
+  32%  { transform: translateY(0);      animation-timing-function: ease-out; }
+  48%  { transform: translateY(-64px);  animation-timing-function: ease-in; }
+  62%  { transform: translateY(0);      animation-timing-function: ease-out; }
+  74%  { transform: translateY(-26px);  animation-timing-function: ease-in; }
+  84%  { transform: translateY(0);      animation-timing-function: ease-out; }
+  92%  { transform: translateY(-9px);   animation-timing-function: ease-in; }
+  100% { transform: translateY(0); }
+}
+@keyframes dice-roll-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(var(--dice-spin, 900deg)); }
+}
+
 /* Print styles */
 @media print {
   .no-print {
