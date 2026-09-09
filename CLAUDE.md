@@ -29,6 +29,8 @@ Designed for tablet use (touch targets ≥44px, responsive layouts).
 
 **Node version:** Node 22 LTS (`engines.node` in package.json, `.nvmrc` pin, GitHub Actions `node-version: '22.x'`). Bumped from Node 20 in May 2026 when Node 20 hit end-of-life. The Azure App Service runtime stack (configured in the Azure portal, not in this repo) must also be set to Node 22 — bump it in Azure ▸ App Service ▸ Configuration ▸ General settings ▸ Stack settings if the deployment ever fails with a runtime mismatch warning.
 
+**Supabase keepalive:** Supabase pauses free-tier projects after ~7 days with no database activity — which for a group playing every other week means the app is dead between sessions until someone manually restores it from the dashboard. `.github/workflows/supabase-keepalive.yml` runs a real (tiny) PostgREST read against `shared_campaigns` every 3 days to reset that timer; max gap is 3 days, so even a dropped cron run stays inside the window. The job fails loudly on any non-2xx so a rotted keepalive gets noticed instead of silently lapsing. Two caveats: (1) if the project is **already** paused this job can't wake it — that still needs a manual restore in the dashboard; (2) GitHub disables scheduled workflows after 60 days with no commits to the repo (unlikely here since every deploy makes a version-bump commit, and GitHub emails you before disabling).
+
 ---
 
 ## Tech Stack
