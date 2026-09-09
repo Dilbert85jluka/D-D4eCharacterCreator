@@ -9,7 +9,7 @@ import { MemberCard } from './PartyRosterCards';
 import { PublicNpcSection } from './PublicNpcSection';
 import { CharacterSheet } from '../sheet/CharacterSheet';
 import type { CharacterSummary, PublicSession } from '../../types/sharing';
-import { RichTextDisplay } from '../ui/RichTextDisplay';
+import { RichTextDisplay, hasRichTextContent } from '../ui/RichTextDisplay';
 
 interface SharedCampaignViewProps {
   campaignId: string;
@@ -364,7 +364,9 @@ interface SessionCardProps {
 }
 
 function SessionCard({ session, expanded, onToggle }: SessionCardProps) {
-  const hasContent = !!(session.importantEvents || session.additionalNotes);
+  const hasEvents = hasRichTextContent(session.importantEvents);
+  const hasNotes = hasRichTextContent(session.additionalNotes);
+  const hasContent = hasEvents || hasNotes;
 
   return (
     <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
@@ -391,16 +393,16 @@ function SessionCard({ session, expanded, onToggle }: SessionCardProps) {
 
       {expanded && hasContent && (
         <div className="px-4 pb-3 space-y-2 border-t border-stone-100 pt-2">
-          {session.importantEvents && (
+          {hasEvents && (
             <div>
               <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-0.5">Important Events</p>
-              <p className="text-sm text-stone-600 whitespace-pre-wrap">{session.importantEvents}</p>
+              <RichTextDisplay content={session.importantEvents} className="text-sm text-stone-600" />
             </div>
           )}
-          {session.additionalNotes && (
+          {hasNotes && (
             <div>
               <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-0.5">Notes</p>
-              <p className="text-sm text-stone-600 whitespace-pre-wrap">{session.additionalNotes}</p>
+              <RichTextDisplay content={session.additionalNotes} className="text-sm text-stone-600" />
             </div>
           )}
         </div>
