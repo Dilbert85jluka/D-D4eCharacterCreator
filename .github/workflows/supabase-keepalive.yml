@@ -1,0 +1,57 @@
+# Keeps the Supabase project from being paused for inactivity.
+#
+# Supabase pauses free-tier projects after ~7 days with no database activity.
+# For a group that plays every other week that means the app is dead between
+# sessions until someone manually restores it from the dashboard. This runs a
+# real (tiny) PostgREST query every 3 days, which resets that timer.
+#
+# NOTE: GitHub disables scheduled workflows in a repository after 60 days with
+# no commits. This repo gets a version-bump commit on every deploy so that is
+# unlikely, but if the project goes quiet for two months GitHub will email you
+# and you re-enable this from the Actions tab in one click.
+
+name: Supabase keepalive
+
+on:
+  schedule:
+    # Every 3 days at 07:13 UTC. Well inside Supabase's ~7-day window, and the
+    # odd minute/hour avoids the top-of-hour crush when GitHub delays cron runs.
+    - cron: '13 7 */3 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query Supabase to reset the inactivity timer
+        env:
+          # The anon key is public by design — it ships in the client bundle and
+          # is already committed in the deploy workflow. Repository secrets take
+          # precedence if you'd rather manage them there.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://flzldgzbrafgdgioinfk.supabase.co' }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsemxkZ3picmFmZ2RnaW9pbmZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMjQwODEsImV4cCI6MjA4OTcwMDA4MX0.0yHtH9qTMHpLgzIXu-JVFAF4XPBLwMeRbWe9OHxM6fI' }}
+        run: |
+          set -euo pipefail
+
+          # A real table read, not just a reachability ping — the point is to
+          # touch Postgres. shared_campaigns has a `USING (true)` SELECT policy,
+          # so the anon key gets a 200 under RLS. An empty [] is still a success:
+          # the query reached the database, which is all the timer cares about.
+          HTTP_CODE=$(curl -sS -o response.json -w '%{http_code}' \
+            --retry 3 --retry-delay 5 --retry-all-errors --max-time 30 \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            "${SUPABASE_URL}/rest/v1/shared_campaigns?select=id&limit=1")
+
+          echo "HTTP ${HTTP_CODE}"
+          echo "Response: $(head -c 200 response.json)"
+
+          if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -ge 300 ]; then
+            echo "::error::Supabase keepalive failed (HTTP ${HTTP_CODE}). If the project is already paused, this job cannot wake it — restore it from the Supabase dashboard. Also check whether the anon key was rotated."
+            exit 1
+          fi
+
+          echo "✓ Supabase project is awake — inactivity timer reset."
