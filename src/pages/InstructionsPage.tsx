@@ -108,7 +108,7 @@ const SECTIONS: Section[] = [
           <li><span className={k}>Name</span> — tap to inline-edit.</li>
           <li><span className={k}>▲ Info / ▼ Info</span> — collapses the race/class/role/alignment info rows to save vertical space.</li>
           <li><span className={k}>▲ Min</span> — collapses the entire header to a thin 32px strip. Useful on phones. Preference is remembered per character.</li>
-          <li><span className={k}>Action buttons</span> — Speed, Level, Level Up, Short Rest, Extended Rest, Initiative, Saving Throw. The Initiative and Saving Throw buttons drop a result card with the d20 roll and the math.</li>
+          <li><span className={k}>Action buttons</span> — Speed, Level, Level Up, Short Rest, Extended Rest, Initiative, Saving Throw. Tapping Initiative or Saving Throw sends a d20 tumbling across the screen; when it settles on your roll, a result card drops down with the full math.</li>
         </ul>
 
         <h3 className={h3}>Six top-level tabs</h3>

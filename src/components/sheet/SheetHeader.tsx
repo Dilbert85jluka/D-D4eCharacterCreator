@@ -14,6 +14,8 @@ import { useAppStore } from '../../store/useAppStore';
 import { useCharactersStore } from '../../store/useCharactersStore';
 import { characterRepository } from '../../db/characterRepository';
 import { playDiceRollSound } from '../../utils/diceSound';
+import { useD20RollAnimation } from '../dice/useD20RollAnimation';
+import { DICE_SOUND_MS } from '../dice/DiceRollAnimation';
 import { usesPowerPoints, getMaxPowerPoints } from '../../utils/psionics';
 
 interface Props {
@@ -68,6 +70,16 @@ export function SheetHeader({ character, derived }: Props) {
     });
   };
 
+  // Shared d20 tumble animation for both Initiative and Saving Throw
+  const { animationEl, launchD20 } = useD20RollAnimation();
+
+  // Both result cards are mutually exclusive (rolling one clears the other), and
+  // the reveal is now delayed to match the dice landing — so a pending reveal can
+  // outlive the roll that scheduled it. Every roll takes a token; a reveal only
+  // applies if its token is still the newest, otherwise a fast Initiative→Save
+  // sequence would pop BOTH cards open.
+  const rollTokenRef = useRef(0);
+
   // Saving throw result — null = not yet rolled, object = last roll
   const [saveResult, setSaveResult] = useState<{
     roll: number;
@@ -83,8 +95,21 @@ export function SheetHeader({ character, derived }: Props) {
     const bonus = derived.savingThrowBonus;
     const total = roll + bonus;
     const bonusLabel = bonus !== 0 && paragonPath ? paragonPath.name : '';
+    const entry = { roll, bonus, bonusLabel, total, success: total >= 10 };
+    const token = ++rollTokenRef.current;
     setInitResult(null);  // clear initiative result so the two don't overlap
-    setSaveResult({ roll, bonus, bonusLabel, total, success: total >= 10 });
+    if (launchD20(roll)) {
+      // d20 tumbles across the screen — hold the result until it settles so the
+      // card can't announce the number while the die is still flickering
+      setSaveResult(null);
+      setTimeout(() => {
+        if (rollTokenRef.current !== token) return;  // superseded by a newer roll
+        setSaveResult(entry);
+      }, DICE_SOUND_MS);
+    } else {
+      // prefers-reduced-motion: instant reveal, as before
+      setSaveResult(entry);
+    }
   };
 
   // Initiative roll result
@@ -99,8 +124,18 @@ export function SheetHeader({ character, derived }: Props) {
     const roll  = Math.floor(Math.random() * 20) + 1;
     const bonus = derived.initiative;   // DEX mod + half level + magic + paragon
     const total = roll + bonus;
+    const entry = { roll, bonus, total };
+    const token = ++rollTokenRef.current;
     setSaveResult(null);  // clear saving throw result so the two don't overlap
-    setInitResult({ roll, bonus, total });
+    if (launchD20(roll)) {
+      setInitResult(null);
+      setTimeout(() => {
+        if (rollTokenRef.current !== token) return;  // superseded by a newer roll
+        setInitResult(entry);
+      }, DICE_SOUND_MS);
+    } else {
+      setInitResult(entry);
+    }
   };
 
   // XP modal
@@ -185,6 +220,9 @@ export function SheetHeader({ character, derived }: Props) {
   // ── Minimized banner — slim sticky strip for maximum sheet scroll area on small screens ──
   if (bannerCollapsed) {
     return (
+      <>
+      {/* Keep any in-flight dice alive if the banner is minimized mid-roll */}
+      {animationEl}
       <div className="bg-amber-950 text-white px-3 py-1.5 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto flex items-center gap-2">
           <div className="w-7 h-7 rounded-md bg-amber-700 flex-shrink-0 flex items-center justify-center text-sm overflow-hidden">
@@ -204,11 +242,15 @@ export function SheetHeader({ character, derived }: Props) {
           </button>
         </div>
       </div>
+      </>
     );
   }
 
   return (
     <>
+      {/* Rendered OUTSIDE the sticky banner: `sticky` + `z-10` creates a stacking
+          context, which would trap the z-30 overlay inside the header's layer. */}
+      {animationEl}
       <div className="bg-amber-950 text-white px-4 py-4 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto">
 
