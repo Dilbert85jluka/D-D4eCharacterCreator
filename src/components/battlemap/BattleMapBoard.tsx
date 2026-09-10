@@ -397,9 +397,11 @@ export function BattleMapBoard({
               if (readOnly && token.hidden) return null;
 
               const isDragging = drag?.instanceKey === token.instanceKey;
-              const col = isDragging ? drag.col : token.col;
-              const row = isDragging ? drag.row : token.row;
-              const p = cellToImage(col, row);
+              // The token stays at its ORIGIN while dragging; the dashed ghost marks
+              // the destination. Moving the token with the pointer would put it under
+              // the ghost and make both the ghost and the square count meaningless —
+              // the point of the readout is seeing where you came from.
+              const p = cellToImage(token.col, token.row);
               const side = c.size * map.grid.size;
 
               const isActive = activeInstanceKey === token.instanceKey;
@@ -428,7 +430,7 @@ export function BattleMapBoard({
                     width: side,
                     height: side,
                     zIndex: isDragging ? 30 : isActive ? 20 : 10,
-                    opacity: isDragging ? 0.55 : 1,
+                    opacity: isDragging ? 0.45 : 1,
                     cursor: readOnly ? 'default' : 'grab',
                     touchAction: 'none',
                   }}
@@ -473,11 +475,13 @@ export function BattleMapBoard({
                   {isBloodied && (
                     <div
                       className="absolute rounded-full bg-red-600 border border-white pointer-events-none"
+                      // Sits ON the ring, not out at the square's corner — the token
+                      // body is inset 6%, so a corner-anchored pip reads as detached.
                       style={{
                         width: Math.max(6, side * 0.2),
                         height: Math.max(6, side * 0.2),
-                        right: '2%',
-                        top: '2%',
+                        right: '9%',
+                        top: '9%',
                       }}
                       title="Bloodied"
                     />
