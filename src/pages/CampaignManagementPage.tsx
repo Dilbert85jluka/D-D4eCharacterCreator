@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useCampaignsStore } from '../store/useCampaignsStore';
 import { useCharactersStore } from '../store/useCharactersStore';
 import { useSessionsStore } from '../store/useSessionsStore';
@@ -36,11 +36,12 @@ import { useMapStateSync } from '../hooks/useMapStateSync';
 import { useBattleMapsStore } from '../store/useBattleMapsStore';
 import type { BoardCombatant } from '../components/battlemap/BattleMapBoard';
 import { squaresForSize } from '../types/battlemap';
-import type { EncounterMapState, BattleMap } from '../types/battlemap';
+import type { EncounterMapState, BattleMap, MapToken } from '../types/battlemap';
 
 /** Stable empty array so the maps selector doesn't return a fresh [] each render
  *  and re-trigger every downstream memo/effect. */
 const EMPTY_MAPS: BattleMap[] = [];
+const EMPTY_TOKENS: MapToken[] = [];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -858,7 +859,10 @@ export function CampaignManagementPage() {
    *  Deliberately derived rather than stored: HP, names and turn order stay owned
    *  by the tracker, so damage entered there shows on the board immediately and
    *  there is no second copy to fall out of sync. */
-  const boardCombatants: BoardCombatant[] = sortedInitiative.map((entry) => {
+  // Memoized: this array feeds useMapStateSync's dependency list. Rebuilt fresh on
+  // every render it made that effect re-run constantly, which turned a failing push
+  // into a 600ms retry loop.
+  const boardCombatants: BoardCombatant[] = useMemo(() => sortedInitiative.map((entry) => {
     if (entry.type === 'monster') {
       const monster = entry.monsterId ? getMonsterById(entry.monsterId) : undefined;
       return {
@@ -882,7 +886,11 @@ export function CampaignManagementPage() {
       portrait: pc?.portrait,
       size: squaresForSize(race?.size),
     };
-  });
+  }),
+  // sortedInitiative is itself derived from initiativeEntries each render, so key
+  // the memo on the entries and the pools it resolves against.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [initiativeEntries, characters, activeCampaignSummaries]);
 
   const activeInstanceKey =
     activeTurnIndex >= 0 && activeTurnIndex < sortedInitiative.length
@@ -912,7 +920,8 @@ export function CampaignManagementPage() {
     sharedCampaignId: activeSharedId,
     live: mapLive,
     map: liveMap,
-    tokens: activeEncounter?.mapState?.tokens ?? [],
+    // EMPTY_TOKENS, not a fresh [] — this feeds a dependency array.
+    tokens: activeEncounter?.mapState?.tokens ?? EMPTY_TOKENS,
     combatants: boardCombatants,
     activeInstanceKey,
     encounterId: activeEncounterId,

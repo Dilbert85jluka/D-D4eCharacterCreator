@@ -41,6 +41,13 @@ export function useMapStateSync({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Last payload successfully pushed. Failures leave it stale so the next change retries. */
   const lastPushedRef = useRef<string | null>(null);
+  /** Last payload that FAILED. Without this, a permanently-failing push (the
+   *  map_state column not created yet) spun: `combatants` is a fresh array every
+   *  render, so the effect re-ran constantly, the success-only fingerprint never
+   *  matched, and a doomed UPDATE fired every 600ms for as long as the DM was live.
+   *  Skipping a fingerprint we already failed on stops the spin while still
+   *  retrying the moment the board actually changes. */
+  const lastFailedRef = useRef<string | null>(null);
   /** Whether we've pushed a clearing null since going off-air, so it happens once. */
   const clearedRef = useRef(true);
 
@@ -79,19 +86,23 @@ export function useMapStateSync({
     void _ignored;
     const fingerprint = JSON.stringify(comparable);
     if (fingerprint === lastPushedRef.current) return;
+    if (fingerprint === lastFailedRef.current) return;
 
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       pushMapState(sharedCampaignId, state)
         .then(() => {
           lastPushedRef.current = fingerprint;
+          lastFailedRef.current = null;
           console.info(
             `[useMapStateSync] pushed board — ${state.tokens.length} token(s) to ${sharedCampaignId}`,
           );
         })
         .catch((err) => {
-          // Most likely the map_state column doesn't exist yet. Leave the
-          // fingerprint uncached so the next token move retries.
+          // Most likely the map_state column doesn't exist yet. Record the failed
+          // payload so we don't hammer the same doomed UPDATE, but leave the
+          // success fingerprint alone so a real board change still retries.
+          lastFailedRef.current = fingerprint;
           console.warn('[useMapStateSync] push failed — will retry on next change:', err);
         });
     }, 600);
