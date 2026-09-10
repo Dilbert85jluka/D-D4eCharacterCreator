@@ -24,6 +24,7 @@ import { useHomebrewStore } from './store/useHomebrewStore';
 import { useNpcsStore } from './store/useNpcsStore';
 import { useBattleMapsStore } from './store/useBattleMapsStore';
 import { useNpcContentSync } from './hooks/useNpcContentSync';
+import { useMapImageUpload } from './hooks/useMapImageUpload';
 import { useHomebrewContentSync } from './hooks/useHomebrewContentSync';
 import { useHomebrewCloudSync } from './hooks/useHomebrewCloudSync';
 import { useCampaignHomebrewSync } from './hooks/useCampaignHomebrewSync';
@@ -94,6 +95,8 @@ export default function App() {
   useHomebrewContentSync();
   useCampaignHomebrewSync();
   useNpcContentSync();
+  // Push map pixels to Supabase Storage for any map that only exists locally.
+  useMapImageUpload();
 
   // Load joined campaigns once on login so the campaign-homebrew sync hook above
   // has data to seed from, and so the sidebar can render the joined-campaigns list

@@ -86,6 +86,21 @@ export const useBattleMapsStore = create<BattleMapsState>((set, get) => ({
   },
 
   deleteMap: async (id, campaignId) => {
+    // Best-effort storage cleanup before the local tombstone. Imported lazily to
+    // keep this store free of a hard dependency on the auth store.
+    try {
+      const { useAuthStore } = await import('./useAuthStore');
+      const userId = useAuthStore.getState().user?.id;
+      if (userId) {
+        const { deleteMapImage } = await import('../lib/mapStorageService');
+        await deleteMapImage(id, userId);
+      }
+    } catch (err) {
+      // An orphaned object costs a few hundred KB; failing the delete costs the DM
+      // their intent. Warn and carry on.
+      console.warn('[deleteMap] Storage cleanup failed:', err);
+    }
+
     await battleMapRepository.delete(id);
     set((s) => ({
       mapsByCampaign: {
