@@ -3,6 +3,7 @@
 import type { Character } from './character';
 import type { HomebrewItem } from './homebrew';
 import type { PublicNPC } from './npc';
+import type { PublicMapState } from '../lib/mapStateSync';
 
 export interface Profile {
   id: string;           // matches auth.users.id
@@ -45,6 +46,10 @@ export interface SharedCampaign {
   /** Player-safe view of DM-authored NPCs that the DM has flagged visible. `privateDescription`,
    *  `currentHp`, `maxHp`, and `level` are stripped before push — see `toPublicNPC` in `types/npc.ts`. */
   npc_content: PublicNPC[] | null;
+  /** Live battle map the DM is broadcasting, or null when off-air. Hidden tokens are
+   *  dropped and monster HP is reduced to a status before this is written — see
+   *  `extractPublicMapState` in `lib/mapStateSync.ts`. */
+  map_state: PublicMapState | null;
 }
 
 export interface CampaignMember {

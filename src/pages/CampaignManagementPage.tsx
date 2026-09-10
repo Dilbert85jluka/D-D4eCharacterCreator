@@ -32,9 +32,15 @@ import { extractPublicContent, pushCampaignContent } from '../lib/campaignConten
 import { RichTextEditor } from '../components/ui/RichTextEditor';
 import { RichTextDisplay } from '../components/ui/RichTextDisplay';
 import { EncounterMapView } from '../components/battlemap/EncounterMapView';
+import { useMapStateSync } from '../hooks/useMapStateSync';
+import { useBattleMapsStore } from '../store/useBattleMapsStore';
 import type { BoardCombatant } from '../components/battlemap/BattleMapBoard';
 import { squaresForSize } from '../types/battlemap';
-import type { EncounterMapState } from '../types/battlemap';
+import type { EncounterMapState, BattleMap } from '../types/battlemap';
+
+/** Stable empty array so the maps selector doesn't return a fresh [] each render
+ *  and re-trigger every downstream memo/effect. */
+const EMPTY_MAPS: BattleMap[] = [];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -840,6 +846,13 @@ export function CampaignManagementPage() {
 
   // ── Battle map ────────────────────────────────────────────────────────
   const [showMap, setShowMap] = useState(false);
+  /** DM's broadcast switch. Defaults OFF and is NOT persisted, deliberately: the
+   *  board is live only while the DM explicitly says so, so setting up an ambush
+   *  after a reload can't quietly stream monster placements to the party. */
+  const [mapLive, setMapLive] = useState(false);
+  const campaignMaps = useBattleMapsStore(
+    (s) => (activeCampaign ? s.mapsByCampaign[activeCampaign.id] ?? EMPTY_MAPS : EMPTY_MAPS),
+  );
 
   /** The initiative order projected into what the board needs to draw tokens.
    *  Deliberately derived rather than stored: HP, names and turn order stay owned
@@ -887,6 +900,30 @@ export function CampaignManagementPage() {
     await encounterRepository.update(updated);
     updateEncounter(updated);
   };
+
+  // Broadcast the board to players while the DM is live. Mounted here rather than
+  // App.tsx because it depends on which encounter's tracker is open, which is
+  // transient UI state that doesn't belong in a global store.
+  const liveMap = activeEncounter?.mapState
+    ? campaignMaps.find((m) => m.id === activeEncounter.mapState!.mapId) ?? null
+    : null;
+
+  useMapStateSync({
+    sharedCampaignId: activeSharedId,
+    live: mapLive,
+    map: liveMap,
+    tokens: activeEncounter?.mapState?.tokens ?? [],
+    combatants: boardCombatants,
+    activeInstanceKey,
+    encounterId: activeEncounterId,
+    encounterTitle: activeEncounter?.title ?? '',
+  });
+
+  // Going off-air whenever the tracker closes or the encounter changes — the hook
+  // pushes a clearing null, so players never sit staring at a frozen fight.
+  useEffect(() => {
+    setMapLive(false);
+  }, [activeEncounterId]);
 
   // ── Save / Resume encounter state ──────────────────────────────────
   const [saveConfirm, setSaveConfirm] = useState(false);
@@ -1709,6 +1746,8 @@ export function CampaignManagementPage() {
                     combatants={boardCombatants}
                     activeInstanceKey={activeInstanceKey}
                     onChange={handleMapStateChange}
+                    live={mapLive}
+                    onToggleLive={activeSharedId ? setMapLive : undefined}
                     className="h-[52vh] min-h-[300px]"
                   />
                 </div>

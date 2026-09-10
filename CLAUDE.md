@@ -1781,6 +1781,9 @@ warning instead of failing.
 | `src/components/battlemap/MapLibraryModal.tsx` | per-campaign import / align / rename / delete |
 | `src/components/battlemap/EncounterMapView.tsx` | attach map, tap-to-place dock, Place All, token bar |
 | `src/components/battlemap/useMapImage.ts` | blob → URL resolution with cache back-fill |
+| `src/lib/mapStateSync.ts` | `extractPublicMapState()` (the privacy filter) + `pushMapState()` |
+| `src/hooks/useMapStateSync.ts` | 600ms debounced broadcast while the DM is live |
+| `src/components/sharing/PlayerBattleMap.tsx` | read-only player board fed by `PublicMapState` |
 
 ### Board implementation notes (do not regress)
 
@@ -1799,13 +1802,50 @@ warning instead of failing.
 - `App.tsx` must call `loadAllMaps()` on startup: `useCampaignCloudSync` gates its
   push on the map store being loaded, so skipping it stalls **all** campaign pushes.
 
+### Live player board (DM broadcasts, players watch)
+
+**REQUIRED SQL** (run once, alongside the `battlemaps` bucket):
+`ALTER TABLE shared_campaigns ADD COLUMN IF NOT EXISTS map_state JSONB;` — existing RLS
+policies cover the new column. Until it exists, pushes fail with a console warning and
+the DM's own board keeps working.
+
+The DM's board is **off-air by default**. A `📡 Go Live` toggle in the map toolbar starts
+broadcasting; `mapLive` is local state in `CampaignManagementPage` and is deliberately
+**not persisted** — after a reload the DM is off-air again, so setting up an ambush can
+never quietly stream monster placements to the party. It also resets whenever
+`activeEncounterId` changes.
+
+**What players are allowed to see is a deliberate design decision, enforced on the DM's
+device in `extractPublicMapState` before anything is written to Supabase:**
+
+| Data | Players get | Why |
+|---|---|---|
+| Tokens marked `hidden` | **dropped from the payload entirely** | a flag would still put the ambush's coordinates in a payload the browser can read |
+| Monster HP | status only — `healthy` / `bloodied` / `dead` | bloodied is a publicly-visible 4e condition; exact monster HP is DM information |
+| PC HP | exact `hp` / `maxHp` | players already own those characters and see the numbers on their own sheets |
+| `map.imageKey` | never sent | it addresses a Dexie blob that is meaningless off the DM's device |
+
+`useMapStateSync` debounces at **600ms**, far tighter than the 3s used for notes and NPCs
+— a board lagging three seconds behind the DM's finger is worse than no board. The payload
+is a few KB against a 2M-message/month free-tier allowance. It is mounted from
+`CampaignManagementPage`, not `App.tsx`, because it depends on which encounter's tracker is
+open — transient UI state that has no business in a global store. Going off-air, changing
+encounter, or unmounting all push a clearing `null`, so players never stare at a frozen
+fight; the unmount path reads `live`/`sharedCampaignId` through refs since its cleanup runs
+once and would otherwise close over first-render values.
+
+`PlayerBattleMap.tsx` is **not** a `readOnly` mode of `BattleMapBoard`. That component is
+built around a local `BattleMap` record and Dexie blob resolution, neither of which a player
+has — they get a flat `PublicMapState` with a Storage URL. Sharing it would have meant
+threading two unrelated data sources through every prop; ~100 lines of duplicated pan/zoom
+is cheaper than that coupling. It is not a security boundary and doesn't pretend to be one
+— the filtering already happened on the DM's device.
+
+No realtime changes were needed: `useRealtimeCampaign` already replaces the whole
+`shared_campaigns` row on UPDATE, so `map_state` rides the existing subscription.
+
 ### Not yet built
 
-- **Player-facing board.** Tokens sync between the DM's own devices via the campaign
-  bundle, but players have no live view yet. The intended path mirrors NPCs: a
-  `map_state` JSONB column on `shared_campaigns` pushed by a fingerprint+debounce hook,
-  picked up by the existing `useRealtimeCampaign` subscription (no new channel needed).
-  Tokens marked `hidden` are already excluded when the board renders `readOnly`.
 - Players moving their own tokens (phase 1 is DM-drives-the-board).
 - Burst/blast templates — cheap to add given Chebyshev distance makes them squares.
 - Fog of war / walls / dynamic lighting.

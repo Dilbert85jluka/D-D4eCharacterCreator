@@ -15,6 +15,9 @@ interface EncounterMapViewProps {
   activeInstanceKey?: string | null;
   readOnly?: boolean;
   onChange: (next: EncounterMapState | null) => void;
+  /** Broadcast state. Undefined when the campaign isn't shared — the control is hidden. */
+  live?: boolean;
+  onToggleLive?: (next: boolean) => void;
   className?: string;
 }
 
@@ -32,6 +35,8 @@ export function EncounterMapView({
   activeInstanceKey,
   readOnly = false,
   onChange,
+  live,
+  onToggleLive,
   className = '',
 }: EncounterMapViewProps) {
   const maps = useBattleMapsStore((s) => s.mapsByCampaign[campaignId] ?? []);
@@ -180,6 +185,26 @@ export function EncounterMapView({
 
           {!readOnly && (
             <div className="flex flex-wrap gap-1.5 ml-auto">
+              {onToggleLive && (
+                <button
+                  onClick={() => onToggleLive(!live)}
+                  className={
+                    live
+                      ? 'px-2.5 py-1.5 rounded text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 flex items-center gap-1.5'
+                      : 'px-2.5 py-1.5 rounded text-xs font-bold bg-stone-700 text-stone-100 hover:bg-stone-600 flex items-center gap-1.5'
+                  }
+                  title={
+                    live
+                      ? 'Players can see this board. Click to stop sharing.'
+                      : 'Players cannot see this board. Click to share it live.'
+                  }
+                >
+                  {live && (
+                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" aria-hidden />
+                  )}
+                  {live ? 'Live' : '📡 Go Live'}
+                </button>
+              )}
               {unplaced.length > 0 && (
                 <button
                   onClick={handleAutoPlace}
@@ -201,6 +226,20 @@ export function EncounterMapView({
             </div>
           )}
         </div>
+
+        {/* Live banner — spells out exactly what players can and can't see, so the
+            DM doesn't have to remember the privacy rules mid-combat. */}
+        {live && !readOnly && (
+          <div className="bg-emerald-900/60 border-b border-emerald-700 px-3 py-1.5">
+            <p className="text-emerald-100 text-[11px]">
+              <strong>Players are watching.</strong> They see token positions, whose turn it
+              is, and which monsters are bloodied — never monster hit points.
+              {tokens.some((t) => t.hidden)
+                ? ` ${tokens.filter((t) => t.hidden).length} hidden token(s) are not being sent.`
+                : ' Use 🔒 on a token to keep it off their board.'}
+            </p>
+          </div>
+        )}
 
         {/* Board */}
         <BattleMapBoard
