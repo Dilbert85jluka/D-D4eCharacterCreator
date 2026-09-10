@@ -4,6 +4,7 @@ import { useCampaignsStore } from '../store/useCampaignsStore';
 import { useSessionsStore } from '../store/useSessionsStore';
 import { useEncountersStore } from '../store/useEncountersStore';
 import { useNpcsStore } from '../store/useNpcsStore';
+import { useBattleMapsStore } from '../store/useBattleMapsStore';
 import { pushCampaignToCloud, pullAllCampaignsFromCloud } from '../lib/campaignCloudService';
 import type { CampaignBundle } from '../lib/campaignCloudService';
 import { createSyncDebouncer } from '../lib/summarySync';
@@ -11,10 +12,10 @@ import { createSyncDebouncer } from '../lib/summarySync';
 /**
  * Cloud campaign sync hook.
  * - On startup (once): pulls all cloud campaigns and merges into local Dexie (newer wins).
- * - On campaign / session / encounter / NPC change (debounced 3s): pushes the affected campaign
- *   bundle (campaign + sessions + encounters + NPCs) to Supabase. Watching sessions, encounters,
- *   and NPCs is required because modifying one only bumps its own updatedAt — the parent
- *   campaign's timestamp stays the same. Without this, those edits would stay local-only.
+ * - On campaign / session / encounter / NPC / map change (debounced 3s): pushes the affected
+ *   campaign bundle (campaign + sessions + encounters + NPCs + map metadata) to Supabase.
+ *   Watching the child stores is required because modifying one only bumps its own updatedAt —
+ *   the parent campaign's timestamp stays the same. Without this, those edits would stay local-only.
  */
 export function useCampaignCloudSync() {
   const user = useAuthStore((s) => s.user);
@@ -25,6 +26,8 @@ export function useCampaignCloudSync() {
   const encountersBySession = useEncountersStore((s) => s.encountersBySession);
   const npcsByCampaign = useNpcsStore((s) => s.npcsByCampaign);
   const npcsLoaded = useNpcsStore((s) => s.hasLoaded);
+  const mapsByCampaign = useBattleMapsStore((s) => s.mapsByCampaign);
+  const mapsLoaded = useBattleMapsStore((s) => s.hasLoaded);
 
   const hasPulledRef = useRef(false);
   const debouncersRef = useRef(new Map<string, ReturnType<typeof createSyncDebouncer>>());
@@ -88,6 +91,12 @@ export function useCampaignCloudSync() {
       console.debug('[useCampaignCloudSync] Skipping push: NPC store not loaded');
       return;
     }
+    if (!mapsLoaded) {
+      // Same reasoning as the NPC gate — an async map load arriving after the
+      // baseline hashes were captured would read as a change and push spuriously.
+      console.debug('[useCampaignCloudSync] Skipping push: battle map store not loaded');
+      return;
+    }
 
     // Build a per-campaign fingerprint: campaign.updatedAt + all its sessions'/encounters'/NPCs'
     // updatedAt. Only campaigns whose fingerprint actually changed get pushed — saves Supabase writes.
@@ -102,9 +111,10 @@ export function useCampaignCloudSync() {
       const sessions = (sessionsByCampaign[c.id] ?? []).map((s) => ({ id: s.id, u: s.updatedAt }));
       const encounters = encountersByCampaign.get(c.id) ?? [];
       const npcs = (npcsByCampaign[c.id] ?? []).map((n) => ({ id: n.id, u: n.updatedAt }));
+      const maps = (mapsByCampaign[c.id] ?? []).map((m) => ({ id: m.id, u: m.updatedAt }));
       newHashes.set(
         c.id,
-        JSON.stringify({ u: c.updatedAt, s: sessions, e: encounters, n: npcs }),
+        JSON.stringify({ u: c.updatedAt, s: sessions, e: encounters, n: npcs, m: maps }),
       );
     }
 
@@ -153,7 +163,11 @@ export function useCampaignCloudSync() {
         }
       });
     }
-  }, [campaigns, sessionsByCampaign, encountersBySession, npcsByCampaign, npcsLoaded, user, hasLoaded]);
+  }, [
+    campaigns, sessionsByCampaign, encountersBySession,
+    npcsByCampaign, npcsLoaded, mapsByCampaign, mapsLoaded,
+    user, hasLoaded,
+  ]);
 
   // ── Cleanup ──
   useEffect(() => {

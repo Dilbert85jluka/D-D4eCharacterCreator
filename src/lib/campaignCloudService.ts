@@ -6,8 +6,10 @@ import type { CampaignNPC } from '../types/npc';
 import { sessionRepository } from '../db/sessionRepository';
 import { encounterRepository } from '../db/encounterRepository';
 import { npcRepository } from '../db/npcRepository';
+import { battleMapRepository } from '../db/battleMapRepository';
+import type { BattleMap } from '../types/battlemap';
 
-/** Bundled campaign data including sessions, encounters, and NPCs. */
+/** Bundled campaign data including sessions, encounters, NPCs, and battle maps. */
 export interface CampaignBundle {
   campaign: Campaign;
   sessions: CampaignSession[];
@@ -15,6 +17,11 @@ export interface CampaignBundle {
   /** Full NPC records (including privateDescription) — this is the DM's own
    *  private cross-device backup, unlike the player-facing npc_content push. */
   npcs: CampaignNPC[];
+  /** Battle map METADATA only — name, dimensions, grid config, remote URL.
+   *  Image bytes never travel in this bundle: they live in Dexie locally and in
+   *  Supabase Storage for sharing. Putting base64 pixels here would push megabytes
+   *  on every debounced campaign edit against a 500 MB database and 5 GB egress. */
+  maps: BattleMap[];
 }
 
 /** Push a campaign + its sessions + encounters + NPCs to Supabase cloud backup (upsert).
@@ -34,6 +41,7 @@ export async function pushCampaignToCloud(
   const sessions = await sessionRepository.getAllForCampaignIncludingDeleted(campaign.id);
   const encounters = await encounterRepository.getAllForCampaignIncludingDeleted(campaign.id);
   const npcs = await npcRepository.getByCampaignIdIncludingDeleted(campaign.id);
+  const maps = await battleMapRepository.getByCampaignIdIncludingDeleted(campaign.id);
 
   // Latest local activity across the whole bundle — campaign fields alone aren't
   // enough because session/encounter/NPC edits don't bump campaign.updatedAt.
@@ -42,6 +50,7 @@ export async function pushCampaignToCloud(
     ...sessions.map((s) => s.updatedAt),
     ...encounters.map((e) => e.updatedAt),
     ...npcs.map((n) => n.updatedAt),
+    ...maps.map((m) => m.updatedAt),
   );
 
   const { data: existingRow, error: checkError } = await supabase
@@ -70,12 +79,13 @@ export async function pushCampaignToCloud(
   const tombstones =
     sessions.filter((s) => s.deleted).length +
     encounters.filter((e) => e.deleted).length +
-    npcs.filter((n) => n.deleted).length;
+    npcs.filter((n) => n.deleted).length +
+    maps.filter((m) => m.deleted).length;
   console.info(
-    `[pushCampaignToCloud] "${campaign.name}" (id=${campaign.id}) — bundling ${sessions.length} session(s), ${encounters.length} encounter(s), ${npcs.length} NPC(s) from Dexie (${tombstones} tombstone(s))`,
+    `[pushCampaignToCloud] "${campaign.name}" (id=${campaign.id}) — bundling ${sessions.length} session(s), ${encounters.length} encounter(s), ${npcs.length} NPC(s), ${maps.length} map(s) from Dexie (${tombstones} tombstone(s))`,
   );
 
-  const bundle: CampaignBundle = { campaign, sessions, encounters, npcs };
+  const bundle: CampaignBundle = { campaign, sessions, encounters, npcs, maps };
 
   const { error } = await supabase.from('user_campaigns').upsert(
     {
@@ -141,6 +151,8 @@ export async function pullAllCampaignsFromCloud(userId: string): Promise<CloudCa
         encounters: raw.encounters as SessionEncounter[],
         // Bundles pushed before NPCs were added to the format have no npcs key
         npcs: (raw.npcs as CampaignNPC[] | undefined) ?? [],
+        // Likewise for maps, added after NPCs
+        maps: (raw.maps as BattleMap[] | undefined) ?? [],
       };
     }
     // Legacy format: campaign_data IS the Campaign object directly
@@ -149,6 +161,7 @@ export async function pullAllCampaignsFromCloud(userId: string): Promise<CloudCa
       sessions: [],
       encounters: [],
       npcs: [],
+      maps: [],
     };
   });
 

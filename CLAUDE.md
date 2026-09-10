@@ -643,7 +643,7 @@ Do NOT use `character.level` directly — that gives 1 feat per level which is w
 ## Database (Dexie / IndexedDB)
 
 **Database name:** `dnd4e-character-creator`
-**Schema (latest):** characters, campaigns, sessions, encounters tables
+**Schema (latest, v10):** characters, campaigns, sessions, encounters, homebrew, npcs, maps, mapImages tables
 
 ```typescript
 // characterRepository key methods:
@@ -1702,6 +1702,153 @@ All three generation functions (`gen4eDesc`, `gen4ePower`, `gen5eDesc`) follow t
 - `detect/detected` in misc items: many 2e descriptions say "radiate magic if detected" (passive). Guard with `!lower.includes('detected') && !lower.includes('detection is')`
 
 **5e description generation priority:** keyword-specific 5e description (with numeric bonuses like +1/+2/+3) → adapted 2e text via `adaptTo5eStyle()`. Both the item **name** and **description** are checked for keywords (important for items where the effect is in the name but not the first 2-3 sentences of the 2e text).
+
+---
+
+## Battle Maps (VTT-style encounter grid)
+
+A tactical board for running encounters: a map image, a calibrated square grid, and
+tokens for everyone in the initiative order. Reached from the initiative tracker's
+**🗺 Map** toggle (Campaigns → session → encounter → Start/Resume).
+
+### Core principle — a map is an image plus a GRID DESCRIPTOR
+
+We never bake a grid into pixels. `GridConfig` stores `size` (pixels per square in
+the SOURCE image) plus `offsetX`/`offsetY` (where the first gridline sits), and the
+board overlays a CSS gradient. This is how Roll20 and Foundry both work, and it is
+the only approach that handles bought maps that already have squares printed on them
+at an arbitrary scale. `GridCalibrator` implements Roll20's "Align to Grid": trace a
+box around N×N of the map's own squares and the descriptor is derived from it, with
+numeric nudges for the last bit of precision.
+
+### 4e measures in SQUARES, not feet
+
+- `squareDistance()` is **Chebyshev**: `max(|Δcol|, |Δrow|)`. 4e dropped 3.5's 1-2-1
+  diagonal — a diagonal move costs exactly 1 square. This is also why 4e bursts and
+  blasts are literal squares on the grid.
+- The UI says "3 squares", never "15 ft". Do not add feet to movement readouts.
+- `SIZE_SQUARES` maps creature size to footprint. Small/Medium = 1, Large = 2×2 and
+  Gargantuan = 4×4 are **sourced**; **Huge = 3 is interpolated and flagged in-place
+  as unverified against the PHB** — confirm it before treating it as authoritative.
+  Every token's size is overridable in the selected-token bar regardless.
+
+### Tokens ARE combatants
+
+`MapToken` holds only `{ instanceKey, col, row, size, color?, hidden? }`. It is keyed
+by `InitiativeEntry.instanceKey`, so name, HP, portrait, damage and whose turn it is
+all come from the existing initiative tracker via `boardCombatants` in
+`CampaignManagementPage`. **Do not add a second combatant model** — damage entered in
+the tracker must keep showing on the board with no copy to fall out of sync.
+
+### Image storage — the load-bearing decision
+
+Supabase free tier is **500 MB database / 1 GB Storage / 5 GB egress**, and the
+campaign bundle JSONB is re-pushed wholesale on every debounced campaign edit.
+**Base64 map images in `campaign_data` are therefore disqualified.** Instead:
+
+| Where | What | Why |
+|---|---|---|
+| `db.mapImages` (Dexie v10) | the image **Blob** | native Blob, no base64 inflation, works offline |
+| Supabase Storage `battlemaps` | the same blob at `<userId>/<mapId>.jpg` | how players and the DM's other devices get pixels |
+| `CampaignBundle.maps` | **metadata only** (name, w/h, grid, URL) | keeps the bundle small so the per-record merge and 3s push stay viable |
+
+`useMapImage()` resolves local blob → remote URL → back-fills the local cache, so a
+second device works offline after its first view. Maps downscale to a 2048px long
+edge at JPEG q0.82 (300–700 KB typical) via `mapImageProcessing.ts` — deliberately
+**not** `imageProcessing.ts`, whose centre-crop-to-square is right for portraits and
+destroys a map.
+
+**REQUIRED ONE-TIME SETUP** (like the `npc_content` column before it): create a
+**public** bucket named `battlemaps` in Supabase → Storage, with insert/update/delete
+policies restricting authenticated users to their own `auth.uid()` folder. The exact
+policy SQL is in the header comment of `src/lib/mapStorageService.ts`. Until the
+bucket exists, maps work fully on the importing device and `uploadMapImage()` logs a
+warning instead of failing.
+
+### Files
+
+| File | Role |
+|---|---|
+| `src/types/battlemap.ts` | `GridConfig`, `BattleMap`, `MapToken`, `EncounterMapState`, `SIZE_SQUARES`, `squareDistance` |
+| `src/db/database.ts` | Dexie **v10** — `maps` (metadata) + `mapImages` (local-only Blobs) |
+| `src/db/battleMapRepository.ts` | CRUD with tombstone semantics + `mapImageStore` for blobs |
+| `src/lib/mapImageProcessing.ts` | validate + downscale to 2048px JPEG, preserving aspect ratio |
+| `src/lib/mapStorageService.ts` | Supabase Storage upload/delete + the bucket setup SQL |
+| `src/hooks/useMapImageUpload.ts` | app-wide: uploads maps that have a local blob but no URL |
+| `src/store/useBattleMapsStore.ts` | per-campaign map list, import, calibrate, rename, delete, cloud merge |
+| `src/components/battlemap/BattleMapBoard.tsx` | pan/pinch/wheel zoom, grid overlay, tokens, drag-to-move |
+| `src/components/battlemap/GridCalibrator.tsx` | Roll20-style trace-a-box grid alignment |
+| `src/components/battlemap/MapLibraryModal.tsx` | per-campaign import / align / rename / delete |
+| `src/components/battlemap/EncounterMapView.tsx` | attach map, tap-to-place dock, Place All, token bar |
+| `src/components/battlemap/useMapImage.ts` | blob → URL resolution with cache back-fill |
+| `src/lib/mapStateSync.ts` | `extractPublicMapState()` (the privacy filter) + `pushMapState()` |
+| `src/hooks/useMapStateSync.ts` | 600ms debounced broadcast while the DM is live |
+| `src/components/sharing/PlayerBattleMap.tsx` | read-only player board fed by `PublicMapState` |
+
+### Board implementation notes (do not regress)
+
+- **Zoom and pan are ONE state object** (`View`). A zoom must adjust pan in the same
+  commit to keep the anchor point fixed; two separate setters give no ordering
+  guarantee and the map slides out from under the cursor.
+- **Wheel is a NATIVE non-passive listener.** React's synthetic `onWheel` is passive,
+  so `preventDefault()` there is ignored and the page scrolls behind the board.
+- **A dragged token stays at its ORIGIN** at 45% opacity while a dashed ghost marks
+  the destination. Moving the token with the pointer puts it under the ghost and makes
+  both the ghost and the square count meaningless.
+- **Tap vs pan** uses an 8px slop threshold (`TAP_SLOP`) — a "still" finger on a
+  tablet drifts, and a stricter threshold makes tap-to-place feel broken.
+- Cloud merge preserves this device's `imageKey` when an incoming record has none,
+  or the local blob is stranded and the map needlessly falls back to a network fetch.
+- `App.tsx` must call `loadAllMaps()` on startup: `useCampaignCloudSync` gates its
+  push on the map store being loaded, so skipping it stalls **all** campaign pushes.
+
+### Live player board (DM broadcasts, players watch)
+
+**REQUIRED SQL** (run once, alongside the `battlemaps` bucket):
+`ALTER TABLE shared_campaigns ADD COLUMN IF NOT EXISTS map_state JSONB;` — existing RLS
+policies cover the new column. Until it exists, pushes fail with a console warning and
+the DM's own board keeps working.
+
+The DM's board is **off-air by default**. A `📡 Go Live` toggle in the map toolbar starts
+broadcasting; `mapLive` is local state in `CampaignManagementPage` and is deliberately
+**not persisted** — after a reload the DM is off-air again, so setting up an ambush can
+never quietly stream monster placements to the party. It also resets whenever
+`activeEncounterId` changes.
+
+**What players are allowed to see is a deliberate design decision, enforced on the DM's
+device in `extractPublicMapState` before anything is written to Supabase:**
+
+| Data | Players get | Why |
+|---|---|---|
+| Tokens marked `hidden` | **dropped from the payload entirely** | a flag would still put the ambush's coordinates in a payload the browser can read |
+| Monster HP | status only — `healthy` / `bloodied` / `dead` | bloodied is a publicly-visible 4e condition; exact monster HP is DM information |
+| PC HP | exact `hp` / `maxHp` | players already own those characters and see the numbers on their own sheets |
+| `map.imageKey` | never sent | it addresses a Dexie blob that is meaningless off the DM's device |
+
+`useMapStateSync` debounces at **600ms**, far tighter than the 3s used for notes and NPCs
+— a board lagging three seconds behind the DM's finger is worse than no board. The payload
+is a few KB against a 2M-message/month free-tier allowance. It is mounted from
+`CampaignManagementPage`, not `App.tsx`, because it depends on which encounter's tracker is
+open — transient UI state that has no business in a global store. Going off-air, changing
+encounter, or unmounting all push a clearing `null`, so players never stare at a frozen
+fight; the unmount path reads `live`/`sharedCampaignId` through refs since its cleanup runs
+once and would otherwise close over first-render values.
+
+`PlayerBattleMap.tsx` is **not** a `readOnly` mode of `BattleMapBoard`. That component is
+built around a local `BattleMap` record and Dexie blob resolution, neither of which a player
+has — they get a flat `PublicMapState` with a Storage URL. Sharing it would have meant
+threading two unrelated data sources through every prop; ~100 lines of duplicated pan/zoom
+is cheaper than that coupling. It is not a security boundary and doesn't pretend to be one
+— the filtering already happened on the DM's device.
+
+No realtime changes were needed: `useRealtimeCampaign` already replaces the whole
+`shared_campaigns` row on UPDATE, so `map_state` rides the existing subscription.
+
+### Not yet built
+
+- Players moving their own tokens (phase 1 is DM-drives-the-board).
+- Burst/blast templates — cheap to add given Chebyshev distance makes them squares.
+- Fog of war / walls / dynamic lighting.
 
 ---
 

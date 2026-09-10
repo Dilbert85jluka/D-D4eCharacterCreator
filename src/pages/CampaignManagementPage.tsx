@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useCampaignsStore } from '../store/useCampaignsStore';
 import { useCharactersStore } from '../store/useCharactersStore';
 import { useSessionsStore } from '../store/useSessionsStore';
@@ -31,6 +31,17 @@ import { useCampaignContentSync } from '../hooks/useCampaignContentSync';
 import { extractPublicContent, pushCampaignContent } from '../lib/campaignContentSync';
 import { RichTextEditor } from '../components/ui/RichTextEditor';
 import { RichTextDisplay } from '../components/ui/RichTextDisplay';
+import { EncounterMapView } from '../components/battlemap/EncounterMapView';
+import { useMapStateSync } from '../hooks/useMapStateSync';
+import { useBattleMapsStore } from '../store/useBattleMapsStore';
+import type { BoardCombatant } from '../components/battlemap/BattleMapBoard';
+import { squaresForSize } from '../types/battlemap';
+import type { EncounterMapState, BattleMap, MapToken } from '../types/battlemap';
+
+/** Stable empty array so the maps selector doesn't return a fresh [] each render
+ *  and re-trigger every downstream memo/effect. */
+const EMPTY_MAPS: BattleMap[] = [];
+const EMPTY_TOKENS: MapToken[] = [];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -834,6 +845,95 @@ export function CampaignManagementPage() {
     });
   };
 
+  // ── Battle map ────────────────────────────────────────────────────────
+  const [showMap, setShowMap] = useState(false);
+  /** DM's broadcast switch. Defaults OFF and is NOT persisted, deliberately: the
+   *  board is live only while the DM explicitly says so, so setting up an ambush
+   *  after a reload can't quietly stream monster placements to the party. */
+  const [mapLive, setMapLive] = useState(false);
+  const campaignMaps = useBattleMapsStore(
+    (s) => (activeCampaign ? s.mapsByCampaign[activeCampaign.id] ?? EMPTY_MAPS : EMPTY_MAPS),
+  );
+
+  /** The initiative order projected into what the board needs to draw tokens.
+   *  Deliberately derived rather than stored: HP, names and turn order stay owned
+   *  by the tracker, so damage entered there shows on the board immediately and
+   *  there is no second copy to fall out of sync. */
+  // Memoized: this array feeds useMapStateSync's dependency list. Rebuilt fresh on
+  // every render it made that effect re-run constantly, which turned a failing push
+  // into a 600ms retry loop.
+  const boardCombatants: BoardCombatant[] = useMemo(() => sortedInitiative.map((entry) => {
+    if (entry.type === 'monster') {
+      const monster = entry.monsterId ? getMonsterById(entry.monsterId) : undefined;
+      return {
+        instanceKey: entry.instanceKey,
+        displayName: entry.displayName,
+        type: 'monster' as const,
+        hp: entry.hp,
+        maxHp: entry.maxHp,
+        portrait: monster?.portrait,
+        size: squaresForSize(monster?.size),
+      };
+    }
+    const pc = pcPool.find((p) => p.id === entry.characterId);
+    const race = pc?.raceId ? getRaceById(pc.raceId) : undefined;
+    return {
+      instanceKey: entry.instanceKey,
+      displayName: entry.displayName,
+      type: 'pc' as const,
+      hp: entry.hp,
+      maxHp: entry.maxHp,
+      portrait: pc?.portrait,
+      size: squaresForSize(race?.size),
+    };
+  }),
+  // sortedInitiative is itself derived from initiativeEntries each render, so key
+  // the memo on the entries and the pools it resolves against.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [initiativeEntries, characters, activeCampaignSummaries]);
+
+  const activeInstanceKey =
+    activeTurnIndex >= 0 && activeTurnIndex < sortedInitiative.length
+      ? sortedInitiative[activeTurnIndex].instanceKey
+      : null;
+
+  /** Board edits persist straight to Dexie. Token positions are the kind of state a
+   *  DM expects to survive a mis-tap or a tab reload mid-fight, so they aren't held
+   *  as unsaved UI state the way the initiative list is. */
+  const handleMapStateChange = async (next: EncounterMapState | null) => {
+    if (!activeEncounterId) return;
+    const enc = sessionEncounters.find((e) => e.id === activeEncounterId);
+    if (!enc) return;
+    const updated = { ...enc, mapState: next, updatedAt: Date.now() };
+    await encounterRepository.update(updated);
+    updateEncounter(updated);
+  };
+
+  // Broadcast the board to players while the DM is live. Mounted here rather than
+  // App.tsx because it depends on which encounter's tracker is open, which is
+  // transient UI state that doesn't belong in a global store.
+  const liveMap = activeEncounter?.mapState
+    ? campaignMaps.find((m) => m.id === activeEncounter.mapState!.mapId) ?? null
+    : null;
+
+  useMapStateSync({
+    sharedCampaignId: activeSharedId,
+    live: mapLive,
+    map: liveMap,
+    // EMPTY_TOKENS, not a fresh [] — this feeds a dependency array.
+    tokens: activeEncounter?.mapState?.tokens ?? EMPTY_TOKENS,
+    combatants: boardCombatants,
+    activeInstanceKey,
+    encounterId: activeEncounterId,
+    encounterTitle: activeEncounter?.title ?? '',
+  });
+
+  // Going off-air whenever the tracker closes or the encounter changes — the hook
+  // pushes a clearing null, so players never sit staring at a frozen fight.
+  useEffect(() => {
+    setMapLive(false);
+  }, [activeEncounterId]);
+
   // ── Save / Resume encounter state ──────────────────────────────────
   const [saveConfirm, setSaveConfirm] = useState(false);
 
@@ -1623,6 +1723,14 @@ export function CampaignManagementPage() {
                   <h2 className="text-white font-bold text-base truncate">{activeEncounter.title}</h2>
                 </div>
                 <button
+                  onClick={() => setShowMap((v) => !v)}
+                  className={`text-xs font-bold px-4 py-1.5 rounded-lg transition-colors min-h-[36px]
+                             border-2 ${showMap
+                               ? 'border-amber-400 bg-amber-600 text-white'
+                               : 'border-teal-400 bg-transparent hover:bg-teal-700 text-teal-100'}`}
+                  title={showMap ? 'Hide the battle map' : 'Show the battle map'}
+                >🗺 Map</button>
+                <button
                   onClick={handleSaveEncounterState}
                   className={`text-xs font-bold px-4 py-1.5 rounded-lg transition-colors min-h-[36px]
                              border-2 ${saveConfirm
@@ -1635,6 +1743,24 @@ export function CampaignManagementPage() {
                              bg-teal-700 hover:bg-teal-600 text-white"
                 >End Encounter</button>
               </div>
+
+              {/* ── Battle Map ────────────────────────────────────────
+                  Sits above the initiative list rather than replacing it: on a
+                  tablet the DM wants the board and the turn order visible at once. */}
+              {showMap && (
+                <div className="flex-shrink-0 px-3 pt-3">
+                  <EncounterMapView
+                    campaignId={activeEncounter.campaignId}
+                    mapState={activeEncounter.mapState}
+                    combatants={boardCombatants}
+                    activeInstanceKey={activeInstanceKey}
+                    onChange={handleMapStateChange}
+                    live={mapLive}
+                    onToggleLive={activeSharedId ? setMapLive : undefined}
+                    className="h-[52vh] min-h-[300px]"
+                  />
+                </div>
+              )}
 
               <div className="flex-1 overflow-y-auto">
                 <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">

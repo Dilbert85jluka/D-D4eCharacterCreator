@@ -7,6 +7,7 @@ import { ShareCampaignModal } from './ShareCampaignModal';
 import { LinkCharacterModal } from './LinkCharacterModal';
 import { MemberCard } from './PartyRosterCards';
 import { PublicNpcSection } from './PublicNpcSection';
+import { PlayerBattleMap } from './PlayerBattleMap';
 import { CharacterSheet } from '../sheet/CharacterSheet';
 import type { CharacterSummary, PublicSession } from '../../types/sharing';
 import { RichTextDisplay, hasRichTextContent } from '../ui/RichTextDisplay';
@@ -191,6 +192,32 @@ export function SharedCampaignView({ campaignId }: SharedCampaignViewProps) {
               />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Live battle map — only rendered while the DM is broadcasting. When they go
+          off-air the pushed state is null and this disappears rather than leaving a
+          frozen board that looks current. */}
+      {campaign?.map_state && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider">
+              Battle Map
+            </h3>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wide">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" aria-hidden />
+              Live
+            </span>
+            {campaign.map_state.encounterTitle && (
+              <span className="text-xs text-stone-500 truncate">
+                {campaign.map_state.encounterTitle}
+              </span>
+            )}
+          </div>
+          <PlayerBattleMap state={campaign.map_state} />
+          <p className="text-[11px] text-stone-400 mt-1.5">
+            Drag to pan, pinch or scroll to zoom. Updates as the DM moves tokens.
+          </p>
         </div>
       )}
 

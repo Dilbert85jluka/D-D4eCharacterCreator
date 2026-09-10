@@ -5,6 +5,17 @@ import type { CampaignSession } from '../types/session';
 import type { SessionEncounter } from '../types/encounter';
 import type { HomebrewItem } from '../types/homebrew';
 import type { CampaignNPC } from '../types/npc';
+import type { BattleMap } from '../types/battlemap';
+
+/** Map image bytes, kept OUT of the map record so the cloud campaign bundle
+ *  carries metadata only. Stored as a native Blob — IndexedDB handles Blobs
+ *  directly, so there's no base64 inflation and no 500 MB Postgres pressure. */
+export interface MapImageRecord {
+  /** Matches BattleMap.imageKey. */
+  id: string;
+  blob: Blob;
+  updatedAt: number;
+}
 
 export class Dnd4eDatabase extends Dexie {
   characters!: Table<Character, string>;
@@ -13,6 +24,8 @@ export class Dnd4eDatabase extends Dexie {
   encounters!: Table<SessionEncounter, string>;
   homebrew!: Table<HomebrewItem, string>;
   npcs!: Table<CampaignNPC, string>;
+  maps!: Table<BattleMap, string>;
+  mapImages!: Table<MapImageRecord, string>;
 
   constructor() {
     super('Dnd4eCharacterCreator');
@@ -87,6 +100,24 @@ export class Dnd4eDatabase extends Dexie {
       encounters: 'id, sessionId, campaignId, sortOrder, updatedAt',
       homebrew:   'id, contentType, name, createdBy, updatedAt, *campaignIds',
       npcs:       'id, campaignId, name, updatedAt, visibleToPlayers',
+    });
+
+    // v10: battle maps. Two tables on purpose —
+    //   `maps`      = small metadata records (name, dimensions, grid config, remote URL).
+    //                 These ride inside the cloud CampaignBundle like sessions/encounters/NPCs.
+    //   `mapImages` = the actual image Blobs, LOCAL ONLY. Never synced through the
+    //                 campaign bundle; players fetch pixels from Supabase Storage via
+    //                 BattleMap.imageUrl. Keeps the JSONB bundle small enough that the
+    //                 existing per-record merge and 3s debounced push stay viable.
+    this.version(10).stores({
+      characters: 'id, name, classId, raceId, level, updatedAt',
+      campaigns:  'id, name, updatedAt',
+      sessions:   'id, campaignId, sessionNumber, updatedAt',
+      encounters: 'id, sessionId, campaignId, sortOrder, updatedAt',
+      homebrew:   'id, contentType, name, createdBy, updatedAt, *campaignIds',
+      npcs:       'id, campaignId, name, updatedAt, visibleToPlayers',
+      maps:       'id, campaignId, name, updatedAt',
+      mapImages:  'id, updatedAt',
     });
   }
 }
