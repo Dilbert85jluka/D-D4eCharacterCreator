@@ -73,6 +73,7 @@ export const encounterRepository = {
       monsterEntries: [],
       characterIds: [],
       initiativeState: null,
+      mapState: null,
     });
   },
 
@@ -91,6 +92,7 @@ export const encounterRepository = {
         e.monsterEntries = [];
         e.characterIds = [];
         e.initiativeState = null;
+        e.mapState = null;
       });
   },
 

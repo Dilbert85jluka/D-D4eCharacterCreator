@@ -1,3 +1,5 @@
+import type { EncounterMapState } from './battlemap';
+
 /**
  * Session Encounters — a DM planning tool attached to a CampaignSession.
  * Each session can have multiple encounters; each encounter can reference
@@ -33,6 +35,10 @@ export interface SessionEncounter {
   characterIds?: string[];
   /** Saved initiative tracker state — resume mid-combat */
   initiativeState?: SavedInitiativeState | null;
+  /** Battle map + token positions for this encounter. Tokens are keyed by
+   *  InitiativeEntry.instanceKey, so a token IS a combatant — HP, damage, display
+   *  name and turn order all come from initiativeState rather than being duplicated. */
+  mapState?: EncounterMapState | null;
 }
 
 export interface SavedAdHocMonster {
