@@ -41,36 +41,50 @@ jobs:
       # Decide whether to bump major / minor / patch / none.
       # Priority:
       #   1. workflow_dispatch input (manual trigger from the Actions tab)
-      #   2. tag in the commit message: [major], [minor], [patch], or [none]
+      #   2. tag anywhere in the pushed commit messages or the PR title:
+      #      [major], [minor], [patch], or [none]
       #   3. default: patch
       - name: Determine version bump type
         id: vbump
-        # IMPORTANT: pass commit message via env, NOT via ${{ }} interpolation.
+        # IMPORTANT: pass commit messages via env, NOT via ${{ }} interpolation.
         # Direct interpolation injects the message as bash source code — multi-line
         # bodies with parens/brackets/quotes get parsed by the shell and break the
         # script (e.g. exit 126 "File name too long"). With env: the value is read
-        # at runtime via $COMMIT_MSG and bash never re-parses its contents.
+        # at runtime via the variable and bash never re-parses its contents.
+        #
+        # Why BOTH head_commit and commits: on a PR merge, head_commit is the merge
+        # commit — "Merge pull request #N from <branch>", whose body is the PR title.
+        # A tag written in the BRANCH commit isn't in there at all; it's in
+        # github.event.commits. Searching only head_commit meant every merged PR
+        # silently fell through to the `patch` default, which is why a CI-only PR
+        # tagged [none] still bumped the version. toJSON (not join) so the
+        # expression can't fail when commits is absent, e.g. on workflow_dispatch.
         env:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
+          ALL_COMMIT_MSGS: ${{ toJSON(github.event.commits.*.message) }}
           EVENT_NAME: ${{ github.event_name }}
           DISPATCH_BUMP: ${{ github.event.inputs.version_bump }}
         run: |
+          # Merge commit / PR title + every commit in the push
+          SEARCH_TEXT="${COMMIT_MSG}
+          ${ALL_COMMIT_MSGS}"
+
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             BUMP="$DISPATCH_BUMP"
             SOURCE="workflow_dispatch input"
           else
-            if echo "$COMMIT_MSG" | grep -qE '\[major\]'; then
+            if echo "$SEARCH_TEXT" | grep -qE '\[major\]'; then
               BUMP=major
-              SOURCE="[major] tag in commit message"
-            elif echo "$COMMIT_MSG" | grep -qE '\[minor\]'; then
+              SOURCE="[major] tag in pushed commit messages"
+            elif echo "$SEARCH_TEXT" | grep -qE '\[minor\]'; then
               BUMP=minor
-              SOURCE="[minor] tag in commit message"
-            elif echo "$COMMIT_MSG" | grep -qE '\[none\]'; then
+              SOURCE="[minor] tag in pushed commit messages"
+            elif echo "$SEARCH_TEXT" | grep -qE '\[none\]'; then
               BUMP=none
-              SOURCE="[none] tag in commit message (skipping version bump)"
-            elif echo "$COMMIT_MSG" | grep -qE '\[patch\]'; then
+              SOURCE="[none] tag in pushed commit messages (skipping version bump)"
+            elif echo "$SEARCH_TEXT" | grep -qE '\[patch\]'; then
               BUMP=patch
-              SOURCE="[patch] tag in commit message"
+              SOURCE="[patch] tag in pushed commit messages"
             else
               BUMP=patch
               SOURCE="default (no tag found)"
@@ -78,6 +92,10 @@ jobs:
           fi
           echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
           echo "Selected version bump: $BUMP (source: $SOURCE)"
+          # Echo what was actually searched — without this, a missed tag looks
+          # identical to no tag, which is exactly how the bug above went unnoticed.
+          echo "--- searched text (first 20 lines) ---"
+          echo "$SEARCH_TEXT" | head -20
 
       - name: Bump version
         if: steps.vbump.outputs.bump != 'none'

@@ -14,13 +14,13 @@ Designed for tablet use (touch targets ≥44px, responsive layouts).
 **Repository:** `https://github.com/Dilbert85jluka/D-D4eCharacterCreator.git`
 **Location:** `C:\Claude\GITHUB\DnD4e\D-D4eCharacterCreator\`
 **Dev server:** `npm run dev` → http://localhost:5173 (hot-reload)
-**Build:** `npm run build` → outputs to `dist/`
+**Build:** `npm run build` → outputs to `dist/` — gitignored and **untracked**. Six stale `dist/` files (index.html, sw.js, registerSW.js, manifest.webmanifest, workbox-*.js, icons/generate-icons.html) had been committed before the ignore rule and sat five months out of date, dirtying `git status` after every build; they were removed from tracking with `git rm -r --cached dist`. Never re-add them — the CI build regenerates `dist/` from scratch (Vite empties the directory first) and deploys that. `public/icons/generate-icons.html` is the real source of the icon tool; the `dist/` copy was only a build artifact.
 **Preview build:** `npm run preview` → serves `dist/` on http://localhost:4173
 **App version:** `1.1.0` — Sourced from `package.json` `version` field, injected at build time via Vite `define` as `__APP_VERSION__` global constant (declared in `src/vite-env.d.ts`). Displayed at the bottom of the sidebar menu. To bump the version manually, edit `package.json` `version` — no other changes needed.
 
 **Version bump on push:** The GitHub Actions workflow auto-bumps the version on every push to `main` and commits it with `[skip ci]`. Bump type is chosen by (priority order):
 1. **Manual workflow run** — trigger from Actions tab with a dropdown choosing `patch` / `minor` / `major` / `none`.
-2. **Commit message tag** — include `[major]`, `[minor]`, `[patch]`, or `[none]` anywhere in the commit message. Examples: `feat: NPC glossary [minor]`, `BREAKING: rewrite power data [major]`, `docs: typo [none]`.
+2. **Commit message tag** — include `[major]`, `[minor]`, `[patch]`, or `[none]` anywhere in **any** pushed commit message, or in the PR title. Examples: `feat: NPC glossary [minor]`, `BREAKING: rewrite power data [major]`, `docs: typo [none]`. The workflow searches `github.event.head_commit.message` (the merge commit — whose body is the PR title) **and** `github.event.commits.*.message` (every commit in the push). Searching only `head_commit` was a long-standing bug: on a PR merge the head commit is `"Merge pull request #N from <branch>"`, so a tag written in the branch commit was invisible and every merged PR silently fell through to the `patch` default. The step now echoes the text it searched, so a missed tag is distinguishable from no tag.
 3. **Default** — `patch` if no input or tag is present.
 
 **Two paths, pick one — don't double-bump:**
