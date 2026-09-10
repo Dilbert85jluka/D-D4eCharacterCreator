@@ -27,11 +27,18 @@ interface BattleMapBoardProps {
   readOnly?: boolean;
   onMoveToken?: (instanceKey: string, col: number, row: number) => void;
   onSelectToken?: (instanceKey: string | null) => void;
+  /** Fires on a tap that wasn't a pan or a token drag — used for tap-to-place. */
+  onCellTap?: (col: number, row: number) => void;
+  /** Highlights the board as armed for placement. */
+  placing?: boolean;
   className?: string;
 }
 
 const MIN_ZOOM = 0.15;
 const MAX_ZOOM = 4;
+/** Screen px a pointer may travel and still count as a tap rather than a pan.
+ *  Generous because the primary target is a tablet, where a "still" finger drifts. */
+const TAP_SLOP = 8;
 
 interface Point { x: number; y: number }
 
@@ -64,6 +71,8 @@ export function BattleMapBoard({
   readOnly = false,
   onMoveToken,
   onSelectToken,
+  onCellTap,
+  placing = false,
   className = '',
 }: BattleMapBoardProps) {
   const { src, status, error } = useMapImage(map);
@@ -82,6 +91,9 @@ export function BattleMapBoard({
   const pointersRef = useRef<Map<number, Point>>(new Map());
   const panStartRef = useRef<{ view: View; pointer: Point } | null>(null);
   const pinchStartRef = useRef<{ dist: number; zoom: number; center: Point } | null>(null);
+  /** Where a single-pointer gesture began, so pointerup can tell a tap from a pan.
+   *  Cleared as soon as the pointer travels past TAP_SLOP. */
+  const tapCandidateRef = useRef<Point | null>(null);
 
   const combatantByKey = useMemo(() => {
     const m = new Map<string, BoardCombatant>();
@@ -190,6 +202,7 @@ export function BattleMapBoard({
       panStartRef.current = null;
     } else if (pointersRef.current.size === 1) {
       panStartRef.current = { view: viewRef.current, pointer: { x: e.clientX, y: e.clientY } };
+      tapCandidateRef.current = { x: e.clientX, y: e.clientY };
     }
   };
 
@@ -209,6 +222,13 @@ export function BattleMapBoard({
 
     if (panStartRef.current) {
       const { view: v0, pointer } = panStartRef.current;
+      if (
+        tapCandidateRef.current &&
+        Math.hypot(e.clientX - tapCandidateRef.current.x, e.clientY - tapCandidateRef.current.y) >
+          TAP_SLOP
+      ) {
+        tapCandidateRef.current = null; // it's a pan, not a tap
+      }
       setView({
         zoom: v0.zoom,
         x: v0.x + (e.clientX - pointer.x),
@@ -220,7 +240,17 @@ export function BattleMapBoard({
   const handleStagePointerUp = (e: React.PointerEvent) => {
     pointersRef.current.delete(e.pointerId);
     if (pointersRef.current.size < 2) pinchStartRef.current = null;
-    if (pointersRef.current.size === 0) panStartRef.current = null;
+
+    if (pointersRef.current.size === 0) {
+      panStartRef.current = null;
+      // A tap on empty board: either place an armed token, or clear the selection.
+      if (tapCandidateRef.current) {
+        const cell = imageToCell(clientToImage(e.clientX, e.clientY));
+        if (onCellTap) onCellTap(cell.col, cell.row);
+        else onSelectToken?.(null);
+      }
+      tapCandidateRef.current = null;
+    }
   };
 
   // ── Token dragging ──────────────────────────────────────────────────────
@@ -303,10 +333,14 @@ export function BattleMapBoard({
       : null;
 
   return (
-    <div className={`relative overflow-hidden bg-stone-900 touch-none select-none ${className}`}>
+    <div
+      className={`relative overflow-hidden bg-stone-900 touch-none select-none ${className} ${
+        placing ? 'ring-2 ring-inset ring-amber-400' : ''
+      }`}
+    >
       <div
         ref={viewportRef}
-        className="absolute inset-0 cursor-grab active:cursor-grabbing"
+        className={`absolute inset-0 ${placing ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
         onPointerDown={handleStagePointerDown}
         onPointerMove={handleStagePointerMove}
         onPointerUp={handleStagePointerUp}

@@ -7,6 +7,8 @@ import { sessionRepository } from '../db/sessionRepository';
 import { encounterRepository } from '../db/encounterRepository';
 import { useEncountersStore } from './useEncountersStore';
 import { npcRepository } from '../db/npcRepository';
+import { battleMapRepository } from '../db/battleMapRepository';
+import { useBattleMapsStore } from './useBattleMapsStore';
 import { useNpcsStore } from './useNpcsStore';
 import { useSessionsStore } from './useSessionsStore';
 import type { Campaign } from '../types/campaign';
@@ -90,6 +92,8 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
     const localEncounterMap = new Map(allLocalEncounters.map((e) => [e.id, e]));
     const allLocalNpcs = await db.npcs.toArray();
     const localNpcMap = new Map(allLocalNpcs.map((n) => [n.id, n]));
+    const allLocalMaps = await db.maps.toArray();
+    const localMapMap = new Map(allLocalMaps.map((m) => [m.id, m]));
 
     // ── Apply cloud deletions first (campaign deleted on another device) ──
     // The deletion wins only if it is newer than ALL local activity in the
@@ -105,11 +109,13 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
         ...allLocalSessions.filter((s) => s.campaignId === del.campaignId).map((s) => s.updatedAt),
         ...allLocalEncounters.filter((e) => e.campaignId === del.campaignId).map((e) => e.updatedAt),
         ...allLocalNpcs.filter((n) => n.campaignId === del.campaignId).map((n) => n.updatedAt),
+        ...allLocalMaps.filter((m) => m.campaignId === del.campaignId).map((m) => m.updatedAt),
       );
       if (del.deletedAt >= maxLocalActivity) {
         await encounterRepository.deleteAllForCampaign(del.campaignId);
         await sessionRepository.deleteAllForCampaign(del.campaignId);
         await npcRepository.deleteByCampaignId(del.campaignId);
+        await battleMapRepository.deleteAllForCampaign(del.campaignId);
         await campaignRepository.delete(del.campaignId);
         localMap.delete(del.campaignId);
         campaignsDeleted++;
@@ -127,13 +133,14 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
     let sessionsWritten = 0;
     let encountersWritten = 0;
     let npcsWritten = 0;
+    let mapsWritten = 0;
 
     for (const bundle of cloudBundles) {
-      const { campaign: cloudCampaign, sessions, encounters, npcs } = bundle;
+      const { campaign: cloudCampaign, sessions, encounters, npcs, maps } = bundle;
       const local = localMap.get(cloudCampaign.id);
 
       console.debug(
-        `[mergeCloudCampaigns] Bundle "${cloudCampaign.name}": ${sessions.length} sessions, ${encounters.length} encounters, ${npcs.length} NPCs`,
+        `[mergeCloudCampaigns] Bundle "${cloudCampaign.name}": ${sessions.length} sessions, ${encounters.length} encounters, ${npcs.length} NPCs, ${maps?.length ?? 0} maps`,
       );
 
       // Campaign: newer-wins by updatedAt
@@ -169,10 +176,22 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
           npcsWritten++;
         }
       }
+
+      // Battle maps: per-record newer-wins. METADATA only — the image blob is
+      // local to whichever device imported it, so an incoming record must not
+      // clobber this device's imageKey with undefined or the local blob is
+      // stranded and the map falls back to a network fetch it may not need.
+      for (const map of maps ?? []) {
+        const localMapRec = localMapMap.get(map.id);
+        if (!localMapRec || map.updatedAt > localMapRec.updatedAt) {
+          await db.maps.put({ ...map, imageKey: map.imageKey ?? localMapRec?.imageKey });
+          mapsWritten++;
+        }
+      }
     }
 
     console.info(
-      `[mergeCloudCampaigns] Wrote ${campaignsWritten} campaign(s), ${sessionsWritten} session(s), ${encountersWritten} encounter(s), ${npcsWritten} NPC(s) from cloud; removed ${campaignsDeleted} cloud-deleted campaign(s)`,
+      `[mergeCloudCampaigns] Wrote ${campaignsWritten} campaign(s), ${sessionsWritten} session(s), ${encountersWritten} encounter(s), ${npcsWritten} NPC(s), ${mapsWritten} map(s) from cloud; removed ${campaignsDeleted} cloud-deleted campaign(s)`,
     );
 
     // Reload all stores to pick up merged data
@@ -186,5 +205,7 @@ export const useCampaignsStore = create<CampaignsState>((set, get) => ({
     await useEncountersStore.getState().loadAllEncounters();
     useNpcsStore.setState({ hasLoaded: false });
     await useNpcsStore.getState().loadAllNpcs();
+    useBattleMapsStore.setState({ hasLoaded: false });
+    await useBattleMapsStore.getState().loadAllMaps();
   },
 }));

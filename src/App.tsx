@@ -22,6 +22,7 @@ import { useCharacterCloudSync } from './hooks/useCharacterCloudSync';
 import { useCampaignCloudSync } from './hooks/useCampaignCloudSync';
 import { useHomebrewStore } from './store/useHomebrewStore';
 import { useNpcsStore } from './store/useNpcsStore';
+import { useBattleMapsStore } from './store/useBattleMapsStore';
 import { useNpcContentSync } from './hooks/useNpcContentSync';
 import { useHomebrewContentSync } from './hooks/useHomebrewContentSync';
 import { useHomebrewCloudSync } from './hooks/useHomebrewCloudSync';
@@ -39,6 +40,7 @@ export default function App() {
   const loadAllEncounters = useEncountersStore((s) => s.loadAllEncounters);
   const loadHomebrew      = useHomebrewStore((s) => s.loadHomebrew);
   const loadAllNpcs       = useNpcsStore((s) => s.loadAllNpcs);
+  const loadAllMaps       = useBattleMapsStore((s) => s.loadAllMaps);
   const loadSharedCampaigns = useSharingStore((s) => s.loadSharedCampaigns);
   const initializeAuth  = useAuthStore((s) => s.initialize);
   const user = useAuthStore((s) => s.user);
@@ -51,6 +53,10 @@ export default function App() {
   useEffect(() => { loadAllEncounters(); }, [loadAllEncounters]);
   useEffect(() => { loadHomebrew(); }, [loadHomebrew]);
   useEffect(() => { loadAllNpcs(); }, [loadAllNpcs]);
+  // Battle map metadata. Must load on startup: useCampaignCloudSync gates its
+  // push on the map store being ready, so skipping this would stall ALL campaign
+  // pushes, not just map ones.
+  useEffect(() => { loadAllMaps(); }, [loadAllMaps]);
   // Purge session/encounter/NPC tombstones past their 60-day TTL (fire-and-forget)
   useEffect(() => { purgeExpiredTombstones(); }, []);
   // Initialize Supabase auth (checks existing session, subscribes to changes)
