@@ -2937,7 +2937,15 @@ export function CampaignManagementPage() {
               title="Save or print this character sheet as a PDF"
               aria-label="Save character sheet as PDF"
             >
-              <span className="text-base leading-none" aria-hidden>\u2b07</span>
+              {/* Inline SVG rather than an arrow character: a literal \u2b07 escape
+                  shipped here once already (JSX text does not interpret \u escapes,
+                  so it rendered verbatim), and U+2B07 also renders as a colour emoji
+                  on iOS. An SVG has neither failure mode. */}
+              <svg viewBox="0 0 24 24" className="w-4 h-4 flex-shrink-0" fill="none"
+                   stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"
+                   strokeLinejoin="round" aria-hidden>
+                <path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+              </svg>
               <span className="hidden sm:inline">{printing ? 'Preparing\u2026' : 'Save as PDF'}</span>
             </button>
             <div className="flex-1 min-h-0 overflow-y-auto">
