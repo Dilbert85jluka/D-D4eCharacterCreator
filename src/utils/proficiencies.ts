@@ -3,8 +3,8 @@ import type { WeaponData } from '../types/gameData';
 import { getClassById } from '../data/classes';
 import { getParagonPathById } from '../data/paragonPaths';
 
-// Single source of truth for feat-granted weapon proficiencies.
-// Keep in sync with src/components/sheet/ProficienciesPanel.tsx if extended.
+// Single source of truth for feat-granted weapon proficiencies. ProficienciesPanel
+// and CharacterSheetPrint both read from here — do not re-declare these in a component.
 export const FEAT_WEAPON_PROFICIENCIES: Record<string, string[]> = {
   'weapon-proficiency-bastard-sword': ['Bastard Sword'],
   'weapon-proficiency-greatbow':      ['Greatbow'],
@@ -80,4 +80,52 @@ export function isProficientWithWeapon(character: Character, weapon: WeaponData)
     }
   }
   return false;
+}
+
+// ── Armor / shield / implement proficiencies ──────────────────────────────────
+// Lifted out of ProficienciesPanel so the printable sheet reports the same set.
+// Kept beside the weapon helper above for the same reason: one source of truth.
+
+const FEAT_ARMOR: Record<string, string> = {
+  'armor-proficiency-leather':   'Leather',
+  'armor-proficiency-hide':      'Hide',
+  'armor-proficiency-chainmail': 'Chainmail',
+  'armor-proficiency-scale':     'Scale',
+  'armor-proficiency-plate':     'Plate',
+};
+
+const FEAT_SHIELD: Record<string, string> = {
+  'shield-proficiency-light': 'Light Shield',
+  'shield-proficiency-heavy': 'Heavy Shield',
+};
+
+export interface GearProficiencies {
+  armor: string[];
+  shields: string[];
+  implements: string[];
+}
+
+/** Class base proficiencies plus feat grants and paragon-path extras (level 11+). */
+export function getGearProficiencies(character: Character): GearProficiencies {
+  const cls = getClassById(character.classId);
+
+  const armor       = new Set<string>(cls?.armorProficiencies ?? []);
+  const shields     = new Set<string>(cls?.shieldProficiency ? ['Shield'] : []);
+  const implements_ = new Set<string>(cls?.implements ?? []);
+
+  for (const featId of character.selectedFeatIds) {
+    if (FEAT_ARMOR[featId])  armor.add(FEAT_ARMOR[featId]);
+    if (FEAT_SHIELD[featId]) shields.add(FEAT_SHIELD[featId]);
+  }
+
+  if (character.level >= 11 && character.paragonPath) {
+    const path = getParagonPathById(character.paragonPath);
+    path?.bonuses?.extraArmorProficiencies?.forEach((p) => armor.add(p));
+  }
+
+  return {
+    armor: Array.from(armor),
+    shields: Array.from(shields),
+    implements: Array.from(implements_),
+  };
 }
