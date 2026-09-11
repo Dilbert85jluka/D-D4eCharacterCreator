@@ -349,13 +349,23 @@ export function SharedCampaignView({ campaignId }: SharedCampaignViewProps) {
       {viewingSummaryId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="fixed inset-0 bg-black/40" onClick={handleCloseViewer} />
-          <div className="relative bg-parchment-100 rounded-2xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto mx-4">
+          {/* The panel itself no longer scrolls — the inner div does. Keeping the Close
+              button a child of the non-scrolling panel pins it to the corner instead of
+              letting it scroll away with the sheet. z-20 puts it above SheetHeader's
+              sticky z-10 banner, which previously painted straight over it. */}
+          <div className="relative bg-parchment-100 rounded-2xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden mx-4 flex flex-col">
             <button
               onClick={handleCloseViewer}
-              className="absolute top-4 right-4 z-10 bg-white/80 hover:bg-white text-stone-500 hover:text-stone-700 rounded-full text-2xl min-h-[44px] min-w-[44px] flex items-center justify-center shadow-sm transition-colors"
+              className="absolute top-3 right-3 z-20 flex items-center justify-center gap-1.5 bg-white/90 hover:bg-white text-stone-600 hover:text-stone-900 rounded-full text-sm font-semibold px-3 sm:px-3.5 min-h-[44px] min-w-[44px] shadow-md ring-1 ring-black/10 transition-colors"
+              title="Close character sheet"
+              aria-label="Close character sheet"
             >
-              &times;
+              <span className="text-lg leading-none">&times;</span>
+              {/* Label only from sm: up — on a phone the banner's title row is already
+                  tight, and an icon-only button leaves the name room to breathe. */}
+              <span className="hidden sm:inline">Close</span>
             </button>
+            <div className="flex-1 min-h-0 overflow-y-auto">
             {viewingCharacterLoading ? (
               <div className="flex items-center justify-center py-16 text-stone-400">Loading character sheet...</div>
             ) : viewingCharacter ? (
@@ -375,6 +385,7 @@ export function SharedCampaignView({ campaignId }: SharedCampaignViewProps) {
                 Character data not available. The player may not have synced recently.
               </div>
             )}
+            </div>
           </div>
         </div>
       )}
