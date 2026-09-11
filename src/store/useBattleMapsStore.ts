@@ -27,6 +27,25 @@ interface BattleMapsState {
 
 const byName = (list: BattleMap[]) => [...list].sort((a, b) => a.name.localeCompare(b.name));
 
+/**
+ * Stable empty array for campaigns with no maps yet.
+ *
+ * Zustand v5 is built on useSyncExternalStore, which compares the selector's RESULT
+ * by reference and throws "getSnapshot should be cached" — blanking the page — if it
+ * changes every call. A selector written `s.mapsByCampaign[id] ?? []` allocates a
+ * fresh array on every invocation, and for a campaign with no maps that branch is
+ * ALWAYS taken, so it crashed deterministically the moment the board mounted.
+ *
+ * Always select campaign maps through `selectCampaignMaps` — never inline `?? []`.
+ */
+export const EMPTY_MAPS: BattleMap[] = [];
+
+/** Selector factory: `useBattleMapsStore(selectCampaignMaps(campaignId))`. */
+export const selectCampaignMaps =
+  (campaignId: string) =>
+  (s: BattleMapsState): BattleMap[] =>
+    s.mapsByCampaign[campaignId] ?? EMPTY_MAPS;
+
 export const useBattleMapsStore = create<BattleMapsState>((set, get) => ({
   mapsByCampaign: {},
   hasLoaded: false,

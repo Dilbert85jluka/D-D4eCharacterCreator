@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useBattleMapsStore } from '../../store/useBattleMapsStore';
+import { selectCampaignMaps, useBattleMapsStore } from '../../store/useBattleMapsStore';
 import { formatBytes, MAX_MAP_EDGE } from '../../lib/mapImageProcessing';
 import { mapImageStore } from '../../db/battleMapRepository';
 import type { BattleMap } from '../../types/battlemap';
@@ -15,7 +15,7 @@ interface MapLibraryModalProps {
 
 /** Per-campaign map library: import, calibrate, rename, delete. */
 export function MapLibraryModal({ campaignId, onPick, onClose }: MapLibraryModalProps) {
-  const maps = useBattleMapsStore((s) => s.mapsByCampaign[campaignId] ?? []);
+  const maps = useBattleMapsStore(selectCampaignMaps(campaignId));
   const loadByCampaign = useBattleMapsStore((s) => s.loadByCampaign);
   const importMap = useBattleMapsStore((s) => s.importMap);
   const updateGrid = useBattleMapsStore((s) => s.updateGrid);

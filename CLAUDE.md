@@ -1826,6 +1826,36 @@ warning instead of failing.
 | `src/hooks/useMapStateSync.ts` | 600ms debounced broadcast while the DM is live |
 | `src/components/sharing/PlayerBattleMap.tsx` | read-only player board fed by `PublicMapState` |
 
+### RULE: never return a fresh object/array from a Zustand selector
+
+Zustand v5 is built on React's `useSyncExternalStore`, which compares the selector's
+**result** by reference. A selector that allocates on every call never settles — React
+re-renders, re-reads, sees a different reference, re-renders again, then throws
+("getSnapshot should be cached") and **unmounts the tree, leaving a blank white page**.
+
+This shipped in the battle map feature and blanked the Maps button for every user:
+
+```ts
+// BROKEN — allocates a new [] on every call
+const maps = useBattleMapsStore((s) => s.mapsByCampaign[campaignId] ?? []);
+```
+
+The trap is that it looks harmless and is invisible in the happy path. It only crashes
+when the key is **missing** — and for a campaign with no maps yet, `mapsByCampaign[id]`
+is always `undefined`, so the `?? []` branch is taken on *every* render and the crash is
+deterministic for exactly the users who have never used the feature.
+
+Correct shapes:
+- Select the raw slice and default to a **module-level** stable constant
+  (`export const EMPTY_MAPS: BattleMap[] = []`), or use the store's exported selector
+  factory (`selectCampaignMaps(campaignId)` in `useBattleMapsStore.ts`).
+- Never write `.filter()`, `.map()`, `.sort()`, `?? []`, or `?? {}` **inside** a selector.
+  Select the raw value, then derive in a `useMemo`.
+- The same applies to props: an inline `?? []` passed into a `useMemo`/`useEffect` dep
+  array re-fires it every render (see `EMPTY_TOKENS` in `CampaignManagementPage.tsx`).
+
+`?? []` inside a `set()` updater is fine — that's not a selector.
+
 ### Board implementation notes (do not regress)
 
 - **Zoom and pan are ONE state object** (`View`). A zoom must adjust pan in the same

@@ -33,14 +33,14 @@ import { RichTextEditor } from '../components/ui/RichTextEditor';
 import { RichTextDisplay } from '../components/ui/RichTextDisplay';
 import { EncounterMapView } from '../components/battlemap/EncounterMapView';
 import { useMapStateSync } from '../hooks/useMapStateSync';
-import { useBattleMapsStore } from '../store/useBattleMapsStore';
+import { EMPTY_MAPS, selectCampaignMaps, useBattleMapsStore } from '../store/useBattleMapsStore';
 import type { BoardCombatant } from '../components/battlemap/BattleMapBoard';
 import { squaresForSize } from '../types/battlemap';
-import type { EncounterMapState, BattleMap, MapToken } from '../types/battlemap';
+import type { EncounterMapState, MapToken } from '../types/battlemap';
 
-/** Stable empty array so the maps selector doesn't return a fresh [] each render
- *  and re-trigger every downstream memo/effect. */
-const EMPTY_MAPS: BattleMap[] = [];
+/** Stable empty array so the tokens reference doesn't change each render and
+ *  re-trigger every downstream memo/effect. (Maps use the store's shared
+ *  EMPTY_MAPS / selectCampaignMaps for the same reason.) */
 const EMPTY_TOKENS: MapToken[] = [];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -852,7 +852,7 @@ export function CampaignManagementPage() {
    *  after a reload can't quietly stream monster placements to the party. */
   const [mapLive, setMapLive] = useState(false);
   const campaignMaps = useBattleMapsStore(
-    (s) => (activeCampaign ? s.mapsByCampaign[activeCampaign.id] ?? EMPTY_MAPS : EMPTY_MAPS),
+    activeCampaign ? selectCampaignMaps(activeCampaign.id) : () => EMPTY_MAPS,
   );
 
   /** The initiative order projected into what the board needs to draw tokens.
