@@ -12,7 +12,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt', not 'autoUpdate': autoUpdate swaps the worker silently while the
+      // open page keeps running the old bundle, with nothing on screen to say so.
+      // UpdatePrompt.tsx surfaces it instead — the two must stay in sync, since
+      // under 'autoUpdate' the worker self-activates and `needRefresh` never fires.
+      registerType: 'prompt',
       includeAssets: ['favicon.ico', 'icons/*.png'],
       manifest: {
         name: 'D&D 4e Character Creator',
