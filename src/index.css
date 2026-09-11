@@ -192,3 +192,229 @@ body {
     background: white;
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────
+   Printable character sheet (CharacterSheetPrint.tsx)
+
+   On screen the print root is parked off-canvas rather than
+   `display: none`, so the browser still lays it out and resolves its
+   images before the print dialog opens — a display:none subtree can
+   reach the printer un-measured.
+   ────────────────────────────────────────────────────────────────── */
+.print-root {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 190mm;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #1c1917;
+  background: #fff;
+}
+
+@media print {
+  /* Print ONLY the sheet. The app shell, modals and the viewer itself are all
+     siblings of the print root under <body>. */
+  body > *:not(.print-root) {
+    display: none !important;
+  }
+
+  .print-root {
+    position: static;
+    left: auto;
+    width: auto;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  html, body {
+    background: #fff !important;
+  }
+
+  /* Without this, browsers drop background fills and the section headers,
+     power-card banners and trained-skill shading all print as blank white. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+.print-root .print-header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border-bottom: 2px solid #78350f;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+}
+.print-root .print-portrait {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #d6d3d1;
+}
+.print-root .print-header-text { flex: 1; min-width: 0; }
+.print-root .print-name {
+  font-size: 20pt;
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 0;
+}
+.print-root .print-subtitle {
+  font-size: 10pt;
+  color: #57534e;
+  margin: 2px 0 0;
+}
+
+.print-root .print-section {
+  margin: 10px 0;
+  /* Keep a heading from stranding at the foot of a page. */
+  break-inside: auto;
+}
+.print-root .print-h2 {
+  font-size: 11pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: #78350f;
+  padding: 3px 8px;
+  border-radius: 3px;
+  margin: 0 0 6px;
+  break-after: avoid;
+  display: flex;
+  justify-content: space-between;
+}
+.print-root .print-h2-sub { font-weight: 400; opacity: 0.8; }
+.print-root .print-h3 {
+  font-size: 9.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #78350f;
+  margin: 8px 0 3px;
+  break-after: avoid;
+}
+
+.print-root .print-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5pt;
+}
+.print-root .print-table th {
+  text-align: left;
+  font-size: 8pt;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #78716c;
+  border-bottom: 1px solid #d6d3d1;
+  padding: 2px 4px;
+}
+.print-root .print-table td {
+  padding: 2px 4px;
+  border-bottom: 1px solid #f5f5f4;
+}
+.print-root .print-num { text-align: right; font-variant-numeric: tabular-nums; }
+.print-root .print-muted { color: #78716c; }
+.print-root .print-trained { background: #fef3c7; font-weight: 600; }
+
+/* Skills are long and narrow — two columns uses the page far better. */
+.print-root .print-skills { break-inside: avoid; }
+
+.print-root .print-stat-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.print-root .print-stat {
+  flex: 1;
+  border: 1px solid #d6d3d1;
+  border-radius: 4px;
+  padding: 4px 6px;
+  text-align: center;
+}
+.print-root .print-stat span {
+  display: block;
+  font-size: 7.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #78716c;
+}
+.print-root .print-stat strong { font-size: 15pt; }
+
+.print-root .print-field-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px 10px;
+  margin: 4px 0;
+}
+.print-root .print-field { font-size: 9pt; }
+.print-root .print-field-label {
+  color: #78716c;
+  text-transform: uppercase;
+  font-size: 7.5pt;
+  letter-spacing: 0.03em;
+  margin-right: 4px;
+}
+.print-root .print-field-value { font-weight: 600; }
+
+.print-root .print-writein {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 9pt;
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px dashed #d6d3d1;
+}
+
+/* Power cards are reused from the app, so they arrive with Tailwind classes.
+   Constrain them for paper and stop one splitting across a page break. */
+.print-root .print-powers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.print-root .print-power {
+  break-inside: avoid;
+  font-size: 8.5pt;
+}
+.print-root .print-power * { max-width: 100%; }
+/* PowerCard truncates its title to one line, which is right on screen but loses
+   the name on a half-width printed card ("Combat Cha…"). On paper let it wrap. */
+.print-root .print-power .truncate {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.print-root .print-deflist { margin: 0; }
+.print-root .print-defitem {
+  break-inside: avoid;
+  margin-bottom: 4px;
+  font-size: 9pt;
+}
+.print-root .print-defitem dt { font-weight: 700; }
+.print-root .print-defitem dd { margin: 0 0 0 10px; color: #44403c; }
+
+.print-root .print-list {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 9pt;
+  columns: 2;
+}
+.print-root .print-list li { break-inside: avoid; }
+
+.print-root .print-para { font-size: 9pt; margin: 2px 0; }
+
+.print-root .print-footer {
+  margin-top: 12px;
+  padding-top: 5px;
+  border-top: 1px solid #d6d3d1;
+  font-size: 7.5pt;
+  color: #78716c;
+  text-align: center;
+}

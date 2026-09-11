@@ -26,6 +26,7 @@ import { MemberCard } from '../components/sharing/PartyRosterCards';
 import { NpcSection } from '../components/sharing/NpcSection';
 import type { CharacterSummary } from '../types/sharing';
 import { CharacterSheet } from '../components/sheet/CharacterSheet';
+import { usePrintCharacter } from '../components/sheet/usePrintCharacter';
 import { useRealtimeCampaign } from '../hooks/useRealtimeCampaign';
 import { useCampaignContentSync } from '../hooks/useCampaignContentSync';
 import { extractPublicContent, pushCampaignContent } from '../lib/campaignContentSync';
@@ -153,6 +154,10 @@ export function CampaignManagementPage() {
     viewingCharacter, viewingCharacterLoading, viewingCharacterError, fetchCharacterData, clearViewingCharacter,
   } = useSharingStore();
   const [viewingSummaryId, setViewingSummaryId] = useState<string | null>(null);
+
+  // Printable sheet for the read-only viewer. `printPortal` renders the paper
+  // layout off-screen; the print stylesheet is what actually reveals it.
+  const { print: printCharacter, printing, printPortal } = usePrintCharacter(viewingCharacter);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showDmLinkModal, setShowDmLinkModal] = useState(false);
@@ -2922,6 +2927,19 @@ export function CampaignManagementPage() {
                   tight, and an icon-only button leaves the name room to breathe. */}
               <span className="hidden sm:inline">Close</span>
             </button>
+            {/* Sits directly under Close, in the lane SheetHeader reserves via pr-28
+                when read-only. Disabled until the character data has loaded — there
+                is nothing to print before then. */}
+            <button
+              onClick={printCharacter}
+              disabled={!viewingCharacter || printing}
+              className="absolute top-[4.25rem] right-3 z-20 flex items-center justify-center gap-1.5 bg-white/90 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-stone-600 hover:text-stone-900 rounded-full text-sm font-semibold px-3 sm:px-3.5 min-h-[44px] min-w-[44px] shadow-md ring-1 ring-black/10 transition-colors"
+              title="Save or print this character sheet as a PDF"
+              aria-label="Save character sheet as PDF"
+            >
+              <span className="text-base leading-none" aria-hidden>\u2b07</span>
+              <span className="hidden sm:inline">{printing ? 'Preparing\u2026' : 'Save as PDF'}</span>
+            </button>
             <div className="flex-1 min-h-0 overflow-y-auto">
             {viewingCharacterLoading ? (
               <div className="flex items-center justify-center py-16 text-stone-400">Loading character sheet...</div>
@@ -2944,6 +2962,7 @@ export function CampaignManagementPage() {
             )}
             </div>
           </div>
+          {printPortal}
         </div>
       )}
 

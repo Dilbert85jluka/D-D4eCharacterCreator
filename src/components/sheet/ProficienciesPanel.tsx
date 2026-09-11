@@ -1,25 +1,9 @@
-import { getClassById } from '../../data/classes';
-import { getParagonPathById } from '../../data/paragonPaths';
 import type { Character } from '../../types/character';
-import { getWeaponProficiencyLabels } from '../../utils/proficiencies';
+import { getWeaponProficiencyLabels, getGearProficiencies } from '../../utils/proficiencies';
 
 interface Props {
   character: Character;
 }
-
-// ── Feat ID → proficiency mappings ────────────────────────────────────────────
-const FEAT_ARMOR: Record<string, string> = {
-  'armor-proficiency-leather':   'Leather',
-  'armor-proficiency-hide':      'Hide',
-  'armor-proficiency-chainmail': 'Chainmail',
-  'armor-proficiency-scale':     'Scale',
-  'armor-proficiency-plate':     'Plate',
-};
-
-const FEAT_SHIELD: Record<string, string> = {
-  'shield-proficiency-light': 'Light Shield',
-  'shield-proficiency-heavy': 'Heavy Shield',
-};
 
 // Weapon proficiencies are sourced from `getWeaponProficiencyLabels(character)` so that
 // the displayed list, the attack-bonus check in CombatActionsPanel, and any future
@@ -65,31 +49,12 @@ function ProficiencySection({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export function ProficienciesPanel({ character }: Props) {
-  const cls = getClassById(character.classId);
-
-  // Start with class base proficiencies for armor / shields / implements
-  // (Weapon list is built by the shared `getWeaponProficiencyLabels(character)` helper below
-  // so the panel display and the combat-attack-bonus check stay in sync.)
-  const armor      = new Set<string>(cls?.armorProficiencies ?? []);
-  const shields    = new Set<string>(cls?.shieldProficiency ? ['Shield'] : []);
-  const implements_ = new Set<string>(cls?.implements ?? []);
-
-  // Add proficiencies granted by feats
-  for (const featId of character.selectedFeatIds) {
-    if (FEAT_ARMOR[featId])  armor.add(FEAT_ARMOR[featId]);
-    if (FEAT_SHIELD[featId]) shields.add(FEAT_SHIELD[featId]);
-  }
-
-  // Add proficiencies from paragon path (level 11+)
-  if (character.level >= 11 && character.paragonPath) {
-    const path = getParagonPathById(character.paragonPath);
-    path?.bonuses?.extraArmorProficiencies?.forEach((p) => armor.add(p));
-  }
-
-  const armorList      = Array.from(armor);
-  const weaponList     = getWeaponProficiencyLabels(character);
-  const shieldList     = Array.from(shields);
-  const implementList  = Array.from(implements_);
+  // Armor / shields / implements (class + feat grants + paragon extras) and the
+  // weapon list both come from src/utils/proficiencies.ts, so this panel, the
+  // attack-bonus check in CombatActionsPanel and the printable sheet cannot drift.
+  const { armor: armorList, shields: shieldList, implements: implementList } =
+    getGearProficiencies(character);
+  const weaponList = getWeaponProficiencyLabels(character);
 
   return (
     <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
