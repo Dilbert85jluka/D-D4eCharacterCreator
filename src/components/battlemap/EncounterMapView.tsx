@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useBattleMapsStore } from '../../store/useBattleMapsStore';
+import { selectCampaignMaps, useBattleMapsStore } from '../../store/useBattleMapsStore';
 import type { BattleMap, EncounterMapState, MapToken } from '../../types/battlemap';
 import { BattleMapBoard, type BoardCombatant } from './BattleMapBoard';
 import { MapLibraryModal } from './MapLibraryModal';
@@ -39,7 +39,7 @@ export function EncounterMapView({
   onToggleLive,
   className = '',
 }: EncounterMapViewProps) {
-  const maps = useBattleMapsStore((s) => s.mapsByCampaign[campaignId] ?? []);
+  const maps = useBattleMapsStore(selectCampaignMaps(campaignId));
   const loadByCampaign = useBattleMapsStore((s) => s.loadByCampaign);
   const updateGrid = useBattleMapsStore((s) => s.updateGrid);
 
