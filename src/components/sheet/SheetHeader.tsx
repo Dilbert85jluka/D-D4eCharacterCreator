@@ -223,7 +223,10 @@ export function SheetHeader({ character, derived }: Props) {
       <>
       {/* Keep any in-flight dice alive if the banner is minimized mid-roll */}
       {animationEl}
-      <div className="bg-amber-950 text-white px-3 py-1.5 sticky top-0 z-10">
+      {/* In read-only views the host (campaign sheet viewer) floats a Close button in
+          the top-right corner, so reserve that corner rather than letting the banner's
+          own controls sit underneath it. */}
+      <div className={`bg-amber-950 text-white pl-3 ${readOnly ? 'pr-16 sm:pr-28' : 'pr-3'} py-1.5 sticky top-0 z-10`}>
         <div className="max-w-4xl mx-auto flex items-center gap-2">
           <div className="w-7 h-7 rounded-md bg-amber-700 flex-shrink-0 flex items-center justify-center text-sm overflow-hidden">
             {character.portrait
@@ -251,7 +254,9 @@ export function SheetHeader({ character, derived }: Props) {
       {/* Rendered OUTSIDE the sticky banner: `sticky` + `z-10` creates a stacking
           context, which would trap the z-30 overlay inside the header's layer. */}
       {animationEl}
-      <div className="bg-amber-950 text-white px-4 py-4 sticky top-0 z-10">
+      {/* pr-28 when read-only: reserves the top-right corner for the viewer's Close
+          button so it never lands on top of the Info / Min toggles. */}
+      <div className={`bg-amber-950 text-white pl-4 ${readOnly ? 'pr-16 sm:pr-28' : 'pr-4'} py-4 sticky top-0 z-10`}>
         <div className="max-w-4xl mx-auto">
 
           {/* ── Top row: portrait · name · right-side controls ── */}
@@ -293,7 +298,10 @@ export function SheetHeader({ character, derived }: Props) {
                 />
               ) : (
                 <h1
-                  className="text-2xl font-bold text-white leading-tight cursor-pointer hover:text-amber-200 transition-colors"
+                  /* min-w-0 + truncate: without them a long name can't shrink, so the
+                     justify-between row overflows and shoves the Info / Min toggles past
+                     the banner's right padding (and off-screen on a phone). */
+                  className="text-2xl font-bold text-white leading-tight cursor-pointer hover:text-amber-200 transition-colors min-w-0 truncate"
                   onClick={startEditName}
                   title="Click to edit name"
                 >
