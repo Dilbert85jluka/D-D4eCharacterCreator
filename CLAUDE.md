@@ -729,6 +729,47 @@ Dexie stays primary (fast, offline). Supabase `user_characters`, `user_campaigns
 **Campaign sync — per-campaign diff:** `useCampaignCloudSync` keeps a Map of per-campaign fingerprints (`campaign.updatedAt` + every session's / encounter's / NPC's `updatedAt`). On any change, only campaigns whose fingerprint changed are pushed. Previous combined-hash approach pushed every campaign on every edit (wasteful on Supabase free tier). Also watches `sessionsByCampaign`, `encountersBySession`, and `npcsByCampaign` from their stores — required because a session/encounter/NPC edit does **not** bump the parent campaign's `updatedAt`. Baseline hash capture waits for the NPC store's `hasLoaded` so the async NPC load doesn't register as a spurious change. After the startup pull attempt completes (success or failure), the hook sets `useCampaignsStore.cloudPullDone = true` — content-push hooks gate on this flag.
 **Campaign merge — per-record:** `mergeCloudCampaigns()` in `useCampaignsStore` merges sessions, encounters, and NPCs **per-record** by their own `updatedAt`, not by the parent campaign's. Previously merge was gated on `cloudCampaign.updatedAt > local.updatedAt` — which meant if only a session or encounter had changed (common case), the parent campaign's timestamp was unchanged and incoming session/encounter updates were silently dropped. Now each session/encounter/NPC is evaluated individually, and the sessions/encounters/NPC stores are force-reloaded after merge. Logs counts: `[mergeCloudCampaigns] Wrote N campaign(s), N session(s), N encounter(s), N NPC(s) from cloud`.
 
+### RULE: cloud-push hooks must push ONLY what changed
+
+**This bug has now shipped twice** — in `useCharacterCloudSync` and again, identically,
+in `useHomebrewCloudSync`. It drained the Supabase Disk IO budget hard enough to make
+the instance unresponsive (522/504 from PostgREST). Do not write a third one.
+
+The broken shape, in both cases:
+
+```ts
+const currentHash = JSON.stringify(items.map(i => ({ id: i.id, u: i.updatedAt })));
+if (currentHash === prevHashRef.current) return;
+prevHashRef.current = currentHash;
+for (const item of items) { /* pushes EVERYTHING */ }
+```
+
+Two failures compound:
+1. **Any** change pushes **every** record. One HP tick re-uploaded 26 characters' full
+   JSON — portraits included, 30–50 KB each, ~1 MB per edit.
+2. `prevHashRef` starts empty, so the first run after the startup pull always differs —
+   meaning **every app launch re-uploaded the entire table**. That's the one that hurt:
+   16 launches between 00:02 and 01:10 produced 16 bursts of 26 upserts, and checkpoint
+   writes went from 11–24 buffers / 1–2 s to 62–116 buffers / 6–12 s.
+
+The correct shape (see `useCharacterCloudSync` / `useHomebrewCloudSync`, and the
+per-campaign fingerprints in `useCampaignCloudSync`):
+
+```ts
+const changed = items.filter(i => prevStampsRef.current.get(i.id) !== i.updatedAt);
+prevStampsRef.current = new Map(items.map(i => [i.id, i.updatedAt]));  // BEFORE any early return
+if (!baselineCapturedRef.current) { baselineCapturedRef.current = true; return; }  // cold start pushes nothing
+if (changed.length === 0) return;
+for (const item of changed) { /* push only these */ }
+```
+
+**Diagnosing a recurrence:** export Supabase edge logs and group POSTs by path and
+second. Near-simultaneous bursts whose size equals your record count for that table is
+this bug. Bursts landing at irregular intervals with no one playing are app launches,
+not edits — check `logical decoding found consistent point` in the Postgres logs to
+confirm (one per page load).
+
+
 ### Supabase RLS Notes
 
 - `shared_campaigns` and `campaign_members` SELECT policies use `USING (true)` (any authenticated user can see) — safe because app is IP whitelisted for friend group
