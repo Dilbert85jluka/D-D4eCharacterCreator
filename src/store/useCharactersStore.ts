@@ -39,8 +39,29 @@ export const useCharactersStore = create<CharactersState>((set, get) => ({
   },
 
   updateCharacter: (char) => {
+    // Stamp updatedAt here rather than trusting the caller.
+    //
+    // Every sheet panel follows `characterRepository.patch(id, changes)` then
+    // `updateCharacter({ ...character, ...changes })`. patch() stamps a fresh
+    // updatedAt in Dexie, but the hand-built object passed here still carries
+    // the OLD one — so the store and the database disagreed about when the
+    // character last changed.
+    //
+    // That silently broke cross-device sync: useCharacterCloudSync decides what
+    // to push by comparing each character's updatedAt IN THE STORE, so an edit
+    // that only moved Dexie's copy was never pushed at all. A level-up would
+    // reach the campaign roster (useCharacterSync also watches derived.maxHp,
+    // which changes) while the full character stayed stranded on one device.
+    //
+    // Stamping at the single place every edit funnels through fixes all 19 call
+    // sites at once, and the next one can't reintroduce it. The cloud push reads
+    // the authoritative record back from Dexie, so the millisecond of drift
+    // between this stamp and patch()'s never reaches Supabase — see
+    // useCharacterCloudSync.
     set((s) => ({
-      characters: s.characters.map((c) => (c.id === char.id ? char : c)),
+      characters: s.characters.map((c) =>
+        c.id === char.id ? { ...char, updatedAt: Date.now() } : c,
+      ),
     }));
   },
 

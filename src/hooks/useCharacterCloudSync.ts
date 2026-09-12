@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useCharactersStore } from '../store/useCharactersStore';
 import { pushCharacterToCloud, pullAllCharactersFromCloud } from '../lib/characterCloudService';
 import { createSyncDebouncer } from '../lib/summarySync';
+import { characterRepository } from '../db/characterRepository';
 
 /**
  * Cloud character sync hook.
@@ -34,6 +35,37 @@ export function useCharacterCloudSync() {
         const cloudChars = await pullAllCharactersFromCloud(user.id);
         if (cloudChars.length > 0) {
           await mergeCloudCharacters(cloudChars);
+        }
+
+        // ── Reconcile the other direction ──
+        // The pull alone is not enough. The push effect captures a baseline on
+        // its first run WITHOUT pushing (so a launch doesn't re-upload the whole
+        // table), which means any edit that failed to push while the app was
+        // last open is stranded in Dexie forever: on the next launch it is just
+        // part of the baseline. Characters edited offline land in the same trap.
+        //
+        // So after pulling, push anything where the local record is genuinely
+        // newer than the cloud's, or absent from the cloud entirely. Bounded by
+        // an actual timestamp comparison, this is a no-op on a synced device —
+        // it does not reintroduce per-launch write amplification.
+        const cloudStamps = new Map(cloudChars.map((c) => [c.id, c.updatedAt]));
+        const locals = await characterRepository.getAll();
+        const stale = locals.filter((l) => {
+          const cloudStamp = cloudStamps.get(l.id);
+          return cloudStamp === undefined || l.updatedAt > cloudStamp;
+        });
+
+        if (stale.length > 0) {
+          console.info(
+            `[useCharacterCloudSync] Pushing ${stale.length} character(s) newer locally than in the cloud`,
+          );
+          for (const char of stale) {
+            try {
+              await pushCharacterToCloud(char, user.id);
+            } catch (err) {
+              console.warn('[useCharacterCloudSync] Reconcile push failed for', char.name, err);
+            }
+          }
         }
       } catch {
         // Offline or error — silent fail; local data works fine
@@ -79,7 +111,17 @@ export function useCharacterCloudSync() {
       const { debounce } = debouncersRef.current.get(char.id)!;
       debounce(async () => {
         try {
-          await pushCharacterToCloud(char, user.id);
+          // Push the record from DEXIE, not the store copy. The store's
+          // updatedAt is stamped by updateCharacter a beat after
+          // characterRepository.patch stamps Dexie's, so the two differ by a
+          // millisecond or so. Pushing the store copy would put the newer of
+          // the two in Supabase, and every subsequent startup pull would then
+          // see cloud-newer-than-local and rewrite the identical record — a
+          // write per character per app launch, which is precisely the
+          // amplification pattern documented in CLAUDE.md. Dexie is the
+          // authority; the store copy only decides *whether* to push.
+          const fresh = await characterRepository.getById(char.id);
+          await pushCharacterToCloud(fresh ?? char, user.id);
         } catch {
           // Offline — silent fail; will push on next change
         }
