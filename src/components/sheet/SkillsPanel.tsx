@@ -21,6 +21,30 @@ interface SkillRoll {
   total: number;
 }
 
+/**
+ * The bonus, itemised. Shared by the hover tooltip and the tap-triggered result
+ * card so the two can never disagree about where a number came from.
+ *
+ * Feat bonuses come through `featBonusDetails`, which is already labelled per
+ * feat upstream — so a Bard with Bardic Knowledge sees "Bardic Knowledge +2"
+ * rather than an unexplained lump.
+ */
+function buildBreakdownRows(
+  skill: SkillData,
+  b: SkillBreakdown,
+): { label: string; value: string }[] {
+  const rows: { label: string; value: string }[] = [
+    { label: ABILITY_ABBR[skill.keyAbility as Ability], value: formatModifier(b.abilityMod) },
+    { label: '½ level', value: `+${b.halfLevel}` },
+  ];
+  if (b.trainedBonus > 0) rows.push({ label: 'Trained', value: `+${b.trainedBonus}` });
+  if (b.racialBonus !== 0) rows.push({ label: 'Racial', value: formatModifier(b.racialBonus) });
+  for (const d of b.featBonusDetails) rows.push({ label: d.label, value: `+${d.bonus}` });
+  if (b.itemBonus > 0) rows.push({ label: b.itemBonusSource ?? 'Magic Armor', value: `+${b.itemBonus}` });
+  if (b.armorPenalty > 0) rows.push({ label: 'Armor', value: `−${b.armorPenalty}` });
+  return rows;
+}
+
 function buildTooltip(skill: SkillData, breakdown: SkillBreakdown): string {
   const lines: string[] = [skill.name];
   lines.push(`Ability (${ABILITY_ABBR[skill.keyAbility as Ability]}): ${formatModifier(breakdown.abilityMod)}`);
@@ -138,6 +162,23 @@ export function SkillsPanel({ character, derived }: Props) {
                       </span>
                     )}
                   </div>
+
+                  {/* Where the bonus came from.
+                      This breakdown already existed, but only as a `title` tooltip on
+                      the row — which needs a mouse. On the tablet this app is built
+                      for there is no hover, so the bonus was a bare number with no way
+                      to see what fed it. Showing it in the tap-triggered result card
+                      puts it where it is actually reachable. */}
+                  {breakdown && (
+                    <div className="mt-2 pt-2 border-t border-amber-200 flex flex-wrap gap-x-3 gap-y-0.5">
+                      {buildBreakdownRows(skill, breakdown).map((row) => (
+                        <span key={row.label} className="text-[11px] leading-tight whitespace-nowrap">
+                          <span className="text-amber-700/70">{row.label}</span>{' '}
+                          <span className="font-semibold text-amber-900">{row.value}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
