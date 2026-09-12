@@ -261,6 +261,7 @@ const OFFICIAL_FEATS: FeatData[] = [
     tier: 'Heroic',
     prerequisites: { trainedSkill: ["acrobatics"] },
     benefit: `You can attempt to escape a grab as a minor action, instead of as a move action. You also gain a +2 feat bonus to Acrobatics checks.`,
+    bonuses: { skills: { acrobatics: 2 } },
     special: "Trained in Acrobatics",
   },
   {
@@ -459,6 +460,7 @@ const OFFICIAL_FEATS: FeatData[] = [
     tier: 'Heroic',
     prerequisites: { race: ["elf"] },
     benefit: `For the purpose of hourly or daily travel rates, add 1 to your overland speed and the speed of all allies in your traveling group. Add 5 to the DC required to find or follow your tracks. If traveling with allies, you can share this benefit with up to five other characters. You gain a +1 feat bonus to Acrobatics checks and Stealth checks.`,
+    bonuses: { skills: { acrobatics: 1, stealth: 1 } },
     special: "Elf",
   },
   {
@@ -483,6 +485,7 @@ const OFFICIAL_FEATS: FeatData[] = [
     tier: 'Heroic',
     prerequisites: { trainedSkill: ["athletics"] },
     benefit: `You can make all long jumps as if you had a running start. You also gain a +1 feat bonus to Athletics checks.`,
+    bonuses: { skills: { athletics: 1 } },
     special: "Trained in Athletics",
   },
   {
@@ -724,6 +727,7 @@ const OFFICIAL_FEATS: FeatData[] = [
     tier: 'Heroic',
     prerequisites: { trainedSkill: ["athletics"] },
     benefit: `A successful Athletics check allows you to climb at your normal speed, rather than half speed. You also gain a +1 feat bonus to Athletics checks.`,
+    bonuses: { skills: { athletics: 1 } },
     special: "Trained in Athletics",
   },
   {
@@ -1388,6 +1392,7 @@ const OFFICIAL_FEATS: FeatData[] = [
     tier: 'Heroic',
     prerequisites: { class: ['bard'] },
     benefit: `You gain a +2 feat bonus to Arcana, Dungeoneering, History, Nature, Religion, and Streetwise checks.`,
+    bonuses: { skills: { arcana: 2, dungeoneering: 2, history: 2, nature: 2, religion: 2, streetwise: 2 } },
     special: 'Bard',
   },
   {
@@ -1413,6 +1418,7 @@ const OFFICIAL_FEATS: FeatData[] = [
     tier: 'Heroic',
     prerequisites: { trainedSkill: ['heal'] },
     benefit: `You can administer first aid to stabilize a dying creature as a minor action, instead of a standard action. Also, you gain a +2 feat bonus to Heal checks. Player's Handbook 2, page(s) 184, Heroes of the Fallen Lands, page(s) 311, Heroes of the Forgotten Kingdoms, page(s) 311.`,
+    bonuses: { skills: { heal: 2 } },
     special: 'Training in Heal',
   },
   {
@@ -1870,6 +1876,7 @@ const OFFICIAL_FEATS: FeatData[] = [
     tier: 'Heroic',
     prerequisites: { race: ['shifter'] },
     benefit: `Whenever you make a Perception check to find tracks, you roll twice and use either result. You also gain a +3 feat bonus to initiative checks.`,
+    bonuses: { initiative: 3 },
     special: 'Shifter',
   },
   {
@@ -3820,6 +3827,7 @@ const OFFICIAL_FEATS: FeatData[] = [
     tier: 'Heroic',
     prerequisites: { trainedSkill: ['arcana'] },
     benefit: `You gain a +2 feat bonus to Bluff checks and Diplomacy checks. In addition, you can speak, read, and write Elven.`,
+    bonuses: { skills: { bluff: 2, diplomacy: 2 } },
     special: 'Training in Arcana',
   },
   {
