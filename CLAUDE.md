@@ -189,7 +189,7 @@ interface EquipmentItem {
 
 interface Character {
   id: string;
-  createdAt / updatedAt: string;   // ISO timestamps
+  createdAt / updatedAt: number;   // epoch millis (Date.now()), NOT ISO strings
   // Basic info
   name, playerName, raceId, classId: string;
   level: number;                   // 1–30
@@ -662,6 +662,27 @@ const patch = async (changes: Partial<Character>) => {
   updateCharacter({ ...character, ...changes });  // Update Zustand store too
 };
 ```
+
+**Do NOT hand-build `updatedAt` here, and do not remove the stamp inside
+`useCharactersStore.updateCharacter`.** `characterRepository.patch()` stamps a fresh
+`updatedAt` in Dexie, but `{ ...character, ...changes }` still carries the OLD one — so
+for a long time the store and the database disagreed about when a character last changed.
+`useCharacterCloudSync` decides what to push by comparing `updatedAt` **in the store**, so
+an edit that only moved Dexie's copy was never pushed at all: a level-up reached the
+campaign roster (`useCharacterSync` also watches `derived.maxHp`, which changes) while the
+full character stayed stranded on the device that made it. `updateCharacter` now stamps
+`updatedAt` itself, which fixes all ~20 call sites at once and stops the next one
+reintroducing it.
+
+The two stamps differ by a few milliseconds, so **the cloud push reads the record back from
+Dexie** rather than uploading the store copy. Pushing the store copy would make the cloud
+permanently newer than local, and every startup pull would rewrite the identical record —
+the write-amplification pattern described above.
+
+`useCharacterCloudSync` also reconciles on startup: after pulling, it pushes any character
+whose local `updatedAt` is newer than the cloud's (or missing from the cloud). Without that,
+an edit that failed to push while the app was last open is stranded forever, because the
+push effect captures its baseline on first run without pushing.
 
 ---
 ## Supabase Backend (Multi-User Campaign Sharing)
