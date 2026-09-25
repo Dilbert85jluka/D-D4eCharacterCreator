@@ -18,6 +18,7 @@ import { parseMagicImplementPower } from '../../utils/magicImplementPowers';
 import { MAGIC_ITEMS } from '../../data/equipment/magicItems';
 import { parseMagicItemPower } from '../../utils/magicItemPowers';
 import { isFullDisciplinePower, extractMovementTechnique } from '../../utils/fullDiscipline';
+import { getMcGrantedPowers } from '../../utils/multiclass';
 
 const PAGE_SIZE = 9;
 
@@ -35,6 +36,11 @@ export function QuickTrayPanel({ character }: Props) {
   const trayIds = character.quickTrayPowerIds ?? [];
 
   // Build a map of dynamically-generated equipment powers from equipped items
+  const mcGrantedMap = useMemo(
+    () => new Map(getMcGrantedPowers(character).map((p) => [p.id, p])),
+    [character],
+  );
+
   const equipmentPowerMap = useMemo(() => {
     const map = new Map<string, PowerData>();
     for (const item of character.equipment) {
@@ -87,6 +93,13 @@ export function QuickTrayPanel({ character }: Props) {
 
   // Resolve a power ID — standard DB → equipment map → Full Discipline movement technique
   const resolvePower = (id: string): PowerData | undefined => {
+    // Checked BEFORE getPowerById: a multiclass-granted power shares its id
+    // with the secondary class's own copy, and only this version carries the
+    // usage the feat grants it at (Arcane Initiate's wizard at-will is an
+    // encounter power here). Looking it up by id first would pin the at-will
+    // and lose the once-per-encounter toggle.
+    const mcGranted = mcGrantedMap.get(id);
+    if (mcGranted) return mcGranted;
     const direct = getPowerById(id) ?? equipmentPowerMap.get(id);
     if (direct) return direct;
     // Full Discipline movement technique: ID ends with '-mt', parent is the base ID

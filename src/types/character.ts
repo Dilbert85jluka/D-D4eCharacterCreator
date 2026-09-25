@@ -169,6 +169,13 @@ export interface Character {
   mcFeatSkillChoices: Record<string, string>;
   /** Maps featId → chosen proficiency string for MC feats granting a proficiency choice */
   mcFeatProficiencyChoices: Record<string, string>;
+  /**
+   * Maps featId → chosen power ID for MC feats that let you pick a power from
+   * the secondary class (Arcane Initiate: "Choose a 1st-level wizard at-will
+   * power"). Keyed by feat id alone, which is why at most one entry in a
+   * feat's `mcGrantedPowers` may carry a `choose`.
+   */
+  mcFeatPowerChoices?: Record<string, string>;
   /** Maps index (among SIT feat instances in selectedFeatIds) → equipment instanceId for Superior Implement Training. */
   superiorImplementChoices?: Record<number, string>;
 

@@ -60,6 +60,13 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in the Arcana skill. Choose a 1st-level wizard at-will power. You can use that power once per encounter. In addition, you can use wizard implements.`,
     special: "Int 13",
     multiclassFor: 'wizard',
+    mcGrantedPowers: [
+      {
+        usage: 'encounter',
+        label: 'Arcane Initiate — Wizard at-will',
+        choose: { classId: 'wizard', fromUsage: 'at-will', maxLevel: 1 },
+      },
+    ],
     mcFixedSkill: 'arcana',
   },
   {
@@ -402,6 +409,9 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in the Religion skill. Once per day, you can use the cleric's healing word power. In addition, you can use a holy symbol as an implement.`,
     special: "Wis 13",
     multiclassFor: 'cleric',
+    mcGrantedPowers: [
+      { usage: 'daily', powerId: 'cleric-healing-word', label: 'Initiate of the Faith — Healing Word' },
+    ],
     mcFixedSkill: 'religion',
   },
   {
@@ -549,6 +559,14 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in one skill from the warlock's class skill list. Choose a warlock pact. You gain the pact's at-will power as an encounter power, and you can pursue the warlock paragon path based on that pact. In addition, you can use a rod, a wand, or a pact blade as an implement.`,
     special: "Cha 13",
     multiclassFor: 'warlock',
+    mcGrantedPowers: [
+      {
+        usage: 'encounter',
+        label: 'Pact Initiate — Warlock pact at-will',
+        note: 'Choose the at-will power belonging to your chosen pact.',
+        choose: { classId: 'warlock', fromUsage: 'at-will', maxLevel: 1, attackOnly: true },
+      },
+    ],
     mcFixedSkill: 'arcana',
   },
   {
@@ -699,6 +717,9 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in one skill from the paladin's class skill list. Once per encounter, you can use the paladin's divine challenge power. In addition, you can use a holy symbol or a holy avenger as an implement.`,
     special: "Str 13, Cha 13",
     multiclassFor: 'paladin',
+    mcGrantedPowers: [
+      { usage: 'encounter', powerId: 'paladin-divine-challenge', label: 'Soldier of the Faith — Divine Challenge' },
+    ],
     mcFixedSkill: 'religion',
   },
   {
@@ -709,6 +730,9 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in one skill from the warlord's class skill list. Once per day, you can use the warlord's inspiring word power.`,
     special: "Str 13",
     multiclassFor: 'warlord',
+    mcGrantedPowers: [
+      { usage: 'daily', powerId: 'warlord-inspiring-word', label: 'Student of Battle — Inspiring Word' },
+    ],
     mcFixedSkill: 'history',
   },
   {
@@ -1335,6 +1359,13 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in Religion. Choose a 1st-level invoker at-will attack power. You can use that power once per encounter. In addition, you can wield invoker implements.`,
     special: 'Wis 13',
     multiclassFor: 'invoker',
+    mcGrantedPowers: [
+      {
+        usage: 'encounter',
+        label: 'Acolyte of Divine Secrets — Invoker at-will',
+        choose: { classId: 'invoker', fromUsage: 'at-will', maxLevel: 1, attackOnly: true },
+      },
+    ],
   },
   {
     id: 'advantage-of-cunning',
@@ -1385,6 +1416,9 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in one skill from the bard's class skills list. Once per day, you can use the bard's majestic word power. In addition, you can wield bard implements.`,
     special: 'Cha 13',
     multiclassFor: 'bard',
+    mcGrantedPowers: [
+      { usage: 'daily', powerId: 'bard-majestic-word', label: 'Bardic Dilettante — Majestic Word' },
+    ],
   },
   {
     id: 'bardic-knowledge',
@@ -1461,6 +1495,14 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in Religion. Once per encounter, you can use the avenger's oath of enmity power. The effect lasts until the end of your next turn. In addition, you can wield avenger implements.`,
     special: 'Wis 13',
     multiclassFor: 'avenger',
+    mcGrantedPowers: [
+      {
+        usage: 'encounter',
+        powerId: 'avenger-oath-of-enmity',
+        label: 'Disciple of Divine Wrath — Oath of Enmity',
+        note: 'The effect lasts until the end of your next turn.',
+      },
+    ],
   },
   {
     id: 'disciplined-wild-soul',
@@ -1619,6 +1661,17 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in Nature. You gain the druid's wild shape power. Choose a 1st-level druid at-will attack power that has the beast form keyword. You can use that power once per encounter. In addition, you can wield druid implements.`,
     special: 'Wis 13',
     multiclassFor: 'druid',
+    mcGrantedPowers: [
+      { usage: 'at-will', powerId: 'druid-wild-shape', label: "Initiate of the Old Faith — Wild Shape" },
+      {
+        usage: 'encounter',
+        label: 'Initiate of the Old Faith — Druid beast form at-will',
+        choose: {
+          classId: 'druid', fromUsage: 'at-will', maxLevel: 1,
+          attackOnly: true, requiredKeyword: 'Beast Form',
+        },
+      },
+    ],
   },
   {
     id: 'insightful-preservation',
@@ -1808,6 +1861,23 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in Nature. You gain the shaman's call spirit companion power, but you use it as a standard action. Choose a Companion Spirit option. You gain the at-will shaman power associated with that option, such as spirit's shield or spirit's fang, as an encounter power. You gain speak with spirits as a daily power. In addition, you can wield shaman implements.`,
     special: 'Wis 13',
     multiclassFor: 'shaman',
+    mcGrantedPowers: [
+      {
+        usage: 'at-will',
+        powerId: 'shaman-call-spirit-companion',
+        label: 'Spirit Talker — Call Spirit Companion',
+        note: 'You use this power as a standard action.',
+      },
+      {
+        usage: 'encounter',
+        label: 'Spirit Talker — Companion Spirit at-will',
+        choose: {
+          classId: 'shaman',
+          powerIds: ['shaman-spirits-shield', 'shaman-spirits-fangs'],
+        },
+      },
+      { usage: 'daily', powerId: 'shaman-speak-with-spirits', label: 'Spirit Talker — Speak with Spirits' },
+    ],
   },
   {
     id: 'stalker-spirit-adept',
@@ -2543,6 +2613,14 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in one skill from the battlemind's class skills list. Once per encounter, you can use the battlemind's demand power, but the mark lasts until the end of your next turn.`,
     special: 'Con 13',
     multiclassFor: 'battlemind',
+    mcGrantedPowers: [
+      {
+        usage: 'encounter',
+        powerId: 'battlemind-battleminds-demand',
+        label: "Demanding Talent — Battlemind's Demand",
+        note: 'The mark lasts until the end of your next turn.',
+      },
+    ],
   },
   {
     id: 'directed-bull-rush',
@@ -2567,6 +2645,14 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in one skill from the psion's class skills list. Choose one 1st-level psion at-will attack power. You can use that power once per encounter, and you can't augment it. In addition, you can wield psion implements.`,
     special: 'Int 13',
     multiclassFor: 'psion',
+    mcGrantedPowers: [
+      {
+        usage: 'encounter',
+        label: 'Disciplined Talent — Psion at-will',
+        note: "You can't augment this power.",
+        choose: { classId: 'psion', fromUsage: 'at-will', maxLevel: 1, attackOnly: true },
+      },
+    ],
   },
   {
     id: 'elated-emotions',
@@ -2592,6 +2678,9 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in one skill from the ardent's class skills list. Once per day, you can use the ardent's ardent surge power.`,
     special: 'Cha 13',
     multiclassFor: 'ardent',
+    mcGrantedPowers: [
+      { usage: 'daily', powerId: 'ardent-ardent-surge', label: 'Fervent Talent — Ardent Surge' },
+    ],
   },
   {
     id: 'focused-mind',
@@ -2761,6 +2850,16 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in one skill from the monk's class skills list. Choose one of the monk's Flurry of Blows powers. You can use that power once per encounter. In addition, you can wield ki focuses.`,
     special: 'Dex 13',
     multiclassFor: 'monk',
+    mcGrantedPowers: [
+      {
+        usage: 'encounter',
+        label: 'Monastic Disciple — Flurry of Blows',
+        choose: {
+          classId: 'monk',
+          powerIds: ['monk-centered-flurry-of-blows', 'monk-stone-fist-flurry-of-blows'],
+        },
+      },
+    ],
   },
   {
     id: 'nimble-runner',
@@ -2823,6 +2922,19 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in Nature. Once per day, you can use the seeker's inevitable shot power. You don't regain the use of that power when you spend an action point. Choose one 1st-level seeker at-will attack power. You can use that power once per encounter.`,
     special: 'Wis 13',
     multiclassFor: 'seeker',
+    mcGrantedPowers: [
+      {
+        usage: 'daily',
+        powerId: 'seeker-inevitable-shot',
+        label: 'Primal Sharpshooter — Inevitable Shot',
+        note: "You don't regain the use of this power when you spend an action point.",
+      },
+      {
+        usage: 'encounter',
+        label: 'Primal Sharpshooter — Seeker at-will',
+        choose: { classId: 'seeker', fromUsage: 'at-will', maxLevel: 1, attackOnly: true },
+      },
+    ],
   },
   {
     id: 'prime-burst',
@@ -2995,6 +3107,9 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in Religion. Once per day, you can use the runepriest's rune of mending power.`,
     special: 'Str 13',
     multiclassFor: 'runepriest',
+    mcGrantedPowers: [
+      { usage: 'daily', powerId: 'runepriest-rune-of-mending', label: 'Student of Divine Runes — Rune of Mending' },
+    ],
   },
   {
     id: 'superior-implement-training',
@@ -3878,6 +3993,9 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in the Nature skill. You also gain the protector druid's nature's growth power, but you can use it only once per day. In addition, you gain proficiency with the staff and totem implements.`,
     special: 'Wis 13',
     multiclassFor: 'druid',
+    mcGrantedPowers: [
+      { usage: 'daily', powerId: 'druid-natures-growth', label: "Harbinger of Nature's Wrath — Nature's Growth" },
+    ],
   },
   {
     id: 'hotf-high-elf-kin',
@@ -3904,6 +4022,14 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in a skill of your choice from the bard's list of class skills. You also gain the skald bard's skald's aura power. The aura's healing benefit can be used only once per day. In addition, you gain proficiency with the wand implement.`,
     special: 'Cha 13',
     multiclassFor: 'bard',
+    mcGrantedPowers: [
+      {
+        usage: 'daily',
+        powerId: 'bard-skalds-aura',
+        label: "Master of Stories — Skald's Aura",
+        note: "The aura's healing benefit can be used only once per day.",
+      },
+    ],
   },
   {
     id: 'hotf-natures-roots',
@@ -4064,6 +4190,13 @@ export function featMeetsPrerequisites(
   abilityScores?: Record<string, number>,
   deity?: string,
 ): boolean {
+  // A multiclass feat buys a taste of ANOTHER class. Taking your own class's
+  // one re-grants powers you already have (Arcane Initiate would hand a wizard
+  // a wizard at-will "once per encounter"), so it is never a legal pick.
+  // The compendium encodes this in prose rather than a prerequisite field,
+  // which is why it has to be checked here instead of in the feat data.
+  if (feat.multiclassFor && feat.multiclassFor === classId) return false;
+
   const p = feat.prerequisites;
   if (p.minLevel && level < p.minLevel) return false;
   if (p.race?.length && !p.race.includes(raceId)) return false;
