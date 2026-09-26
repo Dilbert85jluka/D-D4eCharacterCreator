@@ -39,6 +39,7 @@ function buildBreakdownRows(
   ];
   if (b.trainedBonus > 0) rows.push({ label: 'Trained', value: `+${b.trainedBonus}` });
   if (b.racialBonus !== 0) rows.push({ label: 'Racial', value: formatModifier(b.racialBonus) });
+  if (b.classBonus > 0) rows.push({ label: b.classBonusSource ?? 'Class', value: `+${b.classBonus}` });
   for (const d of b.featBonusDetails) rows.push({ label: d.label, value: `+${d.bonus}` });
   if (b.itemBonus > 0) rows.push({ label: b.itemBonusSource ?? 'Magic Armor', value: `+${b.itemBonus}` });
   if (b.armorPenalty > 0) rows.push({ label: 'Armor', value: `−${b.armorPenalty}` });
@@ -51,6 +52,9 @@ function buildTooltip(skill: SkillData, breakdown: SkillBreakdown): string {
   lines.push(`Half Level: +${breakdown.halfLevel}`);
   if (breakdown.trainedBonus > 0) lines.push(`Trained: +${breakdown.trainedBonus}`);
   if (breakdown.racialBonus !== 0) lines.push(`Racial Bonus: ${formatModifier(breakdown.racialBonus)}`);
+  if (breakdown.classBonus > 0) {
+    lines.push(`${breakdown.classBonusSource ?? 'Class'}: +${breakdown.classBonus}`);
+  }
   if (breakdown.featBonusDetails.length > 0) {
     for (const detail of breakdown.featBonusDetails) {
       lines.push(`${detail.label}: +${detail.bonus}`);
@@ -102,7 +106,11 @@ export function SkillsPanel({ character, derived }: Props) {
           const isTrained = character.trainedSkills.includes(skill.id);
           const breakdown = derived.skillBreakdowns?.[skill.id];
           const bonus = breakdown?.total ?? derived.skillBonuses[skill.id] ?? 0;
-          const isJoaT = !isTrained && (breakdown?.featBonus ?? 0) > 0;
+          // "Untrained but boosted" — the half-filled dot. Counts the class
+          // feature too (Bard's Skill Versatility), not just feat bonuses,
+          // or a bard's untrained skills show a plain grey dot while carrying
+          // a bonus.
+          const isJoaT = !isTrained && ((breakdown?.featBonus ?? 0) + (breakdown?.classBonus ?? 0)) > 0;
 
           // Dot: solid amber (trained) | half amber/gray (JoAT untrained) | gray (untrained)
           const dotStyle: React.CSSProperties = isTrained

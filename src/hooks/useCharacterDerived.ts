@@ -497,6 +497,7 @@ export function deriveCharacterStats(character: Character): DerivedStats {
 
     // Skills
     const hasJoaT = character.selectedFeatIds.includes('jack-of-all-trades');
+    const classUntrainedSkillBonus = cls?.untrainedSkillBonus ?? 0;
     const skillBreakdowns: Record<string, SkillBreakdown> = {};
     const skillBonuses = SKILLS.reduce<Record<string, number>>((acc, skill) => {
       const isTrained = character.trainedSkills.includes(skill.id);
@@ -520,13 +521,21 @@ export function deriveCharacterStats(character: Character): DerivedStats {
         }
       }
       const trainedBonus = isTrained ? 5 : 0;
+      // Class-feature bonus to UNTRAINED skills — Bard's Skill Versatility.
+      // Stacks with Jack of All Trades: that feat's +2 is a FEAT bonus and this
+      // one is untyped, and untyped bonuses stack in 4e.
+      const classBonus = (!isTrained && classUntrainedSkillBonus) || 0;
+      const classBonusSource = classBonus > 0 ? cls?.untrainedSkillBonusSource : undefined;
       // Magic armor property bonus for this skill
       const maSkill = magicArmorSkillBonuses[skill.id];
       const itemBonus = maSkill?.bonus ?? 0;
       const itemBonusSource = maSkill?.source;
-      const total = calculateSkillBonus(isTrained, abilityMod, halfLevel, racialBonus, featBonus, armorPenalty, itemBonus);
+      // Folded into the featBonus argument because calculateSkillBonus has no
+      // separate channel for it; the breakdown keeps them apart so the row is
+      // labelled with the class feature rather than filed under feats.
+      const total = calculateSkillBonus(isTrained, abilityMod, halfLevel, racialBonus, featBonus + classBonus, armorPenalty, itemBonus);
       acc[skill.id] = total;
-      skillBreakdowns[skill.id] = { abilityMod, halfLevel, trainedBonus, racialBonus, featBonus, featBonusDetails, armorPenalty, itemBonus, itemBonusSource, total };
+      skillBreakdowns[skill.id] = { abilityMod, halfLevel, trainedBonus, racialBonus, featBonus, featBonusDetails, classBonus, classBonusSource, armorPenalty, itemBonus, itemBonusSource, total };
       return acc;
     }, {});
 

@@ -446,6 +446,40 @@ interface FeatBonuses {
 | Fleet-Footed (Paragon) | `{ speed: 1 }` |
 | Armor Specialization (Chainmail/Hide/Plate/Scale) | `{ ac: 1, acArmorCondition: 'Type' }` |
 
+### Class-feature bonuses to untrained skills (`ClassData.untrainedSkillBonus`)
+
+A class feature's `description` is display text — writing a bonus there does
+nothing mechanically. Bard's **Skill Versatility** ("You gain a +1 bonus to
+untrained skill checks", PHB2, verified against iws.mx `class104`) sat inert
+that way until it was wired through `ClassData.untrainedSkillBonus` +
+`untrainedSkillBonusSource`.
+
+- Data-driven, not a `classId === 'bard'` check — same reasoning as moving
+  racial defence bonuses off hardcoded race IDs.
+- Surfaces as its own `classBonus` / `classBonusSource` on `SkillBreakdown`, so
+  the breakdown row reads "Skill Versatility +1" rather than being filed under
+  feats. Folded into `calculateSkillBonus`'s `featBonus` argument only because
+  that helper has no separate channel.
+- **Stacks with Jack of All Trades.** JoAT grants a "+2 **feat** bonus"; Skill
+  Versatility is untyped, and untyped bonuses stack in 4e. A bard with both has
+  +3 to untrained checks.
+- `SkillsPanel`'s half-filled "untrained but boosted" dot counts
+  `featBonus + classBonus`, or a bard's untrained skills show a plain grey dot
+  while carrying a bonus.
+
+**Still inert — same bug class, not yet wired:**
+- **Rogue Weapon Talent**: +1 attack with a dagger; shuriken damage die d6
+  instead of d4. Needs per-weapon logic in `CombatActionsPanel`.
+- **Warlord Combat Leader**: +2 power bonus to initiative for you and allies
+  within 10 squares. The self-affecting half is a one-liner in
+  `useCharacterDerived`; the ally half has nowhere to live yet.
+
+(Checked and confirmed already wired: Avenger Armor of Faith, Barbarian Agility,
+Druid Primal Guardian, Monk Unarmored Defense / Centered Breath / Stone Fist,
+Fighter Weapon Talent — the last via `weaponTalentBonus` in
+`CombatActionsPanel`, not by feature name, so grep for the mechanic not the
+string before concluding something is missing.)
+
 **Note on Skill Focus:** The feat requires choosing a trained skill per instance and can be taken multiple times. No structured `bonuses` field is assigned — it is not yet automatically applied. Future work would require `featChoices: Record<string, string>` on Character to track the per-instance skill choice.
 
 **Repeatable Feats:** Some feats (Superior Implement Training, Skill Focus, Weapon Focus, etc.) can be taken multiple times. Detected by `isFeatRepeatable(feat)` which checks for "more than once" in the feat's special/benefit text. `selectedFeatIds` can contain duplicate entries for repeatable feats. `FeatsPanel`, `Step7_Feats`, and `LevelUpModal` all allow re-selecting repeatable feats. Removal uses `indexOf` + splice (removes one instance, not all).

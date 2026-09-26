@@ -41,6 +41,10 @@ export interface SkillBreakdown {
   featBonus: number;      // combined total: JoAT + per-skill feat bonuses (e.g. Alertness)
   /** Itemised breakdown of feat bonuses for tooltip display */
   featBonusDetails: { label: string; bonus: number }[];
+  /** Class-feature bonus to UNTRAINED skills (Bard's Skill Versatility). 0 when trained. */
+  classBonus: number;
+  /** Name of the class feature granting `classBonus`, for the breakdown row. */
+  classBonusSource?: string;
   armorPenalty: number;   // positive number (applied as subtraction in total)
   /** Item bonus from equipped magic armor properties */
   itemBonus: number;

@@ -19,6 +19,10 @@ export const bard: ClassData = {
   trainedSkillCount: 5,
   availableSkills: ['acrobatics', 'athletics', 'bluff', 'diplomacy', 'dungeoneering', 'heal', 'history', 'insight', 'intimidate', 'nature', 'perception', 'religion', 'streetwise'],
   mandatorySkills: ['arcana'],
+  // Skill Versatility (see features below) — PHB2: "You gain a +1 bonus to
+  // untrained skill checks."
+  untrainedSkillBonus: 1,
+  untrainedSkillBonusSource: 'Skill Versatility',
   atWillPowerCount: 2,
   encounterPowerCount: 1,
   dailyPowerCount: 1,

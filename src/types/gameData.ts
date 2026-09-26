@@ -97,6 +97,18 @@ export interface ClassData {
   mandatorySkills?: string[];
   /** Player must choose exactly one from this list as an additional mandatory trained skill (e.g. Ranger → Dungeoneering or Nature) */
   mandatorySkillChoice?: string[];
+  /**
+   * Bonus to UNTRAINED skill checks granted by a class feature — Bard's Skill
+   * Versatility ("You gain a +1 bonus to untrained skill checks", PHB2).
+   *
+   * Data-driven rather than a `classId === 'bard'` check in the derived-stats
+   * hook, matching how racial defence bonuses were moved off hardcoded race IDs.
+   * It stacks with Jack of All Trades: that feat grants a "+2 FEAT bonus" while
+   * Skill Versatility is untyped, and untyped bonuses stack in 4e.
+   */
+  untrainedSkillBonus?: number;
+  /** Label for `untrainedSkillBonus` in the skill breakdown (the feature's name). */
+  untrainedSkillBonusSource?: string;
   atWillPowerCount: number;
   encounterPowerCount: number;
   dailyPowerCount: number;
