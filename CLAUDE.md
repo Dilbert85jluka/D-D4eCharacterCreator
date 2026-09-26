@@ -1043,7 +1043,19 @@ mcGrantedPowers?: McGrantedPower[];   // src/types/gameData.ts
 // powerId: fixed grant  |  choose: player picks one (at most ONE per feat)
 ```
 
-- **18 feats** carry `mcGrantedPowers` — 8 with a `choose`, 10 fixed-only.
+- **All 26 MC feats** carry `mcGrantedPowers` — 8 with a `choose`, 18 fixed-only.
+- Eight of them grant a class FEATURE or a bare numeric effect rather than a class
+  power (Sneak of Shadows → Sneak Attack, Warrior of the Wild → Hunter's Quarry,
+  Student of the Sword, Arcane Prodigy, Berserker's Fury, Defender of the Wild,
+  Battle Berserker, Witchcraft Initiate). These point at purpose-built entries at
+  the bottom of `src/data/powers/featPowers.ts`, each transcribed from that feat's
+  own `benefit` text. **Where a feat delegates to a class feature, the card says so
+  and stops** — Sneak Attack's damage dice and Hunter's Quarry's extra damage scale
+  with the SOURCE class's level and the feat text does not state them, so they are
+  not restated. Do not "helpfully" fill those numbers in.
+- Student of the Sword's one-handed/two-handed weapon choice is shown as card text
+  only; there is no Character field tracking which category was picked, so the +1
+  is not applied automatically in `CombatActionsPanel`.
 - Player's pick stored on Character as `mcFeatPowerChoices[featId]` — **never**
   in `selectedPowers`, or the greedy slot assignment would hand a secondary
   class power one of the character's real primary slots.
@@ -1056,19 +1068,42 @@ mcGrantedPowers?: McGrantedPower[];   // src/types/gameData.ts
   every one of these feats says "1st-level". Choices that legitimately target
   level 0 powers (monk Flurry of Blows, shaman companion-spirit at-wills) list
   them explicitly in `choose.powerIds`, which bypasses the filter.
+- A filled MC card prints the source power's own usage above it ("Wizard at-will ·
+  usable once per encounter") whenever the feat's usage differs. Without it the
+  card reads as a misfiled power — which is how it was reported.
 - Rendered in **PowersPanel** (slot + picker, indigo "Multiclass" badge, counts
   toward the tab's Known x/y so the max visibly rises), **ActionsByTypePanel**
   and the **print sheet** (both via `collectAllPowers`), and **QuickTrayPanel**
   — whose `resolvePower()` checks the MC map BEFORE `getPowerById`, since the
   granted power shares its id with the secondary class's own copy and only the
   MC version carries the feat's usage.
-- Feats whose benefit is a class **feature** (Sneak of Shadows → Sneak Attack,
-  Warrior of the Wild → Hunter's Quarry) or a bare numeric effect (Student of
-  the Sword) carry no `mcGrantedPowers` — there is no PowerData to point at.
 - **Known gap:** Pact Initiate grants "the pact's at-will power", but our
   warlock power data carries no pact tagging, so the picker offers all four
   level 1 warlock at-will attacks and a note tells the player to pick the one
-  matching their pact. Tag the pact powers to close this properly.
+  matching their pact. Closing this needs the pact→power mapping read from
+  iws.mx; it must NOT be filled in from memory (Source Material Accuracy rule).
+  The Claude Code remote container's egress proxy blocks iws.mx, so this can
+  only be done from an environment that can reach it.
+
+### Powers grouped by source (PowersPanel)
+
+Every auto-granted power renders under a labelled, colour-matched heading:
+**Class Features** (teal) · **Multiclass — <Class>** (indigo) · **Feat Powers**
+(violet) · **Racial Powers** (emerald) · **Equipment Powers** (cyan, each card
+keeping its own Armor/Weapon/Implement/Item badge). Order is fixed so the sheet
+reads the same on every character.
+
+This replaced **fourteen near-identical copies** of the same card markup, one per
+(source × tab) pair, which had already drifted in coverage — feat powers were
+wired for Encounter only, equipment for everything except At-Will on armor and
+weapons. Nothing was visibly broken only because every feat power happens to be
+an encounter power today. `renderSourceCard()` + the `sourceGroups` builder are
+now the single path, so a source is wired for every tab or none.
+
+**Grouping is by SOURCE; which TAB a power lands in is still decided by how often
+you may use it.** Those are different axes and the distinction is load-bearing:
+a multiclass feat's wizard at-will is usable once per encounter, so it belongs
+under Encounter even though its source class knows it as an at-will.
 
 ### Power Swap Rules (D&D 4e)
 | Feat | Reduces | Adds |

@@ -707,6 +707,9 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in the Thievery skill. Once per encounter, you can use the rogue's Sneak Attack class feature.`,
     special: "Dex 13",
     multiclassFor: 'rogue',
+    mcGrantedPowers: [
+      { usage: 'encounter', powerId: 'feat-sneak-of-shadows', label: 'Sneak of Shadows — Sneak Attack' },
+    ],
     mcFixedSkill: 'stealth',
   },
   {
@@ -743,6 +746,14 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in one skill from the fighter's class skill list. Choose either one-handed melee weapons or two-handed melee weapons. Once per encounter as a free action, you can add a +1 bonus to the next attack roll you make with a weapon of that category. Whether the attack hits or misses, you mark the target until the end of your next turn.`,
     special: "Str 13",
     multiclassFor: 'fighter',
+    mcGrantedPowers: [
+      {
+        usage: 'encounter',
+        powerId: 'feat-student-of-the-sword',
+        label: 'Student of the Sword — weapon bonus',
+        note: 'Applies to the weapon category you chose when you took the feat.',
+      },
+    ],
     mcFixedSkill: 'athletics',
   },
   {
@@ -802,6 +813,9 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in one skill from the ranger's class skill list. Once per encounter, you can use the ranger's Hunter's Quarry class feature. The target you designate as your quarry remains your quarry until the end of your next turn.`,
     special: "Str 13 or Dex 13",
     multiclassFor: 'ranger',
+    mcGrantedPowers: [
+      { usage: 'encounter', powerId: 'feat-warrior-of-the-wild', label: "Warrior of the Wild — Hunter's Quarry" },
+    ],
     mcFixedSkill: 'nature',
   },
   {
@@ -1391,6 +1405,9 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in Arcana. Once per encounter as a free action, you can gain a +2 bonus to your next damage roll. The bonus increases to +3 at 11th level and +4 at 21st level. In addition, you can wield sorcerer implements. Arcane Prodigy Feat Utility Encounter Free Action Personal Effect : You gain a +2 bonus to your next damage roll. The bonus increases to +3 at 11th level and +4 at 21st level.`,
     special: 'Cha 13',
     multiclassFor: 'sorcerer',
+    mcGrantedPowers: [
+      { usage: 'encounter', powerId: 'feat-arcane-prodigy', label: 'Arcane Prodigy — damage bonus' },
+    ],
   },
   {
     id: 'arcane-spellfury',
@@ -1437,6 +1454,9 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in one skill from the barbarian's class skills list. Once per day as a free action, you can gain a +2 bonus to damage rolls until the end of the encounter.`,
     special: 'Str 13, Con 13',
     multiclassFor: 'barbarian',
+    mcGrantedPowers: [
+      { usage: 'daily', powerId: 'feat-berserkers-fury', label: "Berserker's Fury — damage bonus" },
+    ],
   },
   {
     id: 'blurring-claws',
@@ -1486,6 +1506,9 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in one skill from the warden's class skills list. Once per encounter as a free action, you can mark each enemy adjacent to you until the end of your next turn.`,
     special: 'Str 13',
     multiclassFor: 'warden',
+    mcGrantedPowers: [
+      { usage: 'encounter', powerId: 'feat-defender-of-the-wild', label: 'Defender of the Wild — mark adjacent enemies' },
+    ],
   },
   {
     id: 'disciple-of-divine-wrath',
@@ -3887,6 +3910,9 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in a skill of your choice from the barbarian's list of class skills. You also gain the berserker barbarian's Berserker Fury feature, but you can use it only once per day.`,
     special: 'Str 13',
     multiclassFor: 'barbarian',
+    mcGrantedPowers: [
+      { usage: 'daily', powerId: 'feat-battle-berserker', label: 'Battle Berserker — Berserker Fury' },
+    ],
   },
   {
     id: 'hotf-beastwalker-circle',
@@ -4110,6 +4136,9 @@ const OFFICIAL_FEATS: FeatData[] = [
     benefit: `You gain training in the Arcana skill. You also gain the witch wizard's augury power (daily, standard action, extended rest only — ask a question and receive a vague notion of the future). In addition, you gain proficiency with the orb, staff, and wand implements.`,
     special: 'Int 13',
     multiclassFor: 'wizard',
+    mcGrantedPowers: [
+      { usage: 'daily', powerId: 'feat-witchcraft-initiate-augury', label: 'Witchcraft Initiate — Augury' },
+    ],
   },
 
   // ── Paragon Tier (3) ──────────────────────────────────────
