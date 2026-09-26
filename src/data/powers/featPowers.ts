@@ -180,4 +180,120 @@ export const featPowers: PowerData[] = [
     special: 'You can use only one channel divinity power per encounter.',
     flavor: 'Sehanine turns the tables, reflecting afflictions back upon your foes.',
   },
+
+  // ── Multiclass feats whose benefit is a usable ability rather than a power ──
+  //
+  // These eight multiclass feats grant a class FEATURE (Sneak Attack, Hunter's
+  // Quarry, Berserker Fury) or a bare numeric effect, so there was no PowerData
+  // for them to point at and nothing appeared on the sheet — yet each is
+  // limited to once per encounter or day, which is exactly the kind of thing a
+  // player needs a card and a toggle to track.
+  //
+  // Every `effect` below is transcribed from that feat's own `benefit` text in
+  // src/data/feats/index.ts. Where the feat delegates to a class feature, the
+  // card says so and stops: the borrowed feature's own numbers (Sneak Attack's
+  // damage dice, Hunter's Quarry's extra damage) scale with the SOURCE class's
+  // level and are not restated here, because the feat text does not state them.
+  {
+    id: 'feat-sneak-of-shadows',
+    name: 'Sneak Attack (Sneak of Shadows)',
+    classId: 'feat',
+    level: 0,
+    usage: 'encounter',
+    powerType: 'utility',
+    actionType: 'no-action',
+    range: 'Personal',
+    keywords: ['Martial'],
+    effect: "You can use the rogue's Sneak Attack class feature.",
+    special: "Sneak Attack's own conditions and damage are those of the rogue class feature.",
+  },
+  {
+    id: 'feat-warrior-of-the-wild',
+    name: "Hunter's Quarry (Warrior of the Wild)",
+    classId: 'feat',
+    level: 0,
+    usage: 'encounter',
+    powerType: 'utility',
+    actionType: 'no-action',
+    range: 'Personal',
+    keywords: ['Martial'],
+    effect: "You can use the ranger's Hunter's Quarry class feature. The target you designate as your quarry remains your quarry until the end of your next turn.",
+    special: "Hunter's Quarry's own conditions and damage are those of the ranger class feature.",
+  },
+  {
+    id: 'feat-student-of-the-sword',
+    name: 'Student of the Sword',
+    classId: 'feat',
+    level: 0,
+    usage: 'encounter',
+    powerType: 'utility',
+    actionType: 'free',
+    range: 'Personal',
+    keywords: ['Martial'],
+    effect: 'You add a +1 bonus to the next attack roll you make with a weapon of your chosen category. Whether the attack hits or misses, you mark the target until the end of your next turn.',
+    special: 'Choose either one-handed melee weapons or two-handed melee weapons when you take this feat; the bonus applies only to that category.',
+  },
+  {
+    id: 'feat-arcane-prodigy',
+    name: 'Arcane Prodigy',
+    classId: 'feat',
+    level: 0,
+    usage: 'encounter',
+    powerType: 'utility',
+    actionType: 'free',
+    range: 'Personal',
+    keywords: ['Arcane'],
+    effect: 'You gain a +2 bonus to your next damage roll. The bonus increases to +3 at 11th level and +4 at 21st level.',
+  },
+  {
+    id: 'feat-berserkers-fury',
+    name: "Berserker's Fury",
+    classId: 'feat',
+    level: 0,
+    usage: 'daily',
+    powerType: 'utility',
+    actionType: 'free',
+    range: 'Personal',
+    keywords: ['Primal'],
+    effect: 'You gain a +2 bonus to damage rolls until the end of the encounter.',
+  },
+  {
+    id: 'feat-defender-of-the-wild',
+    name: 'Defender of the Wild',
+    classId: 'feat',
+    level: 0,
+    usage: 'encounter',
+    powerType: 'utility',
+    actionType: 'free',
+    range: 'Close burst 1',
+    keywords: ['Primal'],
+    target: 'Each enemy adjacent to you',
+    effect: 'You mark each target until the end of your next turn.',
+  },
+  {
+    id: 'feat-battle-berserker',
+    name: 'Berserker Fury (Battle Berserker)',
+    classId: 'feat',
+    level: 0,
+    usage: 'daily',
+    powerType: 'utility',
+    actionType: 'no-action',
+    range: 'Personal',
+    keywords: ['Primal'],
+    effect: "You gain the berserker barbarian's Berserker Fury feature, but you can use it only once per day.",
+    special: "Berserker Fury's own rules are those of the berserker barbarian class feature.",
+  },
+  {
+    id: 'feat-witchcraft-initiate-augury',
+    name: 'Augury (Witchcraft Initiate)',
+    classId: 'feat',
+    level: 0,
+    usage: 'daily',
+    powerType: 'utility',
+    actionType: 'standard',
+    range: 'Personal',
+    keywords: ['Arcane'],
+    effect: "You gain the witch wizard's augury power: ask a question and receive a vague notion of the future.",
+    special: 'Usable only during an extended rest.',
+  },
 ];

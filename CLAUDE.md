@@ -446,6 +446,40 @@ interface FeatBonuses {
 | Fleet-Footed (Paragon) | `{ speed: 1 }` |
 | Armor Specialization (Chainmail/Hide/Plate/Scale) | `{ ac: 1, acArmorCondition: 'Type' }` |
 
+### Class-feature bonuses to untrained skills (`ClassData.untrainedSkillBonus`)
+
+A class feature's `description` is display text — writing a bonus there does
+nothing mechanically. Bard's **Skill Versatility** ("You gain a +1 bonus to
+untrained skill checks", PHB2, verified against iws.mx `class104`) sat inert
+that way until it was wired through `ClassData.untrainedSkillBonus` +
+`untrainedSkillBonusSource`.
+
+- Data-driven, not a `classId === 'bard'` check — same reasoning as moving
+  racial defence bonuses off hardcoded race IDs.
+- Surfaces as its own `classBonus` / `classBonusSource` on `SkillBreakdown`, so
+  the breakdown row reads "Skill Versatility +1" rather than being filed under
+  feats. Folded into `calculateSkillBonus`'s `featBonus` argument only because
+  that helper has no separate channel.
+- **Stacks with Jack of All Trades.** JoAT grants a "+2 **feat** bonus"; Skill
+  Versatility is untyped, and untyped bonuses stack in 4e. A bard with both has
+  +3 to untrained checks.
+- `SkillsPanel`'s half-filled "untrained but boosted" dot counts
+  `featBonus + classBonus`, or a bard's untrained skills show a plain grey dot
+  while carrying a bonus.
+
+**Still inert — same bug class, not yet wired:**
+- **Rogue Weapon Talent**: +1 attack with a dagger; shuriken damage die d6
+  instead of d4. Needs per-weapon logic in `CombatActionsPanel`.
+- **Warlord Combat Leader**: +2 power bonus to initiative for you and allies
+  within 10 squares. The self-affecting half is a one-liner in
+  `useCharacterDerived`; the ally half has nowhere to live yet.
+
+(Checked and confirmed already wired: Avenger Armor of Faith, Barbarian Agility,
+Druid Primal Guardian, Monk Unarmored Defense / Centered Breath / Stone Fist,
+Fighter Weapon Talent — the last via `weaponTalentBonus` in
+`CombatActionsPanel`, not by feature name, so grep for the mechanic not the
+string before concluding something is missing.)
+
 **Note on Skill Focus:** The feat requires choosing a trained skill per instance and can be taken multiple times. No structured `bonuses` field is assigned — it is not yet automatically applied. Future work would require `featChoices: Record<string, string>` on Character to track the per-instance skill choice.
 
 **Repeatable Feats:** Some feats (Superior Implement Training, Skill Focus, Weapon Focus, etc.) can be taken multiple times. Detected by `isFeatRepeatable(feat)` which checks for "more than once" in the feat's special/benefit text. `selectedFeatIds` can contain duplicate entries for repeatable feats. `FeatsPanel`, `Step7_Feats`, and `LevelUpModal` all allow re-selecting repeatable feats. Removal uses `indexOf` + splice (removes one instance, not all).
@@ -1043,7 +1077,19 @@ mcGrantedPowers?: McGrantedPower[];   // src/types/gameData.ts
 // powerId: fixed grant  |  choose: player picks one (at most ONE per feat)
 ```
 
-- **18 feats** carry `mcGrantedPowers` — 8 with a `choose`, 10 fixed-only.
+- **All 26 MC feats** carry `mcGrantedPowers` — 8 with a `choose`, 18 fixed-only.
+- Eight of them grant a class FEATURE or a bare numeric effect rather than a class
+  power (Sneak of Shadows → Sneak Attack, Warrior of the Wild → Hunter's Quarry,
+  Student of the Sword, Arcane Prodigy, Berserker's Fury, Defender of the Wild,
+  Battle Berserker, Witchcraft Initiate). These point at purpose-built entries at
+  the bottom of `src/data/powers/featPowers.ts`, each transcribed from that feat's
+  own `benefit` text. **Where a feat delegates to a class feature, the card says so
+  and stops** — Sneak Attack's damage dice and Hunter's Quarry's extra damage scale
+  with the SOURCE class's level and the feat text does not state them, so they are
+  not restated. Do not "helpfully" fill those numbers in.
+- Student of the Sword's one-handed/two-handed weapon choice is shown as card text
+  only; there is no Character field tracking which category was picked, so the +1
+  is not applied automatically in `CombatActionsPanel`.
 - Player's pick stored on Character as `mcFeatPowerChoices[featId]` — **never**
   in `selectedPowers`, or the greedy slot assignment would hand a secondary
   class power one of the character's real primary slots.
@@ -1056,19 +1102,59 @@ mcGrantedPowers?: McGrantedPower[];   // src/types/gameData.ts
   every one of these feats says "1st-level". Choices that legitimately target
   level 0 powers (monk Flurry of Blows, shaman companion-spirit at-wills) list
   them explicitly in `choose.powerIds`, which bypasses the filter.
+- A filled MC card prints the source power's own usage above it ("Wizard at-will ·
+  usable once per encounter") whenever the feat's usage differs. Without it the
+  card reads as a misfiled power — which is how it was reported.
 - Rendered in **PowersPanel** (slot + picker, indigo "Multiclass" badge, counts
   toward the tab's Known x/y so the max visibly rises), **ActionsByTypePanel**
   and the **print sheet** (both via `collectAllPowers`), and **QuickTrayPanel**
   — whose `resolvePower()` checks the MC map BEFORE `getPowerById`, since the
   granted power shares its id with the secondary class's own copy and only the
   MC version carries the feat's usage.
-- Feats whose benefit is a class **feature** (Sneak of Shadows → Sneak Attack,
-  Warrior of the Wild → Hunter's Quarry) or a bare numeric effect (Student of
-  the Sword) carry no `mcGrantedPowers` — there is no PowerData to point at.
-- **Known gap:** Pact Initiate grants "the pact's at-will power", but our
-  warlock power data carries no pact tagging, so the picker offers all four
-  level 1 warlock at-will attacks and a note tells the player to pick the one
-  matching their pact. Tag the pact powers to close this properly.
+- **Pact Initiate** grants "the pact's at-will power". `PowerData.pact?:
+  'infernal' | 'fey' | 'star'` tags the three pact at-wills, and the feat's
+  `choose.powerIds` lists them explicitly, so picking the power picks the pact.
+  Both the picker rows and the filled card print the pact name — it gates which
+  warlock paragon paths the character can take, and is not guessable from the
+  power name.
+
+  | Pact | At-will | Pact boon |
+  |---|---|---|
+  | Fey | Eyebite | Misty Step |
+  | Infernal | Hellish Rebuke | Dark One's Blessing |
+  | Star | Dire Radiance | Fate of the Void |
+
+  **Eldritch Blast is deliberately NOT offered** — the PHB warlock entry lists
+  it under "Class features", so every warlock has it regardless of pact. A
+  level/usage filter would sweep it in, which is why the candidates are listed
+  by id.
+
+  `pact` is a separate field from `pactBoon` on purpose: a boon is auto-granted
+  and filtered out of every picker, so reusing `pactBoon` here would make
+  Eyebite, Hellish Rebuke and Dire Radiance vanish from the warlock's own
+  creation picker. **No power should ever carry both fields** — the three boons
+  keep only `pactBoon`, the three at-wills only `pact`. (Verified by hand; this
+  project has no test runner, so there is nothing enforcing it automatically.)
+
+### Powers grouped by source (PowersPanel)
+
+Every auto-granted power renders under a labelled, colour-matched heading:
+**Class Features** (teal) · **Multiclass — <Class>** (indigo) · **Feat Powers**
+(violet) · **Racial Powers** (emerald) · **Equipment Powers** (cyan, each card
+keeping its own Armor/Weapon/Implement/Item badge). Order is fixed so the sheet
+reads the same on every character.
+
+This replaced **fourteen near-identical copies** of the same card markup, one per
+(source × tab) pair, which had already drifted in coverage — feat powers were
+wired for Encounter only, equipment for everything except At-Will on armor and
+weapons. Nothing was visibly broken only because every feat power happens to be
+an encounter power today. `renderSourceCard()` + the `sourceGroups` builder are
+now the single path, so a source is wired for every tab or none.
+
+**Grouping is by SOURCE; which TAB a power lands in is still decided by how often
+you may use it.** Those are different axes and the distinction is load-bearing:
+a multiclass feat's wizard at-will is usable once per encounter, so it belongs
+under Encounter even though its source class knows it as an at-will.
 
 ### Power Swap Rules (D&D 4e)
 | Feat | Reduces | Adds |
@@ -1433,9 +1519,52 @@ https://iws.mx/dnd/4e_database_files/ritual/
 
 Replace `ritual` with other types to access them (e.g. `power`, `feat`, `race`, `class`).
 
+### `_index.js` is PLAIN TEXT for power, feat and class too
+
+The note under "Monster Data Pipeline" below says the monster type is special in
+having a plain-text `_index.js`. It is **not** the only one — `power`, `feat`
+and `class` also ship the full rendered text of every entry in `_index.js`, so
+the LZMA+Base85 `data0..19.js` files can be skipped entirely for those types:
+
+```
+power/_index.js   ~4.5 MB   9,415 entries
+feat/_index.js    ~1.2 MB   3,272 entries
+class/_index.js   ~0.9 MB      77 entries
+```
+
+**Parsing caveat:** `power/_index.js` happens to be valid JSON, but `feat` and
+`class` use **unquoted object keys** (`feat1367:` not `"feat1367":`), so
+`JSON.parse` throws on them. Evaluate the file in a `vm` context with a stub
+instead — works for all four types:
+
+```js
+const vm = require('vm');
+let captured = null;
+const ctx = { od: { reader: {
+  jsonp_data_index: (ts, type, obj) => { captured = obj; },
+  jsonp_data_listing: () => {},
+} } };
+vm.createContext(ctx);
+vm.runInContext(fs.readFileSync('class_index.js', 'utf8'), ctx, { timeout: 30000 });
+```
+
+**The power entries are Class Compendium (Essentials) revisions.** They differ
+from the PHB text this project's data was built from, and the revision dropped
+pact-gating from the warlock at-wills — no power entry mentions a pact. Class
+features and build options therefore have to come from the **`class` type**:
+`class7` is the PHB Warlock and states each pact's spell outright ("Eyebite:
+You know the eyebite spell"). Watch out for `class793`/`class821`, the Essentials
+Hexblade/Binder builds, which have *different pacts* (Gloom, Elemental) and must
+not be mixed into PHB data.
+
+**Network:** iws.mx is not in the Claude Code cloud **Trusted** domain list. Add
+it under the environment's **Custom** network access → Allowed domains (keeping
+"Also include default list of common package managers" ticked), or every fetch
+fails with `EGRESS_BLOCKED`.
+
 ### How to fetch data via WebFetch
 
-- **`_listing.js`** — fetch this first to get a full list of all items with their source book. Use it to identify which entries belong to PHB only. Readable plain text.
+- **`_listing.js`** — fetch this first to get a full list of all items with their source book. Use it to identify which entries belong to PHB only. Readable plain text. Columns for `power` are `["ID","Name","ClassName","Level","Type","Action","Keywords","SourceBook"]` — note there is **no pact column**.
 - **`data0.js` through `data19.js`** — these are LZMA+Base85 compressed. WebFetch can only read ~15–20 **uncompressed** entries per file (those happen to appear at the start of each file uncompressed). To find a specific ritual, fetch multiple data files and search by name.
 - **Searching all 20 data files** is often required to locate a specific entry — be systematic and check all 20.
 
