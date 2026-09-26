@@ -16,6 +16,11 @@ export const warlord: ClassData = {
   reflexBonus: 1,
   willBonus: 0,
   trainedSkillCount: 4,
+  // Combat Leader (see features below) — PHB: "You and each ally within 10
+  // squares who can see and hear you gain a +2 power bonus to initiative."
+  // Only the self half is applied; the ally half has no home on a single sheet.
+  initiativeBonus: 2,
+  initiativeBonusSource: 'Combat Leader',
   availableSkills: ['athletics', 'diplomacy', 'endurance', 'heal', 'history', 'intimidate'],
   atWillPowerCount: 2,
   encounterPowerCount: 1,

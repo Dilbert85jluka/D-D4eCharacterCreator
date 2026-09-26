@@ -75,6 +75,33 @@ export interface ClassFeature {
   level: number;
 }
 
+/**
+ * A class feature that changes how this class's weapons behave.
+ *
+ * Covers Fighter Weapon Talent (+1 attack with any weapon you're proficient
+ * with) and Rogue Weapon Talent (+1 attack with daggers; shuriken damage die
+ * d6 instead of d4) with one shape, so `CombatActionsPanel` has a single code
+ * path instead of a `classId === …` check per class.
+ */
+export interface ClassWeaponTalent {
+  /** Attack-roll bonus. */
+  attackBonus?: number;
+  /**
+   * Restrict `attackBonus` to these weapon names (case-insensitive, matched
+   * against `WeaponData.name`). Omit to apply to every weapon — which is what
+   * the Fighter's talent does, gated by `requiresProficiency` instead.
+   */
+  attackWeaponNames?: string[];
+  /** Fighter Weapon Talent applies only to weapons you are proficient with. */
+  requiresProficiency?: boolean;
+  /** Weapon names whose damage die this feature replaces. */
+  damageDieWeaponNames?: string[];
+  /** Replacement die, e.g. 'd6' — the dice COUNT from the weapon is kept. */
+  damageDie?: string;
+  /** Short label for the attack breakdown line, e.g. "talent". */
+  label: string;
+}
+
 export interface ClassData {
   id: string;
   name: string;
@@ -109,6 +136,19 @@ export interface ClassData {
   untrainedSkillBonus?: number;
   /** Label for `untrainedSkillBonus` in the skill breakdown (the feature's name). */
   untrainedSkillBonusSource?: string;
+  /**
+   * Flat initiative bonus from a class feature — Warlord's Combat Leader
+   * ("You and each ally within 10 squares who can see and hear you gain a +2
+   * power bonus to initiative", PHB).
+   *
+   * Only the SELF half is modelled. The ally half needs a party-buff concept
+   * the sheet does not have; see the note in CLAUDE.md.
+   */
+  initiativeBonus?: number;
+  /** Name of the class feature granting `initiativeBonus`. */
+  initiativeBonusSource?: string;
+  /** Weapon-specific attack / damage perks from a class feature. */
+  weaponTalent?: ClassWeaponTalent;
   atWillPowerCount: number;
   encounterPowerCount: number;
   dailyPowerCount: number;

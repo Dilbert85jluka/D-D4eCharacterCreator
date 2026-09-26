@@ -3,6 +3,11 @@ import type { WeaponData } from '../../types/gameData';
 import { WEAPONS } from '../../data/equipment/weapons';
 import { formatModifier } from '../../utils/abilityScores';
 import { isProficientWithWeapon } from '../../utils/proficiencies';
+import {
+  weaponTalentAttackBonus,
+  effectiveWeaponDamage,
+  hasDamageDieUpgrade,
+} from '../../utils/classWeaponTalent';
 
 interface Props {
   character: Character;
@@ -13,10 +18,11 @@ function weaponAbilityMod(weapon: WeaponData, mods: Record<Ability, number>): nu
   return weapon.category.toLowerCase().includes('ranged') ? mods.dex : mods.str;
 }
 
-function formatDamageTotal(weapon: WeaponData, abilityMod: number, featBonus: number): string {
+/** `damage` is the EFFECTIVE die (after any class-feature upgrade), not `weapon.damage`. */
+function formatDamageTotal(damage: string, abilityMod: number, featBonus: number): string {
   const total = abilityMod + featBonus;
-  if (total === 0) return weapon.damage;
-  return `${weapon.damage}${total > 0 ? '+' : ''}${total}`;
+  if (total === 0) return damage;
+  return `${damage}${total > 0 ? '+' : ''}${total}`;
 }
 
 /** Compute feat-based damage bonus for a specific weapon based on character's selected feats. */
@@ -89,7 +95,12 @@ export function CombatActionsPanel({ character, derived }: Props) {
           const proficient = isProficientWithWeapon(character, weapon);
           const abilityMod = weaponAbilityMod(weapon, mods);
           const profBonus = proficient ? weapon.proficiencyBonus : 0;
-          const weaponTalentBonus = (character.classId === 'fighter' && proficient) ? 1 : 0;
+          // Class-feature weapon perks, data-driven off ClassData.weaponTalent:
+          // Fighter = +1 with any proficient weapon, Rogue = +1 with daggers
+          // and a d6 shuriken die.
+          const weaponTalentBonus = weaponTalentAttackBonus(character, weapon, proficient);
+          const damageDie = effectiveWeaponDamage(character, weapon);
+          const dieUpgraded = hasDamageDieUpgrade(character, weapon);
           // Magic-item enhancements with target 'attack' / 'damage' apply to all weapon
           // attacks/damage rolls while the item is equipped. Magic-weapon enhancement is
           // tracked separately via `weaponEnhancementBonus` and only applies to that weapon.
@@ -149,7 +160,7 @@ export function CombatActionsPanel({ character, derived }: Props) {
                     {formatModifier(abilityMod)} {isRanged ? 'DEX' : 'STR'}
                     {halfLevel > 0 ? ` +${halfLevel} lvl` : ''}
                     {proficient ? ` +${weapon.proficiencyBonus} prof` : ' (no prof)'}
-                    {weaponTalentBonus > 0 ? ' +1 talent' : ''}
+                    {weaponTalentBonus > 0 ? ` +${weaponTalentBonus} talent` : ''}
                     {magicItemAttack > 0 && <span className="text-amber-600"> +{magicItemAttack} magic item</span>}
                   </div>
                 </div>
@@ -157,10 +168,11 @@ export function CombatActionsPanel({ character, derived }: Props) {
                 <div className="text-center">
                   <div className="text-xs text-stone-400 font-medium">Damage</div>
                   <div className="text-base font-bold text-stone-800">
-                    {formatDamageTotal(weapon, abilityMod, featDmg.bonus + magicItemDamage)}
+                    {formatDamageTotal(damageDie, abilityMod, featDmg.bonus + magicItemDamage)}
                   </div>
                   <div className="text-xs text-stone-400">
-                    {weapon.damage} + {isRanged ? 'DEX' : 'STR'} {formatModifier(abilityMod)}
+                    <span className={dieUpgraded ? 'text-amber-600 font-semibold' : undefined}>{damageDie}</span>
+                    {' + '}{isRanged ? 'DEX' : 'STR'} {formatModifier(abilityMod)}
                     {featDmg.bonus > 0 && <span className="text-amber-600"> +{featDmg.bonus} {featDmg.source}</span>}
                     {magicItemDamage > 0 && <span className="text-amber-600"> +{magicItemDamage} magic item</span>}
                   </div>
