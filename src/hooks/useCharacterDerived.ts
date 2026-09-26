@@ -16,6 +16,7 @@ import { abilityModifier, ABILITIES, formatModifier } from '../utils/abilityScor
 import { calculateAC, calculateFortitude, calculateReflex, calculateWill } from '../utils/defenses';
 import { calculateMaxHp, calculateBloodied, calculateHealingSurgeValue, calculateSurgesPerDay } from '../utils/hitPoints';
 import { calculateSkillBonus } from '../utils/skillUtils';
+import { effectiveWeaponDamage } from '../utils/classWeaponTalent';
 
 /** Only include a row when the value is non-zero. */
 function rowIf(condition: boolean, label: string, value: number): DefenseBreakdownRow[] {
@@ -488,7 +489,11 @@ export function deriveCharacterStats(character: Character): DerivedStats {
 
     // Initiative and speed
     const racialInitiativeBonus = race?.initiativeBonus ?? 0;
-    const initiative = mods.dex + halfLevel + magicBonuses.initiative + (pb.initiative ?? 0) + featBonuses.initiative + magicArmorInitiativeBonus + racialInitiativeBonus;
+    // Class-feature initiative bonus — Warlord's Combat Leader. Data-driven on
+    // ClassData so it sits alongside the racial one rather than becoming a
+    // `classId === 'warlord'` check here.
+    const classInitiativeBonus = cls?.initiativeBonus ?? 0;
+    const initiative = mods.dex + halfLevel + magicBonuses.initiative + (pb.initiative ?? 0) + featBonuses.initiative + magicArmorInitiativeBonus + racialInitiativeBonus + classInitiativeBonus;
     const speed = (race?.speed ?? 6) + magicBonuses.speed + featBonuses.speed + armorSpeedPenalty + magicArmorSpeedBonus;
 
     // Saving throw bonus (half-level is NOT added here — 4e saving throws are flat d20, 10+ succeeds;
@@ -560,7 +565,11 @@ export function deriveCharacterStats(character: Character): DerivedStats {
       rangedBasicAttack: mods.dex + halfLevel + (equippedWeaponData && equippedWeaponData.category.includes('Ranged') ? equippedWeaponData.proficiencyBonus + weaponEnhancementBonus : 0) + magicBonuses.attack,
       weaponEnhancementBonus,
       equippedWeaponName: equippedWeaponData?.name,
-      equippedWeaponDamage: equippedWeaponData?.damage,
+      // Effective die, so a rogue's shuriken reports 1d6 here the same as it
+      // renders in CombatActionsPanel.
+      equippedWeaponDamage: equippedWeaponData
+        ? effectiveWeaponDamage(character, equippedWeaponData)
+        : undefined,
       equippedWeaponProficiency: equippedWeaponData?.proficiencyBonus ?? 0,
       savingThrowBonus,
       magicItemAttackBonus: magicBonuses.attack,

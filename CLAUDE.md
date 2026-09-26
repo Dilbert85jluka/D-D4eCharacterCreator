@@ -467,18 +467,53 @@ that way until it was wired through `ClassData.untrainedSkillBonus` +
   `featBonus + classBonus`, or a bard's untrained skills show a plain grey dot
   while carrying a bonus.
 
-**Still inert — same bug class, not yet wired:**
-- **Rogue Weapon Talent**: +1 attack with a dagger; shuriken damage die d6
-  instead of d4. Needs per-weapon logic in `CombatActionsPanel`.
-- **Warlord Combat Leader**: +2 power bonus to initiative for you and allies
-  within 10 squares. The self-affecting half is a one-liner in
-  `useCharacterDerived`; the ally half has nowhere to live yet.
+### Class weapon talents (`ClassData.weaponTalent`) and initiative (`initiativeBonus`)
+
+Two more features that were description-only are now wired, through the same
+data-driven approach:
+
+```typescript
+weaponTalent?: ClassWeaponTalent;   // src/types/gameData.ts
+initiativeBonus?: number;           // + initiativeBonusSource
+```
+
+- **Fighter Weapon Talent** — `{ attackBonus: 1, requiresProficiency: true }`.
+  This was already working, but as a `classId === 'fighter'` check inside
+  `CombatActionsPanel`; moving it into class data put it on the same path as
+  the rogue's. Behaviour is unchanged.
+- **Rogue Weapon Talent** — `{ attackBonus: 1, attackWeaponNames: ['Dagger'],
+  damageDieWeaponNames: ['Shuriken'], damageDie: 'd6' }`.
+- **Warlord Combat Leader** — `initiativeBonus: 2`. Only the SELF half; the
+  "and each ally within 10 squares" half needs a party-buff concept the sheet
+  does not have.
+
+Resolution lives in `src/utils/classWeaponTalent.ts`
+(`weaponTalentAttackBonus`, `effectiveWeaponDamage`, `hasDamageDieUpgrade`).
+**Use `effectiveWeaponDamage(character, weapon)` rather than `weapon.damage`**
+anywhere a weapon's die is shown or rolled — `CombatActionsPanel` and
+`DerivedStats.equippedWeaponDamage` both go through it, so a rogue's shuriken
+reads `1d6` in both. Only the die SIZE is swapped; the dice count is kept.
+
+**Open data bug found while testing this — a rogue is not proficient with the
+shuriken.** `src/data/classes/rogue.ts` has:
+
+```typescript
+weaponProficiencies: ['Simple melee', 'Military melee (hand crossbow, shuriken, sling)', 'Simple ranged']
+```
+
+The middle entry is malformed — it is not a category and
+`isProficientWithWeapon` matches nothing against it, so the rogue silently
+loses the +3 proficiency bonus on shuriken, short sword and hand crossbow, and
+the attack card shows "⚠ Not proficient". iws.mx `class6` gives
+"Dagger, hand crossbow, short sword, shuriken, sling" — but that entry is the
+Essentials **Scoundrel** revision, so confirm the PHB1 list before rewriting it
+(Source Material Accuracy rule). Not fixed here: it is a different bug from the
+talent, and picking the wrong list would be worse than leaving it visible.
 
 (Checked and confirmed already wired: Avenger Armor of Faith, Barbarian Agility,
-Druid Primal Guardian, Monk Unarmored Defense / Centered Breath / Stone Fist,
-Fighter Weapon Talent — the last via `weaponTalentBonus` in
-`CombatActionsPanel`, not by feature name, so grep for the mechanic not the
-string before concluding something is missing.)
+Druid Primal Guardian, Monk Unarmored Defense / Centered Breath / Stone Fist.
+Fighter Weapon Talent was wired via `weaponTalentBonus`, not by feature name —
+grep for the mechanic, not the string, before concluding something is missing.)
 
 **Note on Skill Focus:** The feat requires choosing a trained skill per instance and can be taken multiple times. No structured `bonuses` field is assigned — it is not yet automatically applied. Future work would require `featChoices: Record<string, string>` on Character to track the per-instance skill choice.
 

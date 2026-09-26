@@ -17,6 +17,16 @@ export const rogue: ClassData = {
   willBonus: 0,
   trainedSkillCount: 6,
   mandatorySkills: ['stealth', 'thievery'],
+  // Rogue Weapon Talent (see features below) — PHB: "When you wield a shuriken,
+  // your weapon damage die is d6 instead of d4. When you wield a dagger, you
+  // gain a +1 bonus to attack rolls."
+  weaponTalent: {
+    attackBonus: 1,
+    attackWeaponNames: ['Dagger'],
+    damageDieWeaponNames: ['Shuriken'],
+    damageDie: 'd6',
+    label: 'talent',
+  },
   availableSkills: ['acrobatics', 'athletics', 'bluff', 'dungeoneering', 'insight', 'intimidate', 'perception', 'stealth', 'streetwise', 'thievery'],
   atWillPowerCount: 2,
   encounterPowerCount: 1,

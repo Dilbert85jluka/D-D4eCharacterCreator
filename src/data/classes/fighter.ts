@@ -16,6 +16,10 @@ export const fighter: ClassData = {
   reflexBonus: 0,
   willBonus: 0,
   trainedSkillCount: 3,
+  // Fighter Weapon Talent (see features below) — +1 attack with any weapon you
+  // are proficient with. Moved here from a `classId === 'fighter'` check in
+  // CombatActionsPanel; behaviour is unchanged.
+  weaponTalent: { attackBonus: 1, requiresProficiency: true, label: 'talent' },
   availableSkills: ['athletics', 'endurance', 'heal', 'intimidate', 'streetwise'],
   atWillPowerCount: 2,
   encounterPowerCount: 1,
