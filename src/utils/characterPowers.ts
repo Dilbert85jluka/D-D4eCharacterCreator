@@ -14,6 +14,7 @@ import { parseMagicWeaponPower } from './magicWeaponPowers';
 import { parseMagicImplementPower } from './magicImplementPowers';
 import { parseMagicItemPower } from './magicItemPowers';
 import { isFullDisciplinePower, extractMovementTechnique } from './fullDiscipline';
+import { getMcGrantedPowers } from './multiclass';
 
 /**
  * Every power a character actually has, from every source.
@@ -87,6 +88,13 @@ export function collectAllPowers(character: Character): PowerData[] {
       }
     }
   }
+
+  // 4b. Multiclass feat granted powers.
+  // Added BEFORE racial/equipment sources and after feat powers so that the
+  // usage override wins the `seenIds` race: Arcane Initiate's wizard at-will
+  // must reach the Actions tab as an ENCOUNTER power, with the once-per-
+  // encounter toggle, not as the at-will the wizard class knows it as.
+  for (const p of getMcGrantedPowers(character)) add(p);
 
   // 5. Racial powers (auto-granted racial encounter/at-will powers)
   const race = getRaceById(character.raceId);

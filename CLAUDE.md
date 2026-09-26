@@ -1026,6 +1026,49 @@ Implemented via feats — no separate "multiclass" step.
 - MC feats may grant a **skill choice** (`mcProficiencyChoices?: string[]`) or **fixed skill** (`mcFixedSkill?`) and/or a **weapon proficiency choice** (`mcProficiencyChoices`) or **fixed proficiency** (`mcFixedProficiency`)
 - Player choices stored on Character: `mcFeatSkillChoices[featId]` and `mcFeatProficiencyChoices[featId]`
 - Proficiencies from MC feats surfaced in **ProficienciesPanel** → Weapons section
+- A multiclass feat for your OWN class is rejected in `featMeetsPrerequisites()` (it would re-grant powers you already have). Holding two MC feats is not blocked, but FeatsPanel shows a warning — which one to drop is the player's call.
+
+### MC feat granted powers (`FeatData.mcGrantedPowers`)
+
+Most multiclass feats hand you a power from the secondary class, and almost
+always at a **different recharge than the secondary class uses it at** — Arcane
+Initiate gives you a wizard **at-will** and lets you use it once per
+**encounter**; Initiate of the Faith gives you the cleric's **encounter** Healing
+Word once per **day**. `grantedPowerIds` cannot express that, which is why these
+go through their own field:
+
+```typescript
+mcGrantedPowers?: McGrantedPower[];   // src/types/gameData.ts
+// usage:   how the FEAT lets you use it — overrides the source power's usage
+// powerId: fixed grant  |  choose: player picks one (at most ONE per feat)
+```
+
+- **18 feats** carry `mcGrantedPowers` — 8 with a `choose`, 10 fixed-only.
+- Player's pick stored on Character as `mcFeatPowerChoices[featId]` — **never**
+  in `selectedPowers`, or the greedy slot assignment would hand a secondary
+  class power one of the character's real primary slots.
+- Resolution lives in `src/utils/multiclass.ts`: `getMcGrantedPowerSlots()`,
+  `getMcGrantedPowers()`, `getMcPowerCandidates()`, `getPendingMcPowerChoices()`.
+  `resolveUsage()` returns a **copy** with the usage swapped — PowerData objects
+  are shared module-level singletons and must never be mutated.
+- Candidate filtering floors at `level >= 1`: level 0 is this codebase's marker
+  for an auto-granted class feature (cantrips, pact boons, Wild Shape), and
+  every one of these feats says "1st-level". Choices that legitimately target
+  level 0 powers (monk Flurry of Blows, shaman companion-spirit at-wills) list
+  them explicitly in `choose.powerIds`, which bypasses the filter.
+- Rendered in **PowersPanel** (slot + picker, indigo "Multiclass" badge, counts
+  toward the tab's Known x/y so the max visibly rises), **ActionsByTypePanel**
+  and the **print sheet** (both via `collectAllPowers`), and **QuickTrayPanel**
+  — whose `resolvePower()` checks the MC map BEFORE `getPowerById`, since the
+  granted power shares its id with the secondary class's own copy and only the
+  MC version carries the feat's usage.
+- Feats whose benefit is a class **feature** (Sneak of Shadows → Sneak Attack,
+  Warrior of the Wild → Hunter's Quarry) or a bare numeric effect (Student of
+  the Sword) carry no `mcGrantedPowers` — there is no PowerData to point at.
+- **Known gap:** Pact Initiate grants "the pact's at-will power", but our
+  warlock power data carries no pact tagging, so the picker offers all four
+  level 1 warlock at-will attacks and a note tells the player to pick the one
+  matching their pact. Tag the pact powers to close this properly.
 
 ### Power Swap Rules (D&D 4e)
 | Feat | Reduces | Adds |

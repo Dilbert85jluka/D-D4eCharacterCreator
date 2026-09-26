@@ -227,6 +227,58 @@ export interface FeatData {
   mcFixedProficiency?: string;
   /** Power IDs granted by this feat (e.g. deity Channel Divinity powers) */
   grantedPowerIds?: string[];
+  /**
+   * Powers a multiclass feat hands you from its secondary class.
+   *
+   * Separate from `grantedPowerIds` because a multiclass feat almost always
+   * changes HOW OFTEN you may use the power: Arcane Initiate gives you a
+   * wizard AT-WILL and lets you use it once per ENCOUNTER, Initiate of the
+   * Faith gives you the cleric's encounter-usage Healing Word once per DAY.
+   * `grantedPowerIds` has no way to say that, so a power routed through it
+   * would show up on the sheet with the wrong recharge.
+   *
+   * An entry is either a fixed grant (`powerId`) or a player choice
+   * (`choose`). At most ONE entry per feat may carry `choose` — the chosen
+   * power is stored on the character keyed by feat id alone.
+   */
+  mcGrantedPowers?: McGrantedPower[];
+}
+
+/** One power granted by a multiclass feat. See `FeatData.mcGrantedPowers`. */
+export interface McGrantedPower {
+  /**
+   * How the FEAT lets you use the power. Overrides the source power's own
+   * `usage`, which describes how the secondary class uses it.
+   */
+  usage: 'at-will' | 'encounter' | 'daily';
+  /** Fixed grant: exactly this power. Mutually exclusive with `choose`. */
+  powerId?: string;
+  /** Player choice: pick one power matching this filter. */
+  choose?: McPowerChoice;
+  /** Shown on the power slot, e.g. "Arcane Initiate — Wizard at-will". */
+  label: string;
+  /** Extra rule text shown under the slot (e.g. psion "can't be augmented"). */
+  note?: string;
+}
+
+/** The set of powers a multiclass feat lets the player choose between. */
+export interface McPowerChoice {
+  /** Secondary class to draw from. */
+  classId: string;
+  /** Restrict to powers with this usage in the SOURCE class (e.g. at-will). */
+  fromUsage?: 'at-will' | 'encounter' | 'daily';
+  /** Highest source-power level selectable. */
+  maxLevel?: number;
+  /** Exclude utility powers — most of these feats say "at-will attack power". */
+  attackOnly?: boolean;
+  /** Power must carry this keyword (druid: 'Beast Form'). */
+  requiredKeyword?: string;
+  /**
+   * Explicit candidates, for choices a level/usage filter can't express —
+   * the monk's two Flurry of Blows powers, the shaman's companion-spirit
+   * at-wills. Takes precedence over the filter fields above.
+   */
+  powerIds?: string[];
 }
 
 export interface SkillData {

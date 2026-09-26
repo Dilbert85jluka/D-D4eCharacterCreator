@@ -11,6 +11,7 @@ import { featsEarnedByLevel } from '../../data/advancement';
 import { SUPERIOR_IMPLEMENTS } from '../../data/equipment/superiorImplements';
 import { MissingHomebrewPlaceholder, isHomebrew } from '../homebrew/HomebrewBadge';
 import { useReadOnly } from './ReadOnlyContext';
+import { getPendingMcPowerChoices, getMcGrantedPowerSlots } from '../../utils/multiclass';
 
 interface Props {
   character: Character;
@@ -52,6 +53,13 @@ export function FeatsPanel({ character }: Props) {
 
   const mcFeatSkillChoices     = character.mcFeatSkillChoices     ?? {};
   const mcFeatProficiencyChoices = character.mcFeatProficiencyChoices ?? {};
+  const pendingMcPowerFeatIds = new Map(
+    getPendingMcPowerChoices(character).map((s) => [s.featId, s]),
+  );
+  const multiclassFeatNames = [...new Set(character.selectedFeatIds)]
+    .map((id) => getFeatById(id))
+    .filter((f) => f?.multiclassFor)
+    .map((f) => f!.name);
 
   const patch = async (changes: Partial<Character>) => {
     await characterRepository.patch(character.id, changes);
@@ -105,6 +113,24 @@ export function FeatsPanel({ character }: Props) {
     };
     if (skillToRemove) {
       changes.trainedSkills = character.trainedSkills.filter((s) => s !== skillToRemove);
+    }
+    // Dropping a multiclass feat takes its granted powers with it. Clear the
+    // stored pick plus any spent-use marker or quick-tray pin, or the sheet
+    // keeps a dead reference to a power the character no longer has.
+    const powerChoices = character.mcFeatPowerChoices ?? {};
+    if (powerChoices[id] && !newFeatIds.includes(id)) {
+      const droppedIds = new Set(
+        getMcGrantedPowerSlots(character)
+          .filter((s) => s.featId === id)
+          .map((s) => s.power?.id)
+          .filter((pid): pid is string => !!pid),
+      );
+      const newPowerChoices = { ...powerChoices };
+      delete newPowerChoices[id];
+      changes.mcFeatPowerChoices = newPowerChoices;
+      changes.usedEncounterPowers = character.usedEncounterPowers.filter((p) => !droppedIds.has(p));
+      changes.usedDailyPowers = character.usedDailyPowers.filter((p) => !droppedIds.has(p));
+      changes.quickTrayPowerIds = (character.quickTrayPowerIds ?? []).filter((p) => !droppedIds.has(p));
     }
     // Clean up SIT choice if removing a Superior Implement Training feat
     if (id === 'superior-implement-training' && instanceIdx !== undefined) {
@@ -295,6 +321,21 @@ export function FeatsPanel({ character }: Props) {
             );
           })}
 
+          {/* A character may hold only one multiclass feat. Surfaced as a
+              warning rather than an automatic removal: which one to drop is
+              the player's call, not ours. */}
+          {multiclassFeatNames.length > 1 && (
+            <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg">
+              <p className="text-xs font-semibold text-amber-800">
+                ⚠ {multiclassFeatNames.length} multiclass feats selected
+              </p>
+              <p className="text-[11px] text-amber-700 mt-0.5">
+                A character can multiclass into only one class. Remove all but one of:{' '}
+                {multiclassFeatNames.join(', ')}.
+              </p>
+            </div>
+          )}
+
           {feats.length === 0 && autoGrantedFeats.length === 0 && (
             <p className="text-stone-400 text-sm text-center py-4">No feats selected yet.</p>
           )}
@@ -304,6 +345,9 @@ export function FeatsPanel({ character }: Props) {
             const chosenProf  = mcFeatProficiencyChoices[feat.id];
             const needsSkill  = feat.multiclassFor && !feat.mcFixedSkill && !chosenSkill;
             const needsProf   = feat.mcProficiencyChoices?.length && !chosenProf;
+            const pendingPowerSpec = pendingMcPowerFeatIds.get(feat.id);
+            const needsPower  = !!pendingPowerSpec;
+            const pendingPowerLabel = pendingPowerSpec?.spec.label;
 
             // SIT feat: compute instance index and available implements
             const isSit = feat.id === 'superior-implement-training';
@@ -383,6 +427,16 @@ export function FeatsPanel({ character }: Props) {
                   >
                     ⚠ Choose a weapon proficiency
                   </button>
+                )}
+                {/* Multiclass feats that grant a power the player must pick.
+                    The picker itself lives in the Powers tab, where the slot is
+                    rendered — this is the signpost, since a player who just took
+                    the feat is looking at the feat, not at Powers. */}
+                {needsPower && (
+                  <p className="text-xs text-amber-700 font-semibold mt-1.5">
+                    ⚠ Choose your granted power on the Powers tab
+                    {pendingPowerLabel ? ` (${pendingPowerLabel})` : ''}
+                  </p>
                 )}
                 {/* Superior Implement Training: implement association dropdown */}
                 {isSit && (

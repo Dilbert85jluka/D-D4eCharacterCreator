@@ -9,6 +9,11 @@ import { useCharactersStore } from '../../store/useCharactersStore';
 import type { PowerUsage } from '../../types/character';
 import type { PowerData } from '../../types/gameData';
 import { getMulticlassId, getFeatById } from '../../data/feats';
+import {
+  getMcGrantedPowerSlots,
+  getMcPowerCandidates,
+  type McGrantedPowerSlot,
+} from '../../utils/multiclass';
 import { getRaceById } from '../../data/races';
 import { usesPowerPoints, getMaxPowerPoints, parseAugments, getNonAugmentSpecialText } from '../../utils/psionics';
 import { useCharacterDerived } from '../../hooks/useCharacterDerived';
@@ -97,6 +102,7 @@ export function PowersPanel({ character }: Props) {
   const [tab, setTab]           = useState<Tab>('at-will');
   const [showPicker, setShowPicker] = useState(false);
   const [mcPickerSlot, setMcPickerSlot] = useState<McSlot | null>(null);
+  const [mcGrantPicker, setMcGrantPicker] = useState<McGrantedPowerSlot | null>(null);
   const [showDilettantePicker, setShowDilettantePicker] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
@@ -129,6 +135,24 @@ export function PowersPanel({ character }: Props) {
     ? [{ key: 'acolyte', label: 'Acolyte Power', usage: 'daily', maxLevel: 1 }]
     : [];
 
+  // ── Powers granted by the multiclass feat itself ──────────────────────────
+  // Distinct from the MC slots above, which come from the power-SWAP feats
+  // (Novice/Acolyte/Adept Power). Arcane Initiate and friends hand you a power
+  // outright, so these add a slot rather than trading one away — and they do
+  // NOT count against any primary power budget.
+  const mcGrantedSlots = getMcGrantedPowerSlots(character);
+
+  // Multiclass feat CHOICE slots count toward a tab's "Known x/y", so a feat
+  // that owes you a power visibly raises the maximum (0/3 → 0/4) instead of
+  // leaving the player hunting for a slot that never appeared — which is
+  // exactly how this bug was reported. Fixed grants are excluded: they are
+  // auto-granted extras, not slots you fill.
+  const mcGrantedChoiceSlots = mcGrantedSlots.filter((s) => !!s.spec.choose);
+  const mcGrantedChoiceMax = (tabName: Tab) =>
+    mcGrantedChoiceSlots.filter((s) => (s.power ? s.power.usage : s.spec.usage) === tabName).length;
+  const mcGrantedChoiceFilled = (tabName: Tab) =>
+    mcGrantedChoiceSlots.filter((s) => s.power?.usage === tabName).length;
+
   // ── Dilettante detection (Half-Elf bonus at-will from another class) ──────
   // Prefer stored fields; fall back to heuristic for older characters
   const dilettantePowerId = character.dilettantePowerId
@@ -157,9 +181,9 @@ export function PowersPanel({ character }: Props) {
 
   // Tab totals (primary + MC slots + dilettante)
   const maxCounts: Record<Tab, number> = {
-    'at-will':   primaryMax['at-will'] + (isHalfElf ? 1 : 0),
-    'encounter': primaryMax['encounter'] + mcEncounterSlots.length,
-    'daily':     primaryMax['daily']     + mcDailySlots.length,
+    'at-will':   primaryMax['at-will'] + (isHalfElf ? 1 : 0) + mcGrantedChoiceMax('at-will'),
+    'encounter': primaryMax['encounter'] + mcEncounterSlots.length + mcGrantedChoiceMax('encounter'),
+    'daily':     primaryMax['daily']     + mcDailySlots.length + mcGrantedChoiceMax('daily'),
     'utility':   maxUtilityForLevel(character.level),
   };
 
@@ -362,9 +386,9 @@ export function PowersPanel({ character }: Props) {
   const utilityCount = utilityPowersSelected.length;
 
   const counts: Record<Tab, number> = {
-    'at-will':   primaryCount('at-will') + dilettanteCount,
-    'encounter': primaryCount('encounter') + mcEncounterPowers.length,
-    'daily':     primaryCount('daily')     + mcDailyPowers.length,
+    'at-will':   primaryCount('at-will') + dilettanteCount + mcGrantedChoiceFilled('at-will'),
+    'encounter': primaryCount('encounter') + mcEncounterPowers.length + mcGrantedChoiceFilled('encounter'),
+    'daily':     primaryCount('daily')     + mcDailyPowers.length + mcGrantedChoiceFilled('daily'),
     'utility':   utilityCount,
   };
 
@@ -438,6 +462,32 @@ export function PowersPanel({ character }: Props) {
     patch({ selectedPowers: [...character.selectedPowers, { powerId, used: false }] });
     setShowPicker(false);
     setMcPickerSlot(null);
+  };
+
+  /**
+   * Record the pick for a multiclass feat's "choose a power" grant.
+   *
+   * Stored in `mcFeatPowerChoices` rather than `selectedPowers` on purpose:
+   * the power belongs to the SECONDARY class, so dropping it into
+   * selectedPowers would let the greedy slot assignment hand it a primary
+   * class power slot and silently eat one of the character's real picks.
+   */
+  const chooseMcGrantedPower = (powerId: string) => {
+    if (!mcGrantPicker) return;
+    const prev = character.mcFeatPowerChoices ?? {};
+    const replacedId = prev[mcGrantPicker.featId];
+    const changes: Partial<Character> = {
+      mcFeatPowerChoices: { ...prev, [mcGrantPicker.featId]: powerId },
+    };
+    // Swapping the choice must not leave the old power's spent-use marker (or
+    // its quick-tray pin) behind pointing at a power you no longer have.
+    if (replacedId && replacedId !== powerId) {
+      changes.usedEncounterPowers = character.usedEncounterPowers.filter((id) => id !== replacedId);
+      changes.usedDailyPowers = character.usedDailyPowers.filter((id) => id !== replacedId);
+      changes.quickTrayPowerIds = (character.quickTrayPowerIds ?? []).filter((id) => id !== replacedId);
+    }
+    patch(changes);
+    setMcGrantPicker(null);
   };
 
   const addToQuickTray = (powerId: string) => {
@@ -673,6 +723,92 @@ export function PowersPanel({ character }: Props) {
       )}
     </div>
   );
+
+  /**
+   * A power granted by the multiclass feat itself — rendered at the recharge
+   * the FEAT grants, not the one the source class uses it at. Auto-granted, so
+   * there is no remove button; a choice slot gets a Replace button instead.
+   */
+  const renderMcGrantedSlot = (slot: McGrantedPowerSlot) => {
+    if (!slot.power) {
+      if (!slot.needsChoice) return null;   // dangling powerId — nothing to show
+      return (
+        <div
+          key={`mc-grant-empty-${slot.key}`}
+          className="border-2 border-dashed border-indigo-300 rounded-lg p-4 flex items-center justify-between gap-3 bg-indigo-50/40"
+        >
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-indigo-700">{slot.spec.label}</p>
+            <p className="text-xs text-stone-400 mt-0.5">
+              Granted by {slot.featName} · used once per {slot.spec.usage}
+            </p>
+            {slot.spec.note && (
+              <p className="text-[11px] text-stone-400 mt-0.5 italic">{slot.spec.note}</p>
+            )}
+          </div>
+          {!readOnly && (
+            <button
+              onClick={() => setMcGrantPicker(slot)}
+              className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-3 py-1.5 rounded-lg transition-colors min-h-[36px] flex-shrink-0"
+            >
+              Choose Power
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    const power = slot.power;
+    const isUsed =
+      power.usage === 'encounter'
+        ? character.usedEncounterPowers.includes(power.id)
+        : power.usage === 'daily'
+          ? character.usedDailyPowers.includes(power.id)
+          : false;
+    const pinned = (character.quickTrayPowerIds ?? []).includes(power.id);
+
+    return (
+      <div key={`mc-grant-${slot.key}`}>
+        <div className="flex items-center justify-between gap-2 mb-0.5 px-1">
+          <span className="text-[10px] font-bold bg-indigo-700 text-white px-1.5 py-0.5 rounded">
+            Multiclass · {slot.featName}
+          </span>
+          <div className="flex items-center gap-1">
+            {!readOnly && slot.spec.choose && (
+              <button
+                onClick={() => setMcGrantPicker(slot)}
+                className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold px-2 py-1 rounded transition-colors"
+                title="Choose a different power"
+              >
+                Replace
+              </button>
+            )}
+            {pinned ? (
+              <span
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-sm leading-none border border-amber-300"
+                title="In quick tray"
+              >✓</span>
+            ) : (
+              <button
+                onClick={() => addToQuickTray(power.id)}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200"
+                title="Pin to quick tray"
+              >⚡</button>
+            )}
+          </div>
+        </div>
+        {slot.spec.note && (
+          <p className="text-[11px] text-stone-400 italic px-1 mb-0.5">{slot.spec.note}</p>
+        )}
+        <PowerCard
+          power={power}
+          used={isUsed}
+          onToggleUsed={() => toggleUsed(power.id, power.usage)}
+          abilityModifiers={abilityMods}
+        />
+      </div>
+    );
+  };
 
   // ── Spellbook-only (known, not prepared) card ─────────────────────────────
   const renderSpellbookCard = (power: PowerData) => (
@@ -1127,6 +1263,13 @@ export function PowersPanel({ character }: Props) {
               </div>
             );
           })}
+
+          {/* Powers granted by the multiclass feat itself.
+              Filtered on the usage the FEAT grants, not the source power's own:
+              Arcane Initiate's wizard at-will belongs in the Encounter tab. */}
+          {mcGrantedSlots
+            .filter((s) => (s.power ? s.power.usage : s.spec.usage) === tab)
+            .map(renderMcGrantedSlot)}
 
           {/* Racial encounter powers — auto-granted, no remove */}
           {tab === 'encounter' && racialPowers.filter((p) => p.usage === 'encounter').map((power) => {
@@ -1600,6 +1743,49 @@ export function PowersPanel({ character }: Props) {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Multiclass feat granted-power picker ───────────────────────────────── */}
+      {!readOnly && mcGrantPicker?.spec.choose && (() => {
+        const choose = mcGrantPicker.spec.choose;
+        const candidates = getMcPowerCandidates(choose);
+        const chosenId = (character.mcFeatPowerChoices ?? {})[mcGrantPicker.featId];
+        const sourceCls = getClassById(choose.classId);
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-3 pb-3 sm:pb-0"
+            onClick={(e) => { if (e.target === e.currentTarget) setMcGrantPicker(null); }}
+          >
+            <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+              <div className="bg-indigo-800 px-4 py-3 flex items-start justify-between gap-2 flex-shrink-0">
+                <div className="min-w-0">
+                  <h3 className="text-white font-bold">{mcGrantPicker.spec.label}</h3>
+                  <p className="text-indigo-300 text-xs mt-0.5">
+                    Granted by {mcGrantPicker.featName} · used once per {mcGrantPicker.spec.usage}
+                  </p>
+                  {mcGrantPicker.spec.note && (
+                    <p className="text-indigo-200 text-[11px] mt-0.5 italic">{mcGrantPicker.spec.note}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setMcGrantPicker(null)}
+                  className="text-indigo-200 hover:text-white text-2xl leading-none w-8 h-8 flex items-center justify-center flex-shrink-0"
+                >×</button>
+              </div>
+              <div className="overflow-y-auto flex-1 p-3 space-y-2">
+                {candidates.length === 0 ? (
+                  <p className="text-stone-500 text-sm text-center py-8">
+                    No eligible {sourceCls?.name ?? choose.classId} powers found.
+                  </p>
+                ) : candidates.map((power) => (
+                  <div key={power.id} className={power.id === chosenId ? 'ring-2 ring-indigo-400 rounded-lg' : ''}>
+                    <PickerRow power={power} onSelect={chooseMcGrantedPower} accentColor="indigo" />
+                  </div>
+                ))}
               </div>
             </div>
           </div>
