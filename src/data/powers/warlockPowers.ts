@@ -49,6 +49,7 @@ export const warlockPowers: PowerData[] = [
   {
     id: 'warlock-dire-radiance',
     name: 'Dire Radiance',
+    pact: 'star',
     classId: 'warlock',
     level: 1,
     usage: 'at-will',
@@ -79,6 +80,7 @@ export const warlockPowers: PowerData[] = [
   {
     id: 'warlock-eyebite',
     name: 'Eyebite',
+    pact: 'fey',
     classId: 'warlock',
     level: 1,
     usage: 'at-will',
@@ -94,6 +96,7 @@ export const warlockPowers: PowerData[] = [
   {
     id: 'warlock-hellish-rebuke',
     name: 'Hellish Rebuke',
+    pact: 'infernal',
     classId: 'warlock',
     level: 1,
     usage: 'at-will',

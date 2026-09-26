@@ -563,8 +563,16 @@ const OFFICIAL_FEATS: FeatData[] = [
       {
         usage: 'encounter',
         label: 'Pact Initiate — Warlock pact at-will',
-        note: 'Choose the at-will power belonging to your chosen pact.',
-        choose: { classId: 'warlock', fromUsage: 'at-will', maxLevel: 1, attackOnly: true },
+        // The feat's "choose a warlock pact" IS this choice: each pact grants
+        // exactly one at-will, so picking the power picks the pact. Listed
+        // explicitly rather than filtered, because a level/usage filter also
+        // catches Eldritch Blast, which the PHB warlock entry lists under
+        // "Class features" — every warlock has it, no pact required.
+        note: 'Picking a power also picks your pact — it determines which warlock paragon paths you can take.',
+        choose: {
+          classId: 'warlock',
+          powerIds: ['warlock-eyebite', 'warlock-hellish-rebuke', 'warlock-dire-radiance'],
+        },
       },
     ],
     mcFixedSkill: 'arcana',

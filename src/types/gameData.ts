@@ -148,6 +148,21 @@ export interface PowerData {
   /** For warlock pact boon powers: which pact grants this power.
    *  Auto-granted class features — level 0, never consume power slots. */
   pactBoon?: 'infernal' | 'fey' | 'star';
+  /**
+   * Warlock only — the pact this ATTACK power belongs to.
+   *
+   * Deliberately separate from `pactBoon` above: a boon is auto-granted and
+   * filtered out of every power picker, whereas a pact at-will is a real
+   * selectable power. Reusing `pactBoon` for these would make Eyebite,
+   * Hellish Rebuke and Dire Radiance vanish from the pickers.
+   *
+   * Sourced from the PHB Warlock class entry in iws.mx (`class7`), which
+   * names each pact's spell outright: Fey Pact "Eyebite: You know the eyebite
+   * spell", Infernal Pact → hellish rebuke, Star Pact → dire radiance.
+   * Eldritch Blast is listed under "Class features", not under a pact, so it
+   * carries no `pact` value.
+   */
+  pact?: 'infernal' | 'fey' | 'star';
   /** Avenger: which censure grants this auto-grant power */
   censure?: 'pursuit' | 'retribution';
   /** Barbarian: which feral might grants this auto-grant power */

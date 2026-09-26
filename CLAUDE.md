@@ -1077,13 +1077,30 @@ mcGrantedPowers?: McGrantedPower[];   // src/types/gameData.ts
   — whose `resolvePower()` checks the MC map BEFORE `getPowerById`, since the
   granted power shares its id with the secondary class's own copy and only the
   MC version carries the feat's usage.
-- **Known gap:** Pact Initiate grants "the pact's at-will power", but our
-  warlock power data carries no pact tagging, so the picker offers all four
-  level 1 warlock at-will attacks and a note tells the player to pick the one
-  matching their pact. Closing this needs the pact→power mapping read from
-  iws.mx; it must NOT be filled in from memory (Source Material Accuracy rule).
-  The Claude Code remote container's egress proxy blocks iws.mx, so this can
-  only be done from an environment that can reach it.
+- **Pact Initiate** grants "the pact's at-will power". `PowerData.pact?:
+  'infernal' | 'fey' | 'star'` tags the three pact at-wills, and the feat's
+  `choose.powerIds` lists them explicitly, so picking the power picks the pact.
+  Both the picker rows and the filled card print the pact name — it gates which
+  warlock paragon paths the character can take, and is not guessable from the
+  power name.
+
+  | Pact | At-will | Pact boon |
+  |---|---|---|
+  | Fey | Eyebite | Misty Step |
+  | Infernal | Hellish Rebuke | Dark One's Blessing |
+  | Star | Dire Radiance | Fate of the Void |
+
+  **Eldritch Blast is deliberately NOT offered** — the PHB warlock entry lists
+  it under "Class features", so every warlock has it regardless of pact. A
+  level/usage filter would sweep it in, which is why the candidates are listed
+  by id.
+
+  `pact` is a separate field from `pactBoon` on purpose: a boon is auto-granted
+  and filtered out of every picker, so reusing `pactBoon` here would make
+  Eyebite, Hellish Rebuke and Dire Radiance vanish from the warlock's own
+  creation picker. **No power should ever carry both fields** — the three boons
+  keep only `pactBoon`, the three at-wills only `pact`. (Verified by hand; this
+  project has no test runner, so there is nothing enforcing it automatically.)
 
 ### Powers grouped by source (PowersPanel)
 
@@ -1468,9 +1485,52 @@ https://iws.mx/dnd/4e_database_files/ritual/
 
 Replace `ritual` with other types to access them (e.g. `power`, `feat`, `race`, `class`).
 
+### `_index.js` is PLAIN TEXT for power, feat and class too
+
+The note under "Monster Data Pipeline" below says the monster type is special in
+having a plain-text `_index.js`. It is **not** the only one — `power`, `feat`
+and `class` also ship the full rendered text of every entry in `_index.js`, so
+the LZMA+Base85 `data0..19.js` files can be skipped entirely for those types:
+
+```
+power/_index.js   ~4.5 MB   9,415 entries
+feat/_index.js    ~1.2 MB   3,272 entries
+class/_index.js   ~0.9 MB      77 entries
+```
+
+**Parsing caveat:** `power/_index.js` happens to be valid JSON, but `feat` and
+`class` use **unquoted object keys** (`feat1367:` not `"feat1367":`), so
+`JSON.parse` throws on them. Evaluate the file in a `vm` context with a stub
+instead — works for all four types:
+
+```js
+const vm = require('vm');
+let captured = null;
+const ctx = { od: { reader: {
+  jsonp_data_index: (ts, type, obj) => { captured = obj; },
+  jsonp_data_listing: () => {},
+} } };
+vm.createContext(ctx);
+vm.runInContext(fs.readFileSync('class_index.js', 'utf8'), ctx, { timeout: 30000 });
+```
+
+**The power entries are Class Compendium (Essentials) revisions.** They differ
+from the PHB text this project's data was built from, and the revision dropped
+pact-gating from the warlock at-wills — no power entry mentions a pact. Class
+features and build options therefore have to come from the **`class` type**:
+`class7` is the PHB Warlock and states each pact's spell outright ("Eyebite:
+You know the eyebite spell"). Watch out for `class793`/`class821`, the Essentials
+Hexblade/Binder builds, which have *different pacts* (Gloom, Elemental) and must
+not be mixed into PHB data.
+
+**Network:** iws.mx is not in the Claude Code cloud **Trusted** domain list. Add
+it under the environment's **Custom** network access → Allowed domains (keeping
+"Also include default list of common package managers" ticked), or every fetch
+fails with `EGRESS_BLOCKED`.
+
 ### How to fetch data via WebFetch
 
-- **`_listing.js`** — fetch this first to get a full list of all items with their source book. Use it to identify which entries belong to PHB only. Readable plain text.
+- **`_listing.js`** — fetch this first to get a full list of all items with their source book. Use it to identify which entries belong to PHB only. Readable plain text. Columns for `power` are `["ID","Name","ClassName","Level","Type","Action","Keywords","SourceBook"]` — note there is **no pact column**.
 - **`data0.js` through `data19.js`** — these are LZMA+Base85 compressed. WebFetch can only read ~15–20 **uncompressed** entries per file (those happen to appear at the start of each file uncompressed). To find a specific ritual, fetch multiple data files and search by name.
 - **Searching all 20 data files** is often required to locate a specific entry — be systematic and check all 20.
 

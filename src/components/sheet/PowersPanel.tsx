@@ -76,6 +76,13 @@ const DAILY_LEVELS     = [1, 5, 9, 15, 19, 25, 29];
 const UTILITY_LEVELS   = [2, 6, 10, 16, 22];
 
 /** Human-readable recharge, for explaining a multiclass feat's usage override. */
+/** Warlock pact display names, for powers carrying a `pact` tag. */
+const PACT_LABEL: Record<'infernal' | 'fey' | 'star', string> = {
+  infernal: 'Infernal Pact',
+  fey: 'Fey Pact',
+  star: 'Star Pact',
+};
+
 const USAGE_LABEL: Record<PowerUsage, string> = {
   'at-will': 'at-will',
   encounter: 'encounter power',
@@ -816,6 +823,9 @@ export function PowersPanel({ character }: Props) {
           <p className="text-[11px] text-indigo-700 px-1 mb-0.5">
             {sourceClassName ? `${sourceClassName} ` : ''}
             {USAGE_LABEL[sourceUsage]} · usable once per {power.usage === 'daily' ? 'day' : 'encounter'}
+            {/* Pact Initiate: which pact you ended up with is not obvious from
+                the power name, and it gates your warlock paragon paths. */}
+            {power.pact && ` · ${PACT_LABEL[power.pact]}`}
           </p>
         )}
         {slot.spec.note && (
@@ -1522,6 +1532,14 @@ export function PowersPanel({ character }: Props) {
                   </p>
                 ) : candidates.map((power) => (
                   <div key={power.id} className={power.id === chosenId ? 'ring-2 ring-indigo-400 rounded-lg' : ''}>
+                    {/* Pact Initiate: the power IS the pact choice, so name the
+                        pact on the row rather than making the player know the
+                        warlock table by heart. */}
+                    {power.pact && (
+                      <p className="text-[11px] font-semibold text-indigo-700 px-1 mb-0.5">
+                        {PACT_LABEL[power.pact]}
+                      </p>
+                    )}
                     <PickerRow power={power} onSelect={chooseMcGrantedPower} accentColor="indigo" />
                   </div>
                 ))}
