@@ -42,6 +42,21 @@ const TAP_SLOP = 8;
 
 interface Point { x: number; y: number }
 
+/**
+ * The token's footprint in squares.
+ *
+ * `token.size` is the authority, NOT `combatant.size`: the combatant's size is only
+ * the default copied in at placement time, while the selected-token bar's 1–4 buttons
+ * write `token.size`. Reading the combatant here is what made those buttons inert —
+ * they highlighted, the board never changed. The player board (`PlayerBattleMap`)
+ * has always read `token.size`, so the two boards disagreed as well.
+ *
+ * The combatant fallback covers a token persisted before `size` was written.
+ */
+function footprint(token: MapToken, combatant?: BoardCombatant): number {
+  return token.size > 0 ? token.size : combatant?.size || 1;
+}
+
 /** Zoom and pan are one atomic value: a zoom always has to adjust pan in the same
  *  commit to keep the anchor point fixed. Holding them as two states made that a
  *  cross-setter dependency, which React has no ordering guarantee for. */
@@ -100,6 +115,12 @@ export function BattleMapBoard({
     for (const c of combatants) m.set(c.instanceKey, c);
     return m;
   }, [combatants]);
+
+  const tokenByKey = useMemo(() => {
+    const m = new Map<string, MapToken>();
+    for (const t of tokens) m.set(t.instanceKey, t);
+    return m;
+  }, [tokens]);
 
   // ── Fit the map to the viewport on first load / map change ──────────────
   const fitToViewport = useCallback(() => {
@@ -380,8 +401,9 @@ export function BattleMapBoard({
             {/* Ghost of the drag destination */}
             {drag && drag.moved && (() => {
               const p = cellToImage(drag.col, drag.row);
-              const c = combatantByKey.get(drag.instanceKey);
-              const side = (c?.size ?? 1) * map.grid.size;
+              const t = tokenByKey.get(drag.instanceKey);
+              const side =
+                (t ? footprint(t, combatantByKey.get(drag.instanceKey)) : 1) * map.grid.size;
               return (
                 <div
                   className="absolute pointer-events-none rounded-md border-2 border-dashed border-amber-300 bg-amber-300/20"
@@ -402,7 +424,7 @@ export function BattleMapBoard({
               // the ghost and make both the ghost and the square count meaningless —
               // the point of the readout is seeing where you came from.
               const p = cellToImage(token.col, token.row);
-              const side = c.size * map.grid.size;
+              const side = footprint(token, c) * map.grid.size;
 
               const isActive = activeInstanceKey === token.instanceKey;
               const isSelected = selectedInstanceKey === token.instanceKey;

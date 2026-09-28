@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { selectCampaignMaps, useBattleMapsStore } from '../../store/useBattleMapsStore';
+import { SIZE_SQUARES } from '../../types/battlemap';
 import type { BattleMap, EncounterMapState, MapToken } from '../../types/battlemap';
 import { BattleMapBoard, type BoardCombatant } from './BattleMapBoard';
 import { MapLibraryModal } from './MapLibraryModal';
@@ -327,6 +328,13 @@ export function EncounterMapView({
   );
 }
 
+/** Tooltip for a footprint button, e.g. "2×2 squares — Large".
+ *  Derived from SIZE_SQUARES so the labels can never drift from the size table. */
+function sizeButtonTitle(n: number): string {
+  const names = Object.keys(SIZE_SQUARES).filter((k) => SIZE_SQUARES[k] === n);
+  return `${n}×${n} squares${names.length ? ` — ${names.join(' / ')}` : ''}`;
+}
+
 function SelectedTokenBar({
   token, combatant, onRemove, onToggleHidden, onResize,
 }: {
@@ -354,9 +362,12 @@ function SelectedTokenBar({
               ? 'w-8 h-7 rounded text-xs font-bold bg-amber-700 text-white'
               : 'w-8 h-7 rounded text-xs font-bold bg-stone-700 text-stone-200 hover:bg-stone-600'
           }
-          title={`${n}×${n} squares`}
+          title={sizeButtonTitle(n)}
         >{n}</button>
       ))}
+      <span className="text-stone-500 text-[11px]">
+        {token.size}×{token.size} sq
+      </span>
 
       <button
         onClick={onToggleHidden}
