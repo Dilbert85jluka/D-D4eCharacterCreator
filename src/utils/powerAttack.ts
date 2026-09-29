@@ -9,6 +9,7 @@ import { MAGIC_IMPLEMENTS } from '../data/equipment/magicImplements';
 import { getClassById } from '../data/classes';
 import { isProficientWithWeapon } from './proficiencies';
 import { weaponTalentAttackBonus } from './classWeaponTalent';
+import { expertiseAttackBonus, pendingChoiceFeatNames } from './featChoices';
 
 /**
  * The attack modifier a power actually rolls with, per equipped weapon/implement.
@@ -29,28 +30,22 @@ import { weaponTalentAttackBonus } from './classWeaponTalent';
  *    implement contributes its enhancement bonus and nothing else.
  *  • Conditional bonuses written into the attack prose ("+2 if no enemy is adjacent")
  *    are left out on purpose; they stay readable in the text above the breakdown.
- *  • Weapon Expertise / Implement Expertise are NOT applied. Both require choosing a
- *    weapon group / implement type and no Character field records that choice (same
- *    gap as Skill Focus — see CLAUDE.md). `untrackedFeats` reports them instead of
- *    silently producing a number that is 1–3 too low.
+ *  • Expertise feats ARE applied, through `expertiseAttackBonus`. The three that make
+ *    you choose a weapon group / implement type only count once that choice has been
+ *    made in the Feats tab; until then `pendingChoiceFeats` names them, so a missing
+ *    1–3 is visible rather than silent. Expertise bonuses are feat bonuses and so do
+ *    not stack with each other — the resolver returns the highest, not the sum.
  */
 
 const ABILITY_LABELS: Record<Ability, string> = {
   str: 'STR', con: 'CON', dex: 'DEX', int: 'INT', wis: 'WIS', cha: 'CHA',
 };
 
-/** Feats that add to attack rolls but depend on a choice the app doesn't store. */
-const UNTRACKED_ATTACK_FEATS: Record<string, string> = {
-  'weapon-expertise': 'Weapon Expertise',
-  'implement-expertise': 'Implement Expertise',
-  'versatile-expertise': 'Versatile Expertise',
-  'hotf-totem-expertise': 'Totem Expertise',
-  'hotf-two-handed-weapon-expertise': 'Two-Handed Weapon Expertise',
-};
-
 export interface AttackBonusPart {
   label: string;
   value: number;
+  /** Where it came from, when the short label doesn't say (e.g. which Expertise feat). */
+  note?: string;
 }
 
 export interface AttackBonusRow {
@@ -75,8 +70,9 @@ export interface PowerAttackInfo {
   rows: AttackBonusRow[];
   /** Nothing equipped that this power can be used with. */
   emptyHint?: string;
-  /** Names of attack-bonus feats left out of the totals — see the note above. */
-  untrackedFeats: string[];
+  /** Expertise feats whose weapon group / implement type hasn't been chosen yet, so
+   *  their bonus is missing from every row until the player picks one. */
+  pendingChoiceFeats: string[];
 }
 
 /** An unconditional power bonus written into the attack line, e.g. "Strength + 2 vs. AC".
@@ -174,6 +170,10 @@ function weaponRows(character: Character, ctx: RowContext, reach: WeaponReach): 
     if (enh) parts.push({ label: 'enh', value: enh });
     const talent = weaponTalentAttackBonus(character, weapon, proficient);
     if (talent) parts.push({ label: 'talent', value: talent });
+    // Expertise feats. Untyped class talents above stack with this; two Expertise
+    // feats do not stack with each other (see expertiseAttackBonus).
+    const expertise = expertiseAttackBonus(character, { weapon });
+    if (expertise.bonus) parts.push({ label: 'feat', value: expertise.bonus, note: expertise.sources.join(', ') });
     if (magicItemAttack) parts.push({ label: 'item', value: magicItemAttack });
     if (powerBonus) parts.push({ label: 'power', value: powerBonus });
 
@@ -213,6 +213,9 @@ function implementRows(character: Character, ctx: RowContext): AttackBonusRow[] 
     const trained = !superior || trainedSuperior.has(itemKeyOf(item));
     const accurate = superior?.properties.some((p) => p.name === 'Accurate') ?? false;
     if (accurate && trained) parts.push({ label: 'accurate', value: 1 });
+
+    const expertise = expertiseAttackBonus(character, { implementType: base.type });
+    if (expertise.bonus) parts.push({ label: 'feat', value: expertise.bonus, note: expertise.sources.join(', ') });
 
     if (magicItemAttack) parts.push({ label: 'item', value: magicItemAttack });
     if (powerBonus) parts.push({ label: 'power', value: powerBonus });
@@ -296,9 +299,7 @@ export function getPowerAttackInfo(
     }];
   }
 
-  const untrackedFeats = character.selectedFeatIds
-    .filter((id) => UNTRACKED_ATTACK_FEATS[id])
-    .map((id) => UNTRACKED_ATTACK_FEATS[id]);
+  const pendingChoiceFeats = pendingChoiceFeatNames(character);
 
   return {
     defense: power.defense,
@@ -307,6 +308,6 @@ export function getPowerAttackInfo(
     reach,
     rows,
     emptyHint,
-    untrackedFeats: Array.from(new Set(untrackedFeats)),
+    pendingChoiceFeats,
   };
 }

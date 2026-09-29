@@ -182,6 +182,14 @@ export interface Character {
   mcFeatPowerChoices?: Record<string, string>;
   /** Maps index (among SIT feat instances in selectedFeatIds) → equipment instanceId for Superior Implement Training. */
   superiorImplementChoices?: Record<number, string>;
+  /**
+   * Choices for feats whose benefit depends on one — currently the Expertise feats'
+   * weapon group / implement type. Keyed `<featId>#<occurrence>:<kind>` because all
+   * three are repeatable with a different choice each time. See
+   * `src/utils/featChoices.ts`; read it through `getFeatChoice()` rather than
+   * indexing this directly.
+   */
+  featChoices?: Record<string, string>;
 
   // Equipment
   equipment: EquipmentItem[];

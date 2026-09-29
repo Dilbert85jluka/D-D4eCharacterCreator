@@ -8,6 +8,7 @@ import {
   effectiveWeaponDamage,
   hasDamageDieUpgrade,
 } from '../../utils/classWeaponTalent';
+import { expertiseAttackBonus } from '../../utils/featChoices';
 
 interface Props {
   character: Character;
@@ -106,7 +107,11 @@ export function CombatActionsPanel({ character, derived }: Props) {
           // tracked separately via `weaponEnhancementBonus` and only applies to that weapon.
           const magicItemAttack = derived.magicItemAttackBonus;
           const magicItemDamage = derived.magicItemDamageBonus;
-          const attackBonus = abilityMod + halfLevel + profBonus + weaponTalentBonus + magicItemAttack;
+          // A basic attack is a weapon power, so the Expertise feats apply here too.
+          // Same resolver as the power cards, so the two can't disagree.
+          const expertise = expertiseAttackBonus(character, { weapon });
+          const attackBonus =
+            abilityMod + halfLevel + profBonus + weaponTalentBonus + expertise.bonus + magicItemAttack;
           const isRanged = weapon.category.toLowerCase().includes('ranged');
           const featDmg = weaponFeatDamageBonus(weapon, character);
 
@@ -161,6 +166,11 @@ export function CombatActionsPanel({ character, derived }: Props) {
                     {halfLevel > 0 ? ` +${halfLevel} lvl` : ''}
                     {proficient ? ` +${weapon.proficiencyBonus} prof` : ' (no prof)'}
                     {weaponTalentBonus > 0 ? ` +${weaponTalentBonus} talent` : ''}
+                    {expertise.bonus > 0 && (
+                      <span className="text-amber-600" title={expertise.sources.join(', ')}>
+                        {' '}+{expertise.bonus} feat
+                      </span>
+                    )}
                     {magicItemAttack > 0 && <span className="text-amber-600"> +{magicItemAttack} magic item</span>}
                   </div>
                 </div>

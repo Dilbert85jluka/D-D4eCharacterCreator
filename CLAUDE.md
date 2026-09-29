@@ -1210,12 +1210,10 @@ getPowerAttackInfo(character, derived, power): PowerAttackInfo | null   // null 
 - A flat power bonus written into the attack line ("Strength **+ 2** vs. AC") is
   added; a `+N` appearing *after* "vs" is conditional prose ("+2 if no enemy is
   adjacent") and is deliberately left out — it stays readable in the text above.
-- **Weapon Expertise / Implement Expertise are NOT applied**, and this is not an
-  oversight: both require choosing a weapon group / implement type and no Character
-  field records that choice (the same gap as Skill Focus). They are listed in
-  `untrackedFeats` and printed under the breakdown, because silently showing a
-  number that is 1–3 low is worse than saying so. Wiring them up needs a
-  `featChoices` field first.
+- **Expertise feats are applied** via `expertiseAttackBonus()` — see the section below.
+  The three that require a choice count only once that choice is stored; until then
+  `pendingChoiceFeats` names them under the breakdown, because silently showing a
+  number that is 1–3 low is worse than saying so.
 - Superior implements: the Accurate property's +1 counts only once that implement
   instance is linked to a Superior Implement Training feat instance via
   `superiorImplementChoices` — without the feat the implement can't be used at all.
@@ -1227,6 +1225,49 @@ what they show — the same reasoning that collapsed the 14 copies of source-car
 markup below. Wired in `PowersPanel` (9 sites), `ActionsByTypePanel`,
 `QuickTrayPanel` and `CharacterSheetPrint`. Deliberately **omitted in the creation
 wizard's pickers** (`Step6_Powers`, `Step3_Class`) — there is no character yet.
+
+## Feat choices + Expertise feats (`src/utils/featChoices.ts`)
+
+`Character.featChoices?: Record<string, string>` records choices that a feat's own
+text asks the player to make. Keyed **`<featId>#<occurrence>:<kind>`** — per feat
+INSTANCE, because every choice feat here is explicitly repeatable. Always read it
+through `getFeatChoice()`; never index the record directly.
+
+The five Expertise feats in this project's sources, with the text verified against
+iws.mx (`feat1032`, `feat734`, `feat2785`, `feat3671`, `feat3672`):
+
+| Feat | Source | Choice |
+|---|---|---|
+| Weapon Expertise | PHB2 190 | a weapon group |
+| Implement Expertise | PHB2 185 | an implement type |
+| Versatile Expertise | PHB3 184 | a weapon group **and** an implement type |
+| Totem Expertise | HotF 130 | none — always totems |
+| Two-Handed Weapon Expertise | HotF 130 | none — always two-handed melee |
+
+- All five grant **+1 / +2 / +3 at 1st / 11th / 21st**.
+- **They are feat bonuses, so they do not stack with each other** —
+  `expertiseAttackBonus()` returns the HIGHEST applicable, not the sum. A character
+  with Weapon Expertise (Axe) *and* Two-Handed Weapon Expertise swinging a greataxe
+  gets +1, not +2. Fighter/Rogue Weapon Talent is an untyped class bonus and does
+  stack, which is why it stays a separate `parts` entry.
+- Applied in **both** `powerAttack.ts` (power cards) and `CombatActionsPanel` (a basic
+  attack is a weapon power, so Expertise applies there too) from the one resolver, so
+  the two views cannot disagree.
+- `WEAPON_GROUPS` is the 14 PHB groups. A weapon's group lives inside
+  `WeaponData.properties` alongside true properties (`Two-handed`, `Versatile`,
+  `High crit`, …) because `weapons.ts` merged the PHB's Group and Properties columns
+  — matching a group means looking for the group name in that array. Same approach as
+  `isProficientWithWeapon`'s "Military hammers" matching.
+- `reindexFeatChoicesAfterRemoval()` must be called when a choice feat instance is
+  removed, exactly like `superiorImplementChoices` does: otherwise removing the first
+  of two Weapon Expertise feats leaves the second reading the removed one's group.
+- `weapon-expertise` and `implement-expertise` were **missing their `special` text**,
+  so `isFeatRepeatable()` returned false and the app refused to let you take them
+  twice. The verified "You can take this feat more than once…" text is now in the data.
+
+**Still not applied, for the same reason as before:** Skill Focus. It needs a
+per-instance trained-skill choice, which `featChoices` can now express — wiring it up
+is a matter of adding a `'skill'` kind and a `SkillsPanel` bonus channel.
 
 ### Powers grouped by source (PowersPanel)
 

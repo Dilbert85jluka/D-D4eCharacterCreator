@@ -1627,6 +1627,7 @@ const OFFICIAL_FEATS: FeatData[] = [
     tier: 'Heroic',
     prerequisites: {},
     benefit: `Choose a type of implement. You gain a +1 feat bonus to attack rolls with any implement power you use through that type of implement. The bonus increases to +2 at 11th level and +3 at 21st level.`,
+    special: 'You can take this feat more than once. Each time you take this feat, choose a different type of implement.',
   },
   {
     id: 'improved-armor-of-faith',
@@ -1970,6 +1971,7 @@ const OFFICIAL_FEATS: FeatData[] = [
     tier: 'Heroic',
     prerequisites: {},
     benefit: `Choose a weapon group. You gain a +1 feat bonus to attack rolls with any weapon power you use with a weapon from that group. The bonus increases to +2 at 11th level and +3 at 21st level.`,
+    special: 'You can take this feat more than once. Each time you select this feat, choose another weapon group.',
   },
   {
     id: 'wild-senses',

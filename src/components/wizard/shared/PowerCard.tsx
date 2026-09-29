@@ -361,7 +361,7 @@ function AttackBreakdown({ info }: { info: PowerAttackInfo }) {
               </div>
               <div className="text-[10px] text-stone-400">
                 {row.parts.map((p, i) => (
-                  <span key={p.label}>
+                  <span key={p.label} title={p.note}>
                     {i > 0 && ' · '}
                     {formatModifier(p.value)} {p.label}
                   </span>
@@ -375,12 +375,12 @@ function AttackBreakdown({ info }: { info: PowerAttackInfo }) {
         </div>
       )}
 
-      {/* Bonuses the app knows about but can't place. Saying so beats quietly
-          showing a number that's 1–3 low. */}
-      {info.untrackedFeats.length > 0 && (
-        <p className="px-2 pb-1.5 text-[10px] text-stone-400 italic">
-          Not included: {info.untrackedFeats.join(', ')} — add it yourself, the sheet doesn't
-          record which group you chose.
+      {/* An Expertise feat with no weapon group / implement type chosen yet can't be
+          placed on a row, so say so rather than showing a number that's 1–3 low. */}
+      {info.pendingChoiceFeats.length > 0 && (
+        <p className="px-2 pb-1.5 text-[10px] text-amber-600 italic">
+          Not included: {info.pendingChoiceFeats.join(', ')} — choose its weapon group /
+          implement type on the Feats tab.
         </p>
       )}
     </div>
