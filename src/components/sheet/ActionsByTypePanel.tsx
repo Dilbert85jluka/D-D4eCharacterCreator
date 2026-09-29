@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useCharacterDerived } from '../../hooks/useCharacterDerived';
 import type { Character, PowerUsage } from '../../types/character';
 import type { PowerData } from '../../types/gameData';
@@ -76,6 +76,8 @@ export function ActionsByTypePanel({ character }: Props) {
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
   const derived = useCharacterDerived(character);
   const abilityMods = derived.abilityModifiers;
+  // One object so PowerCard's memo has a stable dep — `derived` is already memoized.
+  const attackContext = useMemo(() => ({ character, derived }), [character, derived]);
 
   const allPowers = collectAllPowers(character);
   const grouped = groupByActionTab(allPowers);
@@ -169,6 +171,7 @@ export function ActionsByTypePanel({ character }: Props) {
                 </div>
               )}
               <PowerCard
+                attackContext={attackContext}
                 power={power}
                 used={isUsed(power)}
                 onToggleUsed={readOnly ? undefined : () => toggleUsed(power.id, power.usage)}

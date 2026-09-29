@@ -226,7 +226,11 @@ export function CharacterSheetPrint({ character }: Props) {
           <div className="print-powers">
             {group.powers.map((power) => (
               <div key={power.id} className="print-power">
-                <PowerCard power={power} abilityModifiers={derived.abilityModifiers} />
+                <PowerCard
+                  power={power}
+                  abilityModifiers={derived.abilityModifiers}
+                  attackContext={{ character, derived }}
+                />
               </div>
             ))}
           </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Character } from '../../types/character';
 import { getPowerById, getPowersByClass, getPowersByClassUpToLevel, getUtilityPowersByClassUpToLevel } from '../../data/powers';
 import { getAllSpellbookPowerIds } from '../../utils/spellbook';
@@ -128,6 +128,8 @@ export function PowersPanel({ character }: Props) {
   const isPsionic = usesPowerPoints(character.classId);
   const derived = useCharacterDerived(character);
   const abilityMods = derived.abilityModifiers;
+  // One object so PowerCard's memo has a stable dep — `derived` is already memoized.
+  const attackContext = useMemo(() => ({ character, derived }), [character, derived]);
   const maxPP     = isPsionic ? getMaxPowerPoints(character.level) : 0;
   const currentPP = isPsionic ? (character.currentPowerPoints ?? maxPP) : 0;
 
@@ -700,6 +702,7 @@ export function PowersPanel({ character }: Props) {
           </div>
         </div>
         <PowerCard
+          attackContext={attackContext}
           power={power}
           used={isUsed}
           onToggleUsed={
@@ -832,6 +835,7 @@ export function PowersPanel({ character }: Props) {
           <p className="text-[11px] text-stone-400 italic px-1 mb-0.5">{slot.spec.note}</p>
         )}
         <PowerCard
+          attackContext={attackContext}
           power={power}
           used={isUsed}
           onToggleUsed={() => toggleUsed(power.id, power.usage)}
@@ -883,6 +887,7 @@ export function PowersPanel({ character }: Props) {
           </div>
         </div>
         <PowerCard
+          attackContext={attackContext}
           power={power}
           used={isUsed}
           onToggleUsed={() => toggleUsed(power.id, power.usage)}
@@ -971,7 +976,9 @@ export function PowersPanel({ character }: Props) {
           📖 Not Prepared
         </span>
       </div>
-      <PowerCard power={power} />
+      <PowerCard
+        attackContext={attackContext}
+        power={power} />
     </div>
   );
 
@@ -1057,7 +1064,9 @@ export function PowersPanel({ character }: Props) {
                           <button onClick={() => addToQuickTray(mt.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                         )}
                       </div>
-                      <PowerCard power={mt} abilityModifiers={abilityMods} />
+                      <PowerCard
+                        attackContext={attackContext}
+                        power={mt} abilityModifiers={abilityMods} />
                     </div>
                   </div>
                 );
@@ -1111,7 +1120,9 @@ export function PowersPanel({ character }: Props) {
                           </button>
                         )}
                       </div>
-                      <PowerCard power={dilettantePower} />
+                      <PowerCard
+                        attackContext={attackContext}
+                        power={dilettantePower} />
                     </div>
                   ) : (
                     <div className="border-2 border-dashed border-violet-300 rounded-lg p-4 flex items-center justify-between bg-violet-50/40">
@@ -1161,6 +1172,7 @@ export function PowersPanel({ character }: Props) {
                       )}
                     </div>
                     <PowerCard
+                      attackContext={attackContext}
                       power={mt}
                       used={isUsed}
                       onToggleUsed={() => toggleUsed(filled.sp.powerId, filled.power!.usage)}
@@ -1212,7 +1224,9 @@ export function PowersPanel({ character }: Props) {
                       <button onClick={() => addToQuickTray(mt.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                     )}
                   </div>
-                  <PowerCard power={mt} used={isUsed} onToggleUsed={() => toggleUsed(sp.powerId, power.usage)} abilityModifiers={abilityMods} />
+                  <PowerCard
+                    attackContext={attackContext}
+                    power={mt} used={isUsed} onToggleUsed={() => toggleUsed(sp.powerId, power.usage)} abilityModifiers={abilityMods} />
                 </div>
               </div>
             );
@@ -1329,7 +1343,9 @@ export function PowersPanel({ character }: Props) {
                               <button onClick={() => addToQuickTray(mt.id)} className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors text-sm leading-none border border-amber-200" title="Pin to quick tray">⚡</button>
                             )}
                           </div>
-                          <PowerCard power={mt} abilityModifiers={abilityMods} />
+                          <PowerCard
+                            attackContext={attackContext}
+                            power={mt} abilityModifiers={abilityMods} />
                         </div>
                       </div>
                     );

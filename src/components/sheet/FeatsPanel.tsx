@@ -12,6 +12,16 @@ import { SUPERIOR_IMPLEMENTS } from '../../data/equipment/superiorImplements';
 import { MissingHomebrewPlaceholder, isHomebrew } from '../homebrew/HomebrewBadge';
 import { useReadOnly } from './ReadOnlyContext';
 import { getPendingMcPowerChoices, getMcGrantedPowerSlots } from '../../utils/multiclass';
+import {
+  featRequiresChoices,
+  featChoiceKey,
+  getFeatChoice,
+  choiceOptions,
+  CHOICE_KIND_LABELS,
+  reindexFeatChoicesAfterRemoval,
+  featChoicesMustBeDistinct,
+  type FeatChoiceKind,
+} from '../../utils/featChoices';
 
 interface Props {
   character: Character;
@@ -150,6 +160,12 @@ export function FeatsPanel({ character }: Props) {
       }
       changes.superiorImplementChoices = newChoices;
     }
+    // Same re-indexing problem for the Expertise feats' weapon-group / implement-type
+    // choices: removing the first of two instances must not leave the second one
+    // reading the removed instance's choice.
+    if (featRequiresChoices(id).length > 0 && instanceIdx !== undefined) {
+      changes.featChoices = reindexFeatChoicesAfterRemoval(character, id, instanceIdx);
+    }
     await patch(changes);
   };
 
@@ -199,6 +215,19 @@ export function FeatsPanel({ character }: Props) {
       if (si && usedBaseTypes.has(si.type)) return false;
       return true;
     });
+  };
+
+  const setFeatChoice = async (
+    featId: string,
+    occurrence: number,
+    kind: FeatChoiceKind,
+    value: string,
+  ) => {
+    const next = { ...(character.featChoices ?? {}) };
+    const key = featChoiceKey(featId, occurrence, kind);
+    if (value === '') delete next[key];
+    else next[key] = value;
+    await patch({ featChoices: next });
   };
 
   const setSuperiorImplementChoice = async (sitInstanceIdx: number, instanceId: string) => {
@@ -357,6 +386,11 @@ export function FeatsPanel({ character }: Props) {
             const sitAvailable = isSit ? getAvailableSuperiorImplements(sitInstanceIdx) : [];
             const sitCurrentChoice = isSit ? (character.superiorImplementChoices ?? {})[sitInstanceIdx] : undefined;
 
+            // Expertise feats: which choices this instance owes, and its index among
+            // this character's instances of the same feat (all three are repeatable).
+            const choiceKinds = featRequiresChoices(feat.id);
+            const occurrence = feats.slice(0, idx).filter((f) => f?.id === feat.id).length;
+
             return (
               <div key={`${feat.id}-${idx}`} className="p-3 bg-stone-50 rounded-lg border border-stone-200">
                 <div className="flex items-start justify-between gap-2">
@@ -373,7 +407,12 @@ export function FeatsPanel({ character }: Props) {
                   </div>
                   {!readOnly && (
                     <button
-                      onClick={() => removeFeat(feat.id, isSit ? sitInstanceIdx : undefined)}
+                      onClick={() =>
+                        removeFeat(
+                          feat.id,
+                          isSit ? sitInstanceIdx : choiceKinds.length > 0 ? occurrence : undefined,
+                        )
+                      }
                       className="text-stone-300 hover:text-red-500 transition-colors text-xl leading-none flex-shrink-0"
                       title="Remove feat"
                     >×</button>
@@ -438,6 +477,75 @@ export function FeatsPanel({ character }: Props) {
                     {pendingPowerLabel ? ` (${pendingPowerLabel})` : ''}
                   </p>
                 )}
+                {/* Expertise feats: the weapon group / implement type the feat asks you
+                    to choose. Until it's set, the +1/+2/+3 can't be placed on any
+                    attack roll, so the label says so rather than the bonus going
+                    quietly missing. */}
+                {choiceKinds.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-stone-200 space-y-2">
+                    {choiceKinds.map((kind) => {
+                      const value = getFeatChoice(character, feat.id, occurrence, kind) ?? '';
+                      const all = choiceOptions(kind, character);
+                      // "…choose a different X each time" — withhold what the other
+                      // instances of this same feat already took.
+                      const taken = featChoicesMustBeDistinct(feat.id)
+                        ? new Set(
+                            feats
+                              .map((f, i) => ({ f, i }))
+                              .filter(({ f, i }) => f?.id === feat.id && i !== idx)
+                              .map(({ i }) =>
+                                getFeatChoice(
+                                  character,
+                                  feat.id,
+                                  feats.slice(0, i).filter((g) => g?.id === feat.id).length,
+                                  kind,
+                                ),
+                              )
+                              .filter((v): v is string => !!v),
+                          )
+                        : new Set<string>();
+                      const options = all.filter((o) => o.value === value || !taken.has(o.value));
+                      // A stored choice that's no longer offered — a Skill Focus skill
+                      // the character has since retrained out of. Shown, not dropped.
+                      const orphaned = !!value && !all.some((o) => o.value === value);
+                      return (
+                        <div key={kind}>
+                          <label className="text-[11px] font-bold text-amber-700 uppercase tracking-wide">
+                            {CHOICE_KIND_LABELS[kind]}
+                            {!value && (
+                              <span className="ml-1 normal-case font-semibold">
+                                {'—'} not chosen, bonus not applied
+                              </span>
+                            )}
+                          </label>
+                          {kind === 'skill' && all.length === 0 ? (
+                            <p className="text-xs text-stone-400 mt-1 italic">
+                              Train a skill first — Skill Focus requires training in the skill you choose.
+                            </p>
+                          ) : (
+                            <select
+                              value={orphaned ? '' : value}
+                              onChange={(e) => setFeatChoice(feat.id, occurrence, kind, e.target.value)}
+                              disabled={readOnly}
+                              className="mt-1 w-full border border-stone-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[44px]"
+                            >
+                              <option value="">— None selected —</option>
+                              {options.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          )}
+                          {orphaned && (
+                            <p className="text-[11px] text-amber-700 font-semibold mt-1">
+                              ⚠ Previously set to “{value}”, which is no longer available — bonus not applied.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {/* Superior Implement Training: implement association dropdown */}
                 {isSit && (
                   <div className="mt-2 pt-2 border-t border-stone-200">

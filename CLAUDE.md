@@ -515,7 +515,9 @@ Druid Primal Guardian, Monk Unarmored Defense / Centered Breath / Stone Fist.
 Fighter Weapon Talent was wired via `weaponTalentBonus`, not by feature name —
 grep for the mechanic, not the string, before concluding something is missing.)
 
-**Note on Skill Focus:** The feat requires choosing a trained skill per instance and can be taken multiple times. No structured `bonuses` field is assigned — it is not yet automatically applied. Future work would require `featChoices: Record<string, string>` on Character to track the per-instance skill choice.
+**Note on Skill Focus:** It carries no `bonuses` field on purpose — its +3 depends on a per-instance choice, so it is resolved from `Character.featChoices` by `skillFocusBonuses()` instead. See "Feat choices" below.
+
+**Skill feat bonuses DO NOT STACK.** Every feat that modifies a skill check grants a "+N **feat** bonus" in so many words — Jack of All Trades +2, Alertness +2, Escape Artist +2, Light Step +1, Bardic Knowledge +2, Skill Focus +3, and the rest (all verified against iws.mx). Same-type bonuses don't stack in 4e, so `useCharacterDerived` collects the applicable ones and takes the **highest**; `SkillBreakdown.featBonus` is a max over `featBonusDetails`, never a sum. It *was* a sum, which over-counted Escape Artist (+2 Acrobatics) alongside Light Step (+1 Acrobatics) as +3, and would have made Skill Focus + Alertness read +5 on Perception instead of +3. Superseded entries stay in `featBonusDetails` with `applied: false` and render struck through as "Light Step (doesn't stack) +1" rather than vanishing.
 
 **Repeatable Feats:** Some feats (Superior Implement Training, Skill Focus, Weapon Focus, etc.) can be taken multiple times. Detected by `isFeatRepeatable(feat)` which checks for "more than once" in the feat's special/benefit text. `selectedFeatIds` can contain duplicate entries for repeatable feats. `FeatsPanel`, `Step7_Feats`, and `LevelUpModal` all allow re-selecting repeatable feats. Removal uses `indexOf` + splice (removes one instance, not all).
 
@@ -1170,6 +1172,125 @@ mcGrantedPowers?: McGrantedPower[];   // src/types/gameData.ts
   creation picker. **No power should ever carry both fields** — the three boons
   keep only `pactBoon`, the three at-wills only `pact`. (Verified by hand; this
   project has no test runner, so there is nothing enforcing it automatically.)
+
+## Attack modifier on power cards (`src/utils/powerAttack.ts`)
+
+A power's attack line ("Strength vs. AC") names the ability and the defense but not
+the number — and the number is **not one number**. A Weapon-keyword power is rolled
+with whatever you are holding, so a longsword's +3 proficiency, a club's +2 and a
+magic weapon's enhancement all land on the same roll. `getPowerAttackInfo()`
+therefore returns **one row per equipped weapon / implement**, not a total.
+
+```typescript
+getPowerAttackInfo(character, derived, power): PowerAttackInfo | null   // null = no structured attack
+```
+
+- Keyed off the structured `attackAbility` + `defense` fields, never off parsing
+  `power.attack` — that string has at least 40 shapes in the data, including
+  multi-ability ("Strength, Constitution, or Dexterity vs. Reflex").
+- `kind` comes from the keywords: `Weapon` → one row per equipped weapon,
+  `Implement` → one row per equipped implement, neither → a single row, because
+  nothing you hold changes that roll.
+- **Weapon rows are filtered to the weapons the power can actually be rolled with**,
+  via `weaponReachFor(power.range)` → `'melee' | 'ranged' | 'either' | null`. Only the
+  ranges that state it outright are filtered on (`Melee weapon`, `Melee 1/2/touch`,
+  `Ranged weapon`, `Ranged 5`, `Melee or Ranged weapon` — 621 of ~700 Weapon powers).
+  `Close burst N`, `Close blast N`, `Area burst N within weapon range` and `Personal`
+  do **not** say what they are wielded with in a form the string can answer, so they
+  are left unfiltered on purpose: listing a weapon the player can't use is
+  recoverable, hiding one they can is not. Don't "finish the job" by guessing at
+  those — confirm against the source first.
+  A thrown melee weapon (Heavy/Light thrown) counts as ranged, which is what those
+  properties are for. The header names what was listed ("…each equipped **melee**
+  weapon") so a filtered list doesn't read as a missing weapon.
+- **Implements contribute enhancement only — there is no implement proficiency
+  bonus in 4e.** Do not "fix" this by adding one.
+- The arithmetic mirrors `CombatActionsPanel` on purpose (ability + half level +
+  proficiency-if-proficient + enhancement + `weaponTalentAttackBonus` +
+  `magicItemAttackBonus`). A power card and a basic attack with the same weapon
+  must not disagree about the proficiency bonus.
+- A flat power bonus written into the attack line ("Strength **+ 2** vs. AC") is
+  added; a `+N` appearing *after* "vs" is conditional prose ("+2 if no enemy is
+  adjacent") and is deliberately left out — it stays readable in the text above.
+- **Expertise feats are applied** via `expertiseAttackBonus()` — see the section below.
+  The three that require a choice count only once that choice is stored; until then
+  `pendingChoiceFeats` names them under the breakdown, because silently showing a
+  number that is 1–3 low is worse than saying so.
+- Superior implements: the Accurate property's +1 counts only once that implement
+  instance is linked to a Superior Implement Training feat instance via
+  `superiorImplementChoices` — without the feat the implement can't be used at all.
+
+**Wiring:** `PowerCard` takes `attackContext?: { character, derived }` and computes
+the breakdown itself in a `useMemo`. It is passed the pair rather than a precomputed
+value so each call site is one line and the five sheet panels cannot drift apart in
+what they show — the same reasoning that collapsed the 14 copies of source-card
+markup below. Wired in `PowersPanel` (9 sites), `ActionsByTypePanel`,
+`QuickTrayPanel` and `CharacterSheetPrint`. Deliberately **omitted in the creation
+wizard's pickers** (`Step6_Powers`, `Step3_Class`) — there is no character yet.
+
+## Feat choices + Expertise feats (`src/utils/featChoices.ts`)
+
+`Character.featChoices?: Record<string, string>` records choices that a feat's own
+text asks the player to make. Keyed **`<featId>#<occurrence>:<kind>`** — per feat
+INSTANCE, because every choice feat here is explicitly repeatable. Always read it
+through `getFeatChoice()`; never index the record directly.
+
+The five Expertise feats in this project's sources, with the text verified against
+iws.mx (`feat1032`, `feat734`, `feat2785`, `feat3671`, `feat3672`):
+
+| Feat | Source | Choice |
+|---|---|---|
+| Weapon Expertise | PHB2 190 | a weapon group |
+| Implement Expertise | PHB2 185 | an implement type |
+| Versatile Expertise | PHB3 184 | a weapon group **and** an implement type |
+| Totem Expertise | HotF 130 | none — always totems |
+| Two-Handed Weapon Expertise | HotF 130 | none — always two-handed melee |
+
+- All five grant **+1 / +2 / +3 at 1st / 11th / 21st**.
+- **They are feat bonuses, so they do not stack with each other** —
+  `expertiseAttackBonus()` returns the HIGHEST applicable, not the sum. A character
+  with Weapon Expertise (Axe) *and* Two-Handed Weapon Expertise swinging a greataxe
+  gets +1, not +2. Fighter/Rogue Weapon Talent is an untyped class bonus and does
+  stack, which is why it stays a separate `parts` entry.
+- Applied in **both** `powerAttack.ts` (power cards) and `CombatActionsPanel` (a basic
+  attack is a weapon power, so Expertise applies there too) from the one resolver, so
+  the two views cannot disagree.
+- `WEAPON_GROUPS` is the 14 PHB groups. A weapon's group lives inside
+  `WeaponData.properties` alongside true properties (`Two-handed`, `Versatile`,
+  `High crit`, …) because `weapons.ts` merged the PHB's Group and Properties columns
+  — matching a group means looking for the group name in that array. Same approach as
+  `isProficientWithWeapon`'s "Military hammers" matching.
+- `reindexFeatChoicesAfterRemoval()` must be called when a choice feat instance is
+  removed, exactly like `superiorImplementChoices` does: otherwise removing the first
+  of two Weapon Expertise feats leaves the second reading the removed one's group.
+- `weapon-expertise` and `implement-expertise` were **missing their `special` text**,
+  so `isFeatRepeatable()` returned false and the app refused to let you take them
+  twice. The verified "You can take this feat more than once…" text is now in the data.
+
+### Skill Focus
+
+"Choose a skill in which you have training. You gain a +3 feat bonus to the chosen
+skill." (PHB 201, verified) — a flat **+3, not tiered** like the Expertise feats, and
+repeatable with a different skill each time.
+
+- Stored under the `'skill'` choice kind. Its options are the only ones that depend on
+  the character: `choiceOptions('skill', character)` offers **trained skills only**,
+  because training in the chosen skill is the feat's prerequisite.
+- `skillFocusBonuses(character)` → `Record<skillId, 3>`, consumed by
+  `useCharacterDerived` as one more feat-bonus candidate. It does **not** stack with
+  Alertness et al — see the non-stacking rule in the Feats Data section.
+- A choice whose skill is no longer trained is **ignored, not silently kept**: the
+  prerequisite no longer holds. `invalidSkillFocusChoices()` reports those, and
+  `FeatsPanel` shows "⚠ Previously set to "arcana", which is no longer available".
+- `featChoicesMustBeDistinct()` drives withholding a sibling instance's pick from the
+  dropdown, since all four choice feats say "a different X each time".
+
+**Still not applied — Skill Training.** Same shape of problem ("You gain training in
+one skill, which doesn't need to be on your class skills list", PHB 201, repeatable),
+but the effect is *training*, not a bonus: it would have to feed `trainedSkills`
+itself, which is read by the skill list, the wizard's trained-skill budget, feat
+prerequisites (`featMeetsPrerequisites`'s `trainedSkill` check) and Skill Focus's own
+option list. Deliberately left out of this pass rather than half-wired.
 
 ### Powers grouped by source (PowersPanel)
 

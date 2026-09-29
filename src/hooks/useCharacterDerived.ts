@@ -17,6 +17,7 @@ import { calculateAC, calculateFortitude, calculateReflex, calculateWill } from 
 import { calculateMaxHp, calculateBloodied, calculateHealingSurgeValue, calculateSurgesPerDay } from '../utils/hitPoints';
 import { calculateSkillBonus } from '../utils/skillUtils';
 import { effectiveWeaponDamage } from '../utils/classWeaponTalent';
+import { skillFocusBonuses } from '../utils/featChoices';
 
 /** Only include a row when the value is non-zero. */
 function rowIf(condition: boolean, label: string, value: number): DefenseBreakdownRow[] {
@@ -503,6 +504,7 @@ export function deriveCharacterStats(character: Character): DerivedStats {
     // Skills
     const hasJoaT = character.selectedFeatIds.includes('jack-of-all-trades');
     const classUntrainedSkillBonus = cls?.untrainedSkillBonus ?? 0;
+    const skillFocusBonusMap = skillFocusBonuses(character);
     const skillBreakdowns: Record<string, SkillBreakdown> = {};
     const skillBonuses = SKILLS.reduce<Record<string, number>>((acc, skill) => {
       const isTrained = character.trainedSkills.includes(skill.id);
@@ -511,20 +513,35 @@ export function deriveCharacterStats(character: Character): DerivedStats {
       const racialBonus = baseRacialBonus + subraceSkillBonus;
       const abilityMod = mods[skill.keyAbility];
       const armorPenalty = skill.armorPenalty ? Math.abs(armorCheckPenalty) : 0;
-      // Jack of All Trades: +2 to untrained skills; plus any per-skill feat bonuses (e.g. Alertness → Perception)
-      const joatBonus = (hasJoaT && !isTrained) ? 2 : 0;
-      const perSkillFeatBonus = featBonuses.skills[skill.id] ?? 0;
-      const featBonus = joatBonus + perSkillFeatBonus;
-      // Build itemised labels for tooltip
-      const featBonusDetails: { label: string; bonus: number }[] = [];
-      if (joatBonus > 0) featBonusDetails.push({ label: 'Jack of All Trades', bonus: joatBonus });
-      if (perSkillFeatBonus > 0) {
+      // Every feat that touches a skill check grants a FEAT bonus in so many words —
+      // Jack of All Trades +2, Alertness +2, Skill Focus +3, and the rest (all
+      // verified against iws.mx). Same-type bonuses don't stack in 4e, so the
+      // applicable ones are collected and the HIGHEST is taken, not the sum. This
+      // previously summed them, which over-counted e.g. Escape Artist (+2 Acrobatics)
+      // alongside Light Step (+1 Acrobatics).
+      const featCandidates: { label: string; bonus: number }[] = [];
+      if (hasJoaT && !isTrained) {
+        featCandidates.push({ label: 'Jack of All Trades', bonus: 2 });
+      }
+      if ((featBonuses.skills[skill.id] ?? 0) > 0) {
         for (const featId of character.selectedFeatIds) {
           const feat = getFeatById(featId);
           const sb = feat?.bonuses?.skills?.[skill.id];
-          if (sb) featBonusDetails.push({ label: feat!.name, bonus: sb });
+          if (sb) featCandidates.push({ label: feat!.name, bonus: sb });
         }
       }
+      // Skill Focus's +3 depends on the per-instance skill choice, so it can't live
+      // in the static FeatData.bonuses table — see src/utils/featChoices.ts.
+      const focusBonus = skillFocusBonusMap[skill.id] ?? 0;
+      if (focusBonus > 0) featCandidates.push({ label: 'Skill Focus', bonus: focusBonus });
+
+      const featBonus = featCandidates.reduce((max, c) => Math.max(max, c.bonus), 0);
+      // Superseded entries stay in the details so the breakdown can show that a
+      // smaller same-type bonus was crowded out rather than silently dropping it.
+      const featBonusDetails = featCandidates.map((c) => ({
+        ...c,
+        applied: c.bonus === featBonus,
+      }));
       const trainedBonus = isTrained ? 5 : 0;
       // Class-feature bonus to UNTRAINED skills — Bard's Skill Versatility.
       // Stacks with Jack of All Trades: that feat's +2 is a FEAT bonus and this
