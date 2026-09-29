@@ -1171,6 +1171,51 @@ mcGrantedPowers?: McGrantedPower[];   // src/types/gameData.ts
   keep only `pactBoon`, the three at-wills only `pact`. (Verified by hand; this
   project has no test runner, so there is nothing enforcing it automatically.)
 
+## Attack modifier on power cards (`src/utils/powerAttack.ts`)
+
+A power's attack line ("Strength vs. AC") names the ability and the defense but not
+the number — and the number is **not one number**. A Weapon-keyword power is rolled
+with whatever you are holding, so a longsword's +3 proficiency, a club's +2 and a
+magic weapon's enhancement all land on the same roll. `getPowerAttackInfo()`
+therefore returns **one row per equipped weapon / implement**, not a total.
+
+```typescript
+getPowerAttackInfo(character, derived, power): PowerAttackInfo | null   // null = no structured attack
+```
+
+- Keyed off the structured `attackAbility` + `defense` fields, never off parsing
+  `power.attack` — that string has at least 40 shapes in the data, including
+  multi-ability ("Strength, Constitution, or Dexterity vs. Reflex").
+- `kind` comes from the keywords: `Weapon` → one row per equipped weapon,
+  `Implement` → one row per equipped implement, neither → a single row, because
+  nothing you hold changes that roll.
+- **Implements contribute enhancement only — there is no implement proficiency
+  bonus in 4e.** Do not "fix" this by adding one.
+- The arithmetic mirrors `CombatActionsPanel` on purpose (ability + half level +
+  proficiency-if-proficient + enhancement + `weaponTalentAttackBonus` +
+  `magicItemAttackBonus`). A power card and a basic attack with the same weapon
+  must not disagree about the proficiency bonus.
+- A flat power bonus written into the attack line ("Strength **+ 2** vs. AC") is
+  added; a `+N` appearing *after* "vs" is conditional prose ("+2 if no enemy is
+  adjacent") and is deliberately left out — it stays readable in the text above.
+- **Weapon Expertise / Implement Expertise are NOT applied**, and this is not an
+  oversight: both require choosing a weapon group / implement type and no Character
+  field records that choice (the same gap as Skill Focus). They are listed in
+  `untrackedFeats` and printed under the breakdown, because silently showing a
+  number that is 1–3 low is worse than saying so. Wiring them up needs a
+  `featChoices` field first.
+- Superior implements: the Accurate property's +1 counts only once that implement
+  instance is linked to a Superior Implement Training feat instance via
+  `superiorImplementChoices` — without the feat the implement can't be used at all.
+
+**Wiring:** `PowerCard` takes `attackContext?: { character, derived }` and computes
+the breakdown itself in a `useMemo`. It is passed the pair rather than a precomputed
+value so each call site is one line and the five sheet panels cannot drift apart in
+what they show — the same reasoning that collapsed the 14 copies of source-card
+markup below. Wired in `PowersPanel` (9 sites), `ActionsByTypePanel`,
+`QuickTrayPanel` and `CharacterSheetPrint`. Deliberately **omitted in the creation
+wizard's pickers** (`Step6_Powers`, `Step3_Class`) — there is no character yet.
+
 ### Powers grouped by source (PowersPanel)
 
 Every auto-granted power renders under a labelled, colour-matched heading:

@@ -33,6 +33,8 @@ export function QuickTrayPanel({ character }: Props) {
 
   const derived = useCharacterDerived(character);
   const abilityMods = derived.abilityModifiers;
+  // One object so PowerCard's memo has a stable dep — `derived` is already memoized.
+  const attackContext = useMemo(() => ({ character, derived }), [character, derived]);
   const trayIds = character.quickTrayPowerIds ?? [];
 
   // Build a map of dynamically-generated equipment powers from equipped items
@@ -218,6 +220,7 @@ export function QuickTrayPanel({ character }: Props) {
                       >×</button>
                     </div>
                     <PowerCard
+                      attackContext={attackContext}
                       power={power}
                       used={isUsed(power)}
                       onToggleUsed={

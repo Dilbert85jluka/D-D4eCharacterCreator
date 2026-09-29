@@ -1,8 +1,11 @@
-import type { Ability } from '../../../types/character';
+import { useMemo } from 'react';
+import type { Ability, Character, DerivedStats } from '../../../types/character';
 import type { PowerData, PowerUsage } from '../../../types/gameData';
 import { Badge } from '../../ui/Badge';
 import type { AugmentOption } from '../../../utils/psionics';
 import { substituteMods } from '../../../utils/powerText';
+import { getPowerAttackInfo, type PowerAttackInfo } from '../../../utils/powerAttack';
+import { formatModifier } from '../../../utils/abilityScores';
 
 interface PowerCardProps {
   power: PowerData;
@@ -22,6 +25,15 @@ interface PowerCardProps {
   onSpendAugment?: (cost: number) => void;
   /** Character ability modifiers — when provided, numeric values are substituted into power text. */
   abilityModifiers?: Record<Ability, number>;
+  /**
+   * When provided, the attack line gains a per-weapon / per-implement modifier
+   * breakdown. Passed as the character + derived pair rather than a precomputed
+   * value so every call site gets it from one wiring line and the five sheet
+   * panels can't drift apart in what they show.
+   *
+   * Omitted in the creation wizard's pickers — there is no character yet.
+   */
+  attackContext?: { character: Character; derived: DerivedStats };
 }
 
 const usageColors: Record<PowerUsage, string> = {
@@ -39,10 +51,16 @@ const usageLabels: Record<PowerUsage, string> = {
 export function PowerCard({
   power, selected, used, onClick, onToggleUsed, showCheckbox,
   augmentOptions, currentPowerPoints, nonAugmentSpecialText, onSpendAugment, abilityModifiers,
+  attackContext,
 }: PowerCardProps) {
   const usageClass = `power-${power.usage}`;
   const hasAugments = augmentOptions && augmentOptions.length > 0 && onSpendAugment;
   const sub = (text: string | undefined) => substituteMods(text, abilityModifiers);
+
+  const attackInfo = useMemo(
+    () => (attackContext ? getPowerAttackInfo(attackContext.character, attackContext.derived, power) : null),
+    [attackContext, power],
+  );
 
   return (
     <div
@@ -145,6 +163,9 @@ export function PowerCard({
         {power.attack && (
           <p><span className="font-semibold">Attack:</span> {sub(power.attack)}</p>
         )}
+
+        {/* Computed attack modifier, one row per equipped weapon/implement */}
+        {attackInfo && <AttackBreakdown info={attackInfo} />}
 
         {/* Target */}
         {power.target && <p><span className="font-semibold">Target:</span> {power.target}</p>}
@@ -293,6 +314,69 @@ export function PowerCard({
           <p className="italic text-stone-400">{power.flavor}</p>
         )}
       </div>
+    </div>
+  );
+}
+
+const KIND_HEADERS: Record<PowerAttackInfo['kind'], string> = {
+  weapon: 'Your attack modifier with each equipped weapon',
+  implement: 'Your attack modifier with each equipped implement',
+  none: 'Your attack modifier',
+};
+
+/**
+ * The numbers behind the attack line.
+ *
+ * One row per equipped weapon/implement rather than a single total, because a
+ * Weapon-keyword power rolls with whatever you're holding and the proficiency and
+ * enhancement bonuses differ per item — a longsword and a club are not the same roll.
+ */
+function AttackBreakdown({ info }: { info: PowerAttackInfo }) {
+  return (
+    <div className="rounded-md border border-stone-200 bg-stone-50 overflow-hidden">
+      <div className="px-2 pt-1 text-[10px] uppercase tracking-wide text-stone-400 font-semibold">
+        {KIND_HEADERS[info.kind]}
+      </div>
+
+      {info.emptyHint ? (
+        <p className="px-2 pb-1.5 pt-0.5 text-[11px] italic text-amber-600">{info.emptyHint}</p>
+      ) : (
+        <div className="divide-y divide-stone-200/70">
+          {info.rows.map((row) => (
+            <div key={row.key} className="px-2 py-1">
+              <div className="flex items-baseline gap-2">
+                <span className="font-semibold text-stone-700 truncate flex-1 min-w-0">
+                  {row.label}
+                </span>
+                <span className="font-bold text-stone-900 tabular-nums">
+                  {formatModifier(row.total)}
+                </span>
+                <span className="text-[10px] text-stone-400 flex-shrink-0">vs {info.defense}</span>
+              </div>
+              <div className="text-[10px] text-stone-400">
+                {row.parts.map((p, i) => (
+                  <span key={p.label}>
+                    {i > 0 && ' · '}
+                    {formatModifier(p.value)} {p.label}
+                  </span>
+                ))}
+              </div>
+              {row.warning && (
+                <p className="text-[10px] font-semibold text-amber-600">⚠ {row.warning}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Bonuses the app knows about but can't place. Saying so beats quietly
+          showing a number that's 1–3 low. */}
+      {info.untrackedFeats.length > 0 && (
+        <p className="px-2 pb-1.5 text-[10px] text-stone-400 italic">
+          Not included: {info.untrackedFeats.join(', ')} — add it yourself, the sheet doesn't
+          record which group you chose.
+        </p>
+      )}
     </div>
   );
 }
