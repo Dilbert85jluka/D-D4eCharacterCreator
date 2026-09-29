@@ -1,5 +1,5 @@
 import type { Ability, Character, DerivedStats, EquipmentItem } from '../types/character';
-import type { PowerData } from '../types/gameData';
+import type { PowerData, WeaponData } from '../types/gameData';
 import { resolveEnhancementTargets } from '../types/gameData';
 import { WEAPONS } from '../data/equipment/weapons';
 import { MAGIC_WEAPONS } from '../data/equipment/magicWeapons';
@@ -70,6 +70,8 @@ export interface PowerAttackInfo {
   abilityLabel: string;
   /** Which kind of tool the power's keywords say it is rolled with. */
   kind: 'weapon' | 'implement' | 'none';
+  /** For weapon powers: which equipped weapons the range restricts it to, if any. */
+  reach: WeaponReach;
   rows: AttackBonusRow[];
   /** Nothing equipped that this power can be used with. */
   emptyHint?: string;
@@ -113,7 +115,46 @@ interface RowContext {
   magicItemAttack: number;
 }
 
-function weaponRows(character: Character, ctx: RowContext): AttackBonusRow[] {
+/**
+ * Which equipped weapons a power can actually be rolled with, read off its `range`.
+ *
+ * Only the ranges that state this outright are filtered on — "Melee weapon",
+ * "Melee 1", "Ranged weapon", "Ranged 5", "Melee or Ranged weapon" and friends,
+ * which between them cover the large majority of Weapon-keyword powers. The rest
+ * ("Close burst 1", "Close blast 3", "Area burst 2 within weapon range") do not
+ * say what they are wielded with in a form this can read, so they are NOT filtered:
+ * listing a weapon the player can't use is recoverable, hiding one they can is not.
+ */
+export type WeaponReach = 'melee' | 'ranged' | 'either' | null;
+
+export function weaponReachFor(range: string | undefined): WeaponReach {
+  if (!range) return null;
+  const r = range.trim().toLowerCase();
+  if (r.startsWith('melee or ranged') || r.startsWith('ranged or melee')) return 'either';
+  if (r.startsWith('melee')) return 'melee';
+  if (r.startsWith('ranged')) return 'ranged';
+  return null;
+}
+
+function isRangedWeapon(weapon: WeaponData): boolean {
+  return weapon.category.toLowerCase().includes('ranged');
+}
+
+/** A thrown melee weapon counts for a power that calls for a ranged weapon — that is
+ *  what the Heavy/Light thrown properties are for. Kept inclusive on purpose. */
+function canThrow(weapon: WeaponData): boolean {
+  return weapon.properties.some((p) => /thrown/i.test(p));
+}
+
+function weaponMatchesReach(weapon: WeaponData, reach: WeaponReach): boolean {
+  switch (reach) {
+    case 'melee':  return !isRangedWeapon(weapon);
+    case 'ranged': return isRangedWeapon(weapon) || canThrow(weapon);
+    default:       return true; // 'either' and null both list everything
+  }
+}
+
+function weaponRows(character: Character, ctx: RowContext, reach: WeaponReach): AttackBonusRow[] {
   const { abilityLabel, abilityMod, halfLevel, powerBonus, magicItemAttack } = ctx;
   const rows: AttackBonusRow[] = [];
 
@@ -121,6 +162,7 @@ function weaponRows(character: Character, ctx: RowContext): AttackBonusRow[] {
     if (!item.equipped) continue;
     const weapon = WEAPONS.find((w) => w.id === item.itemId);
     if (!weapon) continue;
+    if (!weaponMatchesReach(weapon, reach)) continue;
 
     const proficient = isProficientWithWeapon(character, weapon);
     const parts: AttackBonusPart[] = [{ label: abilityLabel, value: abilityMod }];
@@ -222,12 +264,19 @@ export function getPowerAttackInfo(
     magicItemAttack: derived.magicItemAttackBonus,
   };
 
+  const reach = kind === 'weapon' ? weaponReachFor(power.range) : null;
+
   let rows: AttackBonusRow[];
   let emptyHint: string | undefined;
 
   if (kind === 'weapon') {
-    rows = weaponRows(character, ctx);
-    if (rows.length === 0) emptyHint = 'No weapon equipped';
+    rows = weaponRows(character, ctx, reach);
+    if (rows.length === 0) {
+      emptyHint =
+        reach === 'melee'  ? 'No melee weapon equipped'
+        : reach === 'ranged' ? 'No ranged or thrown weapon equipped'
+        : 'No weapon equipped';
+    }
   } else if (kind === 'implement') {
     rows = implementRows(character, ctx);
     if (rows.length === 0) emptyHint = 'No implement equipped';
@@ -255,6 +304,7 @@ export function getPowerAttackInfo(
     defense: power.defense,
     abilityLabel,
     kind,
+    reach,
     rows,
     emptyHint,
     untrackedFeats: Array.from(new Set(untrackedFeats)),

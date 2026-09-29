@@ -1189,6 +1189,18 @@ getPowerAttackInfo(character, derived, power): PowerAttackInfo | null   // null 
 - `kind` comes from the keywords: `Weapon` → one row per equipped weapon,
   `Implement` → one row per equipped implement, neither → a single row, because
   nothing you hold changes that roll.
+- **Weapon rows are filtered to the weapons the power can actually be rolled with**,
+  via `weaponReachFor(power.range)` → `'melee' | 'ranged' | 'either' | null`. Only the
+  ranges that state it outright are filtered on (`Melee weapon`, `Melee 1/2/touch`,
+  `Ranged weapon`, `Ranged 5`, `Melee or Ranged weapon` — 621 of ~700 Weapon powers).
+  `Close burst N`, `Close blast N`, `Area burst N within weapon range` and `Personal`
+  do **not** say what they are wielded with in a form the string can answer, so they
+  are left unfiltered on purpose: listing a weapon the player can't use is
+  recoverable, hiding one they can is not. Don't "finish the job" by guessing at
+  those — confirm against the source first.
+  A thrown melee weapon (Heavy/Light thrown) counts as ranged, which is what those
+  properties are for. The header names what was listed ("…each equipped **melee**
+  weapon") so a filtered list doesn't read as a missing weapon.
 - **Implements contribute enhancement only — there is no implement proficiency
   bonus in 4e.** Do not "fix" this by adding one.
 - The arithmetic mirrors `CombatActionsPanel` on purpose (ability + half level +

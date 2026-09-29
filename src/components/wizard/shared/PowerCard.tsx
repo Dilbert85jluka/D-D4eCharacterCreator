@@ -318,11 +318,17 @@ export function PowerCard({
   );
 }
 
-const KIND_HEADERS: Record<PowerAttackInfo['kind'], string> = {
-  weapon: 'Your attack modifier with each equipped weapon',
-  implement: 'Your attack modifier with each equipped implement',
-  none: 'Your attack modifier',
-};
+/** Header text — names exactly which equipped items got a row, so a filtered list
+ *  reads as deliberate rather than as a missing weapon. */
+function breakdownHeader(info: PowerAttackInfo): string {
+  if (info.kind === 'implement') return 'Your attack modifier with each equipped implement';
+  if (info.kind === 'none') return 'Your attack modifier';
+  switch (info.reach) {
+    case 'melee':  return 'Your attack modifier with each equipped melee weapon';
+    case 'ranged': return 'Your attack modifier with each equipped ranged or thrown weapon';
+    default:       return 'Your attack modifier with each equipped weapon';
+  }
+}
 
 /**
  * The numbers behind the attack line.
@@ -335,7 +341,7 @@ function AttackBreakdown({ info }: { info: PowerAttackInfo }) {
   return (
     <div className="rounded-md border border-stone-200 bg-stone-50 overflow-hidden">
       <div className="px-2 pt-1 text-[10px] uppercase tracking-wide text-stone-400 font-semibold">
-        {KIND_HEADERS[info.kind]}
+        {breakdownHeader(info)}
       </div>
 
       {info.emptyHint ? (
