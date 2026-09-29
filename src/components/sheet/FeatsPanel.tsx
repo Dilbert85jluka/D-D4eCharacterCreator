@@ -19,6 +19,7 @@ import {
   choiceOptions,
   CHOICE_KIND_LABELS,
   reindexFeatChoicesAfterRemoval,
+  featChoicesMustBeDistinct,
   type FeatChoiceKind,
 } from '../../utils/featChoices';
 
@@ -484,6 +485,29 @@ export function FeatsPanel({ character }: Props) {
                   <div className="mt-2 pt-2 border-t border-stone-200 space-y-2">
                     {choiceKinds.map((kind) => {
                       const value = getFeatChoice(character, feat.id, occurrence, kind) ?? '';
+                      const all = choiceOptions(kind, character);
+                      // "…choose a different X each time" — withhold what the other
+                      // instances of this same feat already took.
+                      const taken = featChoicesMustBeDistinct(feat.id)
+                        ? new Set(
+                            feats
+                              .map((f, i) => ({ f, i }))
+                              .filter(({ f, i }) => f?.id === feat.id && i !== idx)
+                              .map(({ i }) =>
+                                getFeatChoice(
+                                  character,
+                                  feat.id,
+                                  feats.slice(0, i).filter((g) => g?.id === feat.id).length,
+                                  kind,
+                                ),
+                              )
+                              .filter((v): v is string => !!v),
+                          )
+                        : new Set<string>();
+                      const options = all.filter((o) => o.value === value || !taken.has(o.value));
+                      // A stored choice that's no longer offered — a Skill Focus skill
+                      // the character has since retrained out of. Shown, not dropped.
+                      const orphaned = !!value && !all.some((o) => o.value === value);
                       return (
                         <div key={kind}>
                           <label className="text-[11px] font-bold text-amber-700 uppercase tracking-wide">
@@ -494,17 +518,28 @@ export function FeatsPanel({ character }: Props) {
                               </span>
                             )}
                           </label>
-                          <select
-                            value={value}
-                            onChange={(e) => setFeatChoice(feat.id, occurrence, kind, e.target.value)}
-                            disabled={readOnly}
-                            className="mt-1 w-full border border-stone-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[44px]"
-                          >
-                            <option value="">— None selected —</option>
-                            {choiceOptions(kind).map((opt) => (
-                              <option key={opt} value={opt}>{opt}</option>
-                            ))}
-                          </select>
+                          {kind === 'skill' && all.length === 0 ? (
+                            <p className="text-xs text-stone-400 mt-1 italic">
+                              Train a skill first — Skill Focus requires training in the skill you choose.
+                            </p>
+                          ) : (
+                            <select
+                              value={orphaned ? '' : value}
+                              onChange={(e) => setFeatChoice(feat.id, occurrence, kind, e.target.value)}
+                              disabled={readOnly}
+                              className="mt-1 w-full border border-stone-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[44px]"
+                            >
+                              <option value="">— None selected —</option>
+                              {options.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          )}
+                          {orphaned && (
+                            <p className="text-[11px] text-amber-700 font-semibold mt-1">
+                              ⚠ Previously set to “{value}”, which is no longer available — bonus not applied.
+                            </p>
+                          )}
                         </div>
                       );
                     })}

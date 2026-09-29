@@ -299,7 +299,9 @@ export function getPowerAttackInfo(
     }];
   }
 
-  const pendingChoiceFeats = pendingChoiceFeatNames(character);
+  // Scoped to the attack-relevant kinds — an unchosen Skill Focus is not this
+  // card's business.
+  const pendingChoiceFeats = pendingChoiceFeatNames(character, ['weapon-group', 'implement-type']);
 
   return {
     defense: power.defense,

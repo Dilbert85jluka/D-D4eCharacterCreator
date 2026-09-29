@@ -515,7 +515,9 @@ Druid Primal Guardian, Monk Unarmored Defense / Centered Breath / Stone Fist.
 Fighter Weapon Talent was wired via `weaponTalentBonus`, not by feature name —
 grep for the mechanic, not the string, before concluding something is missing.)
 
-**Note on Skill Focus:** The feat requires choosing a trained skill per instance and can be taken multiple times. No structured `bonuses` field is assigned — it is not yet automatically applied. Future work would require `featChoices: Record<string, string>` on Character to track the per-instance skill choice.
+**Note on Skill Focus:** It carries no `bonuses` field on purpose — its +3 depends on a per-instance choice, so it is resolved from `Character.featChoices` by `skillFocusBonuses()` instead. See "Feat choices" below.
+
+**Skill feat bonuses DO NOT STACK.** Every feat that modifies a skill check grants a "+N **feat** bonus" in so many words — Jack of All Trades +2, Alertness +2, Escape Artist +2, Light Step +1, Bardic Knowledge +2, Skill Focus +3, and the rest (all verified against iws.mx). Same-type bonuses don't stack in 4e, so `useCharacterDerived` collects the applicable ones and takes the **highest**; `SkillBreakdown.featBonus` is a max over `featBonusDetails`, never a sum. It *was* a sum, which over-counted Escape Artist (+2 Acrobatics) alongside Light Step (+1 Acrobatics) as +3, and would have made Skill Focus + Alertness read +5 on Perception instead of +3. Superseded entries stay in `featBonusDetails` with `applied: false` and render struck through as "Light Step (doesn't stack) +1" rather than vanishing.
 
 **Repeatable Feats:** Some feats (Superior Implement Training, Skill Focus, Weapon Focus, etc.) can be taken multiple times. Detected by `isFeatRepeatable(feat)` which checks for "more than once" in the feat's special/benefit text. `selectedFeatIds` can contain duplicate entries for repeatable feats. `FeatsPanel`, `Step7_Feats`, and `LevelUpModal` all allow re-selecting repeatable feats. Removal uses `indexOf` + splice (removes one instance, not all).
 
@@ -1265,9 +1267,30 @@ iws.mx (`feat1032`, `feat734`, `feat2785`, `feat3671`, `feat3672`):
   so `isFeatRepeatable()` returned false and the app refused to let you take them
   twice. The verified "You can take this feat more than once…" text is now in the data.
 
-**Still not applied, for the same reason as before:** Skill Focus. It needs a
-per-instance trained-skill choice, which `featChoices` can now express — wiring it up
-is a matter of adding a `'skill'` kind and a `SkillsPanel` bonus channel.
+### Skill Focus
+
+"Choose a skill in which you have training. You gain a +3 feat bonus to the chosen
+skill." (PHB 201, verified) — a flat **+3, not tiered** like the Expertise feats, and
+repeatable with a different skill each time.
+
+- Stored under the `'skill'` choice kind. Its options are the only ones that depend on
+  the character: `choiceOptions('skill', character)` offers **trained skills only**,
+  because training in the chosen skill is the feat's prerequisite.
+- `skillFocusBonuses(character)` → `Record<skillId, 3>`, consumed by
+  `useCharacterDerived` as one more feat-bonus candidate. It does **not** stack with
+  Alertness et al — see the non-stacking rule in the Feats Data section.
+- A choice whose skill is no longer trained is **ignored, not silently kept**: the
+  prerequisite no longer holds. `invalidSkillFocusChoices()` reports those, and
+  `FeatsPanel` shows "⚠ Previously set to "arcana", which is no longer available".
+- `featChoicesMustBeDistinct()` drives withholding a sibling instance's pick from the
+  dropdown, since all four choice feats say "a different X each time".
+
+**Still not applied — Skill Training.** Same shape of problem ("You gain training in
+one skill, which doesn't need to be on your class skills list", PHB 201, repeatable),
+but the effect is *training*, not a bonus: it would have to feed `trainedSkills`
+itself, which is read by the skill list, the wizard's trained-skill budget, feat
+prerequisites (`featMeetsPrerequisites`'s `trainedSkill` check) and Skill Focus's own
+option list. Deliberately left out of this pass rather than half-wired.
 
 ### Powers grouped by source (PowersPanel)
 

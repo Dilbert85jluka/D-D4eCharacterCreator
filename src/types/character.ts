@@ -38,9 +38,13 @@ export interface SkillBreakdown {
   halfLevel: number;
   trainedBonus: number;   // 5 if trained, 0 otherwise
   racialBonus: number;
-  featBonus: number;      // combined total: JoAT + per-skill feat bonuses (e.g. Alertness)
-  /** Itemised breakdown of feat bonuses for tooltip display */
-  featBonusDetails: { label: string; bonus: number }[];
+  /** The single highest feat bonus that applies. Feat bonuses are all the same TYPE
+   *  (JoAT, Alertness, Skill Focus… all say "feat bonus"), and same-type bonuses
+   *  don't stack in 4e, so this is a max over `featBonusDetails`, never a sum. */
+  featBonus: number;
+  /** Every applicable feat bonus. `applied` is false for one crowded out by a larger
+   *  same-type bonus — kept so the breakdown can show it rather than dropping it. */
+  featBonusDetails: { label: string; bonus: number; applied?: boolean }[];
   /** Class-feature bonus to UNTRAINED skills (Bard's Skill Versatility). 0 when trained. */
   classBonus: number;
   /** Name of the class feature granting `classBonus`, for the breakdown row. */

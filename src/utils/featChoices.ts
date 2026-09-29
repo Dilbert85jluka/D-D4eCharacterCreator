@@ -1,6 +1,7 @@
 import type { Character } from '../types/character';
 import type { ImplementType, WeaponData } from '../types/gameData';
 import { getFeatById } from '../data/feats';
+import { getSkillById } from '../data/skills';
 
 /**
  * Feats whose benefit depends on a choice the player makes when taking them.
@@ -20,7 +21,7 @@ import { getFeatById } from '../data/feats';
  * names the totem / two-handed melee weapon outright, so they apply automatically.
  */
 
-export type FeatChoiceKind = 'weapon-group' | 'implement-type';
+export type FeatChoiceKind = 'weapon-group' | 'implement-type' | 'skill';
 
 /**
  * The PHB weapon groups.
@@ -45,7 +46,18 @@ const CHOICE_FEATS: Record<string, FeatChoiceKind[]> = {
   'weapon-expertise': ['weapon-group'],
   'implement-expertise': ['implement-type'],
   'versatile-expertise': ['weapon-group', 'implement-type'],
+  'skill-focus': ['skill'],
 };
+
+/** Feats that may not pick the same thing twice — their text says "a different X
+ *  each time", so an already-taken option is withheld from the other instances. */
+const DISTINCT_CHOICE_FEATS = new Set([
+  'weapon-expertise', 'implement-expertise', 'versatile-expertise', 'skill-focus',
+]);
+
+export function featChoicesMustBeDistinct(featId: string): boolean {
+  return DISTINCT_CHOICE_FEATS.has(featId);
+}
 
 export function featRequiresChoices(featId: string): FeatChoiceKind[] {
   return CHOICE_FEATS[featId] ?? [];
@@ -54,10 +66,25 @@ export function featRequiresChoices(featId: string): FeatChoiceKind[] {
 export const CHOICE_KIND_LABELS: Record<FeatChoiceKind, string> = {
   'weapon-group': 'Weapon group',
   'implement-type': 'Implement type',
+  'skill': 'Trained skill',
 };
 
-export function choiceOptions(kind: FeatChoiceKind): readonly string[] {
-  return kind === 'weapon-group' ? WEAPON_GROUPS : IMPLEMENT_TYPES;
+export interface ChoiceOption {
+  value: string;
+  label: string;
+}
+
+/**
+ * The options for a choice. `'skill'` is the only kind whose options depend on the
+ * character: Skill Focus requires "a skill in which you have training", so offering
+ * an untrained skill would let the player build an illegal feat.
+ */
+export function choiceOptions(kind: FeatChoiceKind, character: Character): ChoiceOption[] {
+  if (kind === 'weapon-group') return WEAPON_GROUPS.map((g) => ({ value: g, label: g }));
+  if (kind === 'implement-type') return IMPLEMENT_TYPES.map((t) => ({ value: t, label: t }));
+  return character.trainedSkills
+    .map((id) => ({ value: id, label: getSkillById(id)?.name ?? id }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 }
 
 /** Storage key. Includes the instance so a repeated feat gets its own choice. */
@@ -214,10 +241,56 @@ export function expertiseAttackBonus(
   return { bonus: tier, sources: applicable };
 }
 
-/** Choice feats whose choice is still unset — the reason a bonus is missing. */
-export function pendingChoiceFeatNames(character: Character): string[] {
+// ── Skill Focus ──────────────────────────────────────────────────────────────
+
+/**
+ * Per-skill feat bonuses from Skill Focus.
+ *
+ * "Choose a skill in which you have training. You gain a +3 feat bonus to the
+ * chosen skill." (PHB 201, verified) — a flat +3, NOT tiered like the Expertise
+ * feats, and repeatable with a different skill each time.
+ *
+ * A choice whose skill is no longer trained is ignored: the feat's prerequisite is
+ * training in that skill, so a player who retrained out of it no longer qualifies.
+ * `invalidSkillFocusChoices()` surfaces those so they aren't lost silently.
+ */
+export const SKILL_FOCUS_BONUS = 3;
+
+export function skillFocusBonuses(character: Character): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const slot of getFeatChoiceSlots(character)) {
+    if (slot.featId !== 'skill-focus' || slot.kind !== 'skill' || !slot.value) continue;
+    if (!character.trainedSkills.includes(slot.value)) continue;
+    // Two instances can't legally name the same skill, and feat bonuses wouldn't
+    // stack anyway, so the highest wins rather than accumulating.
+    out[slot.value] = Math.max(out[slot.value] ?? 0, SKILL_FOCUS_BONUS);
+  }
+  return out;
+}
+
+/** Skill Focus choices pointing at a skill the character is no longer trained in. */
+export function invalidSkillFocusChoices(character: Character): FeatChoiceSlot[] {
+  return getFeatChoiceSlots(character).filter(
+    (s) =>
+      s.featId === 'skill-focus' &&
+      s.kind === 'skill' &&
+      !!s.value &&
+      !character.trainedSkills.includes(s.value),
+  );
+}
+
+/**
+ * Choice feats whose choice is still unset — the reason a bonus is missing.
+ *
+ * `kinds` scopes it to the caller's concern: the attack breakdown must not report an
+ * unchosen Skill Focus, which has nothing to do with attack rolls.
+ */
+export function pendingChoiceFeatNames(
+  character: Character,
+  kinds?: FeatChoiceKind[],
+): string[] {
   const missing = getFeatChoiceSlots(character)
-    .filter((s) => !s.value)
+    .filter((s) => !s.value && (!kinds || kinds.includes(s.kind)))
     .map((s) => s.featName);
   return Array.from(new Set(missing));
 }

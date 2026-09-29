@@ -32,15 +32,23 @@ interface SkillRoll {
 function buildBreakdownRows(
   skill: SkillData,
   b: SkillBreakdown,
-): { label: string; value: string }[] {
-  const rows: { label: string; value: string }[] = [
+): { label: string; value: string; muted?: boolean }[] {
+  const rows: { label: string; value: string; muted?: boolean }[] = [
     { label: ABILITY_ABBR[skill.keyAbility as Ability], value: formatModifier(b.abilityMod) },
     { label: '½ level', value: `+${b.halfLevel}` },
   ];
   if (b.trainedBonus > 0) rows.push({ label: 'Trained', value: `+${b.trainedBonus}` });
   if (b.racialBonus !== 0) rows.push({ label: 'Racial', value: formatModifier(b.racialBonus) });
   if (b.classBonus > 0) rows.push({ label: b.classBonusSource ?? 'Class', value: `+${b.classBonus}` });
-  for (const d of b.featBonusDetails) rows.push({ label: d.label, value: `+${d.bonus}` });
+  // A feat bonus crowded out by a larger same-type one is shown, not hidden — a
+  // player who took Light Step should see why it isn't adding to Acrobatics.
+  for (const d of b.featBonusDetails) {
+    rows.push(
+      d.applied === false
+        ? { label: `${d.label} (doesn't stack)`, value: `+${d.bonus}`, muted: true }
+        : { label: d.label, value: `+${d.bonus}` },
+    );
+  }
   if (b.itemBonus > 0) rows.push({ label: b.itemBonusSource ?? 'Magic Armor', value: `+${b.itemBonus}` });
   if (b.armorPenalty > 0) rows.push({ label: 'Armor', value: `−${b.armorPenalty}` });
   return rows;
@@ -57,7 +65,11 @@ function buildTooltip(skill: SkillData, breakdown: SkillBreakdown): string {
   }
   if (breakdown.featBonusDetails.length > 0) {
     for (const detail of breakdown.featBonusDetails) {
-      lines.push(`${detail.label}: +${detail.bonus}`);
+      lines.push(
+        detail.applied === false
+          ? `${detail.label}: +${detail.bonus} (doesn't stack)`
+          : `${detail.label}: +${detail.bonus}`,
+      );
     }
   }
   if (breakdown.armorPenalty > 0) lines.push(`Armor Penalty: \u2212${breakdown.armorPenalty}`);
@@ -180,7 +192,10 @@ export function SkillsPanel({ character, derived }: Props) {
                   {breakdown && (
                     <div className="mt-2 pt-2 border-t border-amber-200 flex flex-wrap gap-x-3 gap-y-0.5">
                       {buildBreakdownRows(skill, breakdown).map((row) => (
-                        <span key={row.label} className="text-[11px] leading-tight whitespace-nowrap">
+                        <span
+                          key={row.label}
+                          className={`text-[11px] leading-tight whitespace-nowrap ${row.muted ? 'opacity-50 line-through' : ''}`}
+                        >
                           <span className="text-amber-700/70">{row.label}</span>{' '}
                           <span className="font-semibold text-amber-900">{row.value}</span>
                         </span>
