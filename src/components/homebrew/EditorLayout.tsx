@@ -1,17 +1,75 @@
+import { useState } from 'react';
 import { useCampaignsStore } from '../../store/useCampaignsStore';
 
 interface Props {
   title: string;
   campaignIds: string[];
   onCampaignToggle: (campaignId: string) => void;
-  onSave: () => void;
+  /** May be async. EditorLayout awaits it, so a rejection is reported rather than lost. */
+  onSave: () => void | Promise<void>;
   onCancel: () => void;
   canSave: boolean;
   children: React.ReactNode;
 }
 
+/**
+ * Turn whatever a failed save threw into something a player can act on.
+ *
+ * Dexie wraps the underlying DOMException, so the name worth checking can be on
+ * either the error or its `inner`.
+ */
+function describeSaveError(err: unknown): string {
+  const e = err as { name?: string; message?: string; inner?: { name?: string; message?: string } };
+  const names = [e?.name, e?.inner?.name].filter(Boolean).join(' ');
+  const message = e?.message || e?.inner?.message || '';
+
+  // The NAME is authoritative when there is one. Only fall back to sniffing the
+  // text for an unnamed failure — otherwise an unrelated error that happens to
+  // mention "quota" in passing gets reported as a full disk.
+  const quota = names
+    ? /quota/i.test(names)
+    : /quota|storage (is )?full/i.test(message);
+
+  if (quota) {
+    return 'Your browser has run out of storage space for this app, so the save could not be written. '
+      + 'Free some up — deleting unused battle maps or character portraits reclaims the most — then try again.';
+  }
+  if (/DataClone/i.test(names)) {
+    return 'This content contains something the browser cannot store. Please report what you entered — this is a bug.';
+  }
+  if (/ConstraintError/i.test(names)) {
+    return 'An item with that identifier already exists. Reload the page and try again.';
+  }
+  return `Could not save: ${message || names || 'unknown error'}`;
+}
+
 export function EditorLayout({ title, campaignIds, onCampaignToggle, onSave, onCancel, canSave, children }: Props) {
   const campaigns = useCampaignsStore((s) => s.campaigns);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Every editor's own save handler ends in `onClose()` AFTER its awaits, so any
+   * rejection used to skip the close and leave the modal sitting there with no
+   * message anywhere — which is exactly what "nothing happens when I click Save"
+   * looks like. The await + catch lives here so all 13 editors are covered by one
+   * implementation and a new editor can't reintroduce the silence.
+   */
+  const handleSave = async () => {
+    if (saving) return;      // also stops a double-tap writing twice
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave();
+    } catch (err) {
+      console.error('[HomebrewEditor] Save failed', err);
+      setError(describeSaveError(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveDisabled = !canSave || saving;
 
   return (
     <div>
@@ -53,25 +111,35 @@ export function EditorLayout({ title, campaignIds, onCampaignToggle, onSave, onC
       </div>
 
       {/* Footer */}
-      <div className="flex justify-end gap-3 px-5 py-3 border-t border-stone-200 bg-stone-50 rounded-b-xl">
-        <button
-          onClick={onCancel}
-          className="px-4 py-2 text-sm font-semibold text-stone-600 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 transition-colors min-h-[44px]"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={onSave}
-          disabled={!canSave}
-          className={[
-            'px-4 py-2 text-sm font-semibold rounded-lg transition-colors min-h-[44px]',
-            canSave
-              ? 'bg-amber-700 text-white hover:bg-amber-600'
-              : 'bg-stone-200 text-stone-400 cursor-not-allowed',
-          ].join(' ')}
-        >
-          Save
-        </button>
+      <div className="px-5 py-3 border-t border-stone-200 bg-stone-50 rounded-b-xl">
+        {error && (
+          <div
+            role="alert"
+            className="mb-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700"
+          >
+            <span className="font-bold">Save failed. </span>{error}
+          </div>
+        )}
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-sm font-semibold text-stone-600 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 transition-colors min-h-[44px]"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saveDisabled}
+            className={[
+              'px-4 py-2 text-sm font-semibold rounded-lg transition-colors min-h-[44px]',
+              saveDisabled
+                ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                : 'bg-amber-700 text-white hover:bg-amber-600',
+            ].join(' ')}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
       </div>
     </div>
   );

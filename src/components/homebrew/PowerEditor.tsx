@@ -127,15 +127,13 @@ export function PowerEditor({ editingItem, userId, onClose }: EditorProps) {
     if (editingItem) {
       await updateItem({ ...editingItem, name: data.name, data, campaignIds });
     } else {
-      const item = await addItem({
+      await addItem({
         contentType: 'power',
         name: data.name,
         createdBy: userId,
         campaignIds,
         data: { ...data, id: '' },
       });
-      data.id = item.id;
-      await updateItem({ ...item, data });
     }
     onClose();
   };
