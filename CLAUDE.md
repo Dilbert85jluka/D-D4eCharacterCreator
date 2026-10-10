@@ -2272,6 +2272,39 @@ No realtime changes were needed: `useRealtimeCampaign` already replaces the whol
 
 ---
 
+## RULE: a homebrew save must never fail silently
+
+All 13 homebrew editors end their `handleSave` with `onClose()` **after** their
+awaits. For a long time none of them had a `try/catch`, so any rejected write left
+the modal open with no message in the UI and nothing but an unhandled rejection in
+the console — which is indistinguishable from the Save button doing nothing. It was
+reported exactly that way ("nothing happens when you click save"), by one player,
+for every content type, while reads and deletes kept working.
+
+**`EditorLayout` owns the save**, not the editors: its `onSave` prop is typed
+`() => void | Promise<void>`, it awaits it, catches, and renders the reason in a red
+`role="alert"` block above the footer. One implementation covers all 13 editors and
+a new editor cannot reintroduce the silence. It also disables the button and shows
+"Saving…" while in flight, so a double-tap can't write twice.
+
+`describeSaveError()` translates the throw. **The error's `name` is authoritative
+when present; the message is only sniffed for an unnamed failure** — otherwise an
+unrelated error that happens to contain the word "quota" gets reported as a full
+disk (this was caught in testing). Dexie wraps the DOMException, so both `err.name`
+and `err.inner.name` are checked. Quota exhaustion gets its own actionable text,
+since it is the failure mode that best fits "writes fail but reads and deletes
+work" and this app stores 300–700 KB map blobs plus base64 portraits in IndexedDB.
+
+**Creation is now ONE write.** Every content type's `data` payload carries its own
+`id` that must equal the `HomebrewItem.id`, because the data layer resolves items by
+it. The editors used to `addItem(…, data: { …, id: '' })` and then immediately
+`updateItem` to fill the id in — so a failure on that second write persisted an item
+whose `data.id` was `''`, invisible to every `find(x => x.id === …)` lookup in the
+app. `homebrewRepository.create()` stamps `data.id` before the single `db.homebrew.add()`;
+the 13 copies of the two-step dance are gone. Do not add it back.
+
+---
+
 ## Known Limitations / Future Work
 
 - LevelUpModal now shows all powers at or below the gain level for each slot type. "Power swap" mechanic (replacing old encounter/daily at certain levels per 4e rules) not implemented for non-psionic classes. Psionic at-will swap is implemented for all psionic classes (Ardent, Battlemind, Psion).

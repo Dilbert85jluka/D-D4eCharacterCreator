@@ -65,9 +65,7 @@ export function MagicImplementEditor({ editingItem, userId, onClose }: EditorPro
     if (editingItem) {
       await updateItem({ ...editingItem, name: data.name, data, campaignIds });
     } else {
-      const item = await addItem({ contentType: 'magicImplement', name: data.name, createdBy: userId, campaignIds, data: { ...data, id: '' } });
-      data.id = item.id;
-      await updateItem({ ...item, data });
+      await addItem({ contentType: 'magicImplement', name: data.name, createdBy: userId, campaignIds, data: { ...data, id: '' } });
     }
     onClose();
   };

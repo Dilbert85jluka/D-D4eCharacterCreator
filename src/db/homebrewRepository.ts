@@ -23,9 +23,17 @@ export const homebrewRepository = {
 
   async create(data: NewHomebrewData): Promise<HomebrewItem> {
     const now = Date.now();
+    const id = `homebrew-${uuidv4()}`;
+    // Every content type's `data` payload carries its own `id`, which has to match
+    // the HomebrewItem id because the data layer resolves items by it. Stamping it
+    // here makes creation a SINGLE write. The editors used to insert with `id: ''`
+    // and then immediately update to fill it in, so a failure on that second write
+    // left a persisted item whose data.id was the empty string — unreachable by
+    // every `find(x => x.id === …)` lookup in the app.
     const item: HomebrewItem = {
       ...data,
-      id: `homebrew-${uuidv4()}`,
+      data: { ...data.data, id } as HomebrewItem['data'],
+      id,
       createdAt: now,
       updatedAt: now,
     };

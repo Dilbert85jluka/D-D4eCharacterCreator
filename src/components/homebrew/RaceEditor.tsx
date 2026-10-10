@@ -315,9 +315,7 @@ export function RaceEditor({ editingItem, userId, onClose }: EditorProps) {
     if (editingItem) {
       await updateItem({ ...editingItem, name: data.name, data, campaignIds });
     } else {
-      const item = await addItem({ contentType: 'race', name: data.name, createdBy: userId, campaignIds, data: { ...data, id: '' } });
-      data.id = item.id;
-      await updateItem({ ...item, data });
+      await addItem({ contentType: 'race', name: data.name, createdBy: userId, campaignIds, data: { ...data, id: '' } });
     }
     onClose();
   };
