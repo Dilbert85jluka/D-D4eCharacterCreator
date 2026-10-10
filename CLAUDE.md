@@ -2299,7 +2299,19 @@ every iOS browser, Chrome included, is WebKit underneath, and WebKit can drop th
 IndexedDB connection after the app has been backgrounded — already-loaded data
 stays on screen while every write fails until the app is fully closed and reopened.
 That fits "can't save, can't delete, list still shows" better than quota does,
-since deletes usually still succeed under quota pressure. Neither is confirmed.
+since deletes usually still succeed under quota pressure.
+
+**What it actually was (resolved):** once the banner shipped, the player's iPad showed
+`UnknownError: Unable to open database file on disk` — WebKit's storage layer failing
+to open the IndexedDB file at all. Neither guess above. It was device-specific: the
+same account worked on her phone, which also proved the cloud backup was intact. After
+the update forced a reload, her character and homebrew lists came up **empty**, because
+`loadCharacters` falls into its catch and `mergeCloudCharacters` routes cloud data
+*through* the same broken database — empty screen, not lost data. Fix on the device:
+free storage and restart, or use a different browser (separate storage), or clear the
+browser's site data once another device confirms the cloud copy is complete.
+`describeStorageError` does not yet have a dedicated message for this error; it falls
+through to the generic "Could not save: …" text.
 
 The translator itself: **The error's `name` is authoritative
 when present; the message is only sniffed for an unnamed failure** — otherwise an
