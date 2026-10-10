@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useHomebrewStore } from '../store/useHomebrewStore';
 import { useAuthStore } from '../store/useAuthStore';
+import { describeStorageError } from '../lib/storageErrors';
 import { useAppStore } from '../store/useAppStore';
 import { useCampaignsStore } from '../store/useCampaignsStore';
 import { HOMEBREW_CONTENT_TYPES } from '../types/homebrew';
@@ -138,6 +139,9 @@ export function HomebrewWorkshopPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<HomebrewItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  /** Why the last delete failed, keyed by item id. Shown inside the confirm row. */
+  const [deleteError, setDeleteError] = useState<{ id: string; message: string } | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [importInitialCode, setImportInitialCode] = useState<string | undefined>(undefined);
   const [shareCodeItem, setShareCodeItem] = useState<HomebrewItem | null>(null);
@@ -181,9 +185,22 @@ export function HomebrewWorkshopPage() {
     setEditorOpen(true);
   };
 
+  // Same failure shape as the editors' Save: the confirm only cleared AFTER the
+  // await, with no catch, so a failed delete left the row sitting there and
+  // nothing visibly happened. Report it in the row instead.
   const handleDelete = async (id: string) => {
-    await deleteItem(id);
-    setDeleteConfirm(null);
+    if (deletingId) return;
+    setDeletingId(id);
+    setDeleteError(null);
+    try {
+      await deleteItem(id);
+      setDeleteConfirm(null);
+    } catch (err) {
+      console.error('[HomebrewWorkshop] Delete failed', err);
+      setDeleteError({ id, message: describeStorageError(err, 'delete') });
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleExportItem = (item: HomebrewItem) => {
@@ -403,22 +420,30 @@ export function HomebrewWorkshopPage() {
             filteredItems.map((item) => (
               <div key={item.id}>
                 {deleteConfirm === item.id ? (
-                  <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border-b border-red-200 min-h-[56px]">
-                    <span className="text-sm text-red-700 flex-1">
-                      Delete <strong>{item.name}</strong>? This cannot be undone.
-                    </span>
-                    <button
-                      onClick={() => handleDelete(item.id)}
-                      className="px-3 py-1.5 text-xs font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors min-h-[36px]"
-                    >
-                      Confirm
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirm(null)}
-                      className="px-3 py-1.5 text-xs font-semibold bg-white text-stone-600 border border-stone-300 rounded-lg hover:bg-stone-50 transition-colors min-h-[36px]"
-                    >
-                      Cancel
-                    </button>
+                  <div className="px-4 py-3 bg-red-50 border-b border-red-200 min-h-[56px]">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-red-700 flex-1">
+                        Delete <strong>{item.name}</strong>? This cannot be undone.
+                      </span>
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        disabled={deletingId === item.id}
+                        className="px-3 py-1.5 text-xs font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors min-h-[36px] disabled:opacity-60"
+                      >
+                        {deletingId === item.id ? 'Deleting…' : 'Confirm'}
+                      </button>
+                      <button
+                        onClick={() => { setDeleteConfirm(null); setDeleteError(null); }}
+                        className="px-3 py-1.5 text-xs font-semibold bg-white text-stone-600 border border-stone-300 rounded-lg hover:bg-stone-50 transition-colors min-h-[36px]"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {deleteError?.id === item.id && (
+                      <p role="alert" className="mt-2 text-xs text-red-800 bg-white border border-red-300 rounded-lg px-3 py-2">
+                        <span className="font-bold">Delete failed. </span>{deleteError.message}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <ItemRow

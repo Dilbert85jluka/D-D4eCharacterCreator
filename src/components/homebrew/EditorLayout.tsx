@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useCampaignsStore } from '../../store/useCampaignsStore';
+import { describeStorageError } from '../../lib/storageErrors';
 
 interface Props {
   title: string;
@@ -10,37 +11,6 @@ interface Props {
   onCancel: () => void;
   canSave: boolean;
   children: React.ReactNode;
-}
-
-/**
- * Turn whatever a failed save threw into something a player can act on.
- *
- * Dexie wraps the underlying DOMException, so the name worth checking can be on
- * either the error or its `inner`.
- */
-function describeSaveError(err: unknown): string {
-  const e = err as { name?: string; message?: string; inner?: { name?: string; message?: string } };
-  const names = [e?.name, e?.inner?.name].filter(Boolean).join(' ');
-  const message = e?.message || e?.inner?.message || '';
-
-  // The NAME is authoritative when there is one. Only fall back to sniffing the
-  // text for an unnamed failure — otherwise an unrelated error that happens to
-  // mention "quota" in passing gets reported as a full disk.
-  const quota = names
-    ? /quota/i.test(names)
-    : /quota|storage (is )?full/i.test(message);
-
-  if (quota) {
-    return 'Your browser has run out of storage space for this app, so the save could not be written. '
-      + 'Free some up — deleting unused battle maps or character portraits reclaims the most — then try again.';
-  }
-  if (/DataClone/i.test(names)) {
-    return 'This content contains something the browser cannot store. Please report what you entered — this is a bug.';
-  }
-  if (/ConstraintError/i.test(names)) {
-    return 'An item with that identifier already exists. Reload the page and try again.';
-  }
-  return `Could not save: ${message || names || 'unknown error'}`;
 }
 
 export function EditorLayout({ title, campaignIds, onCampaignToggle, onSave, onCancel, canSave, children }: Props) {
@@ -63,7 +33,7 @@ export function EditorLayout({ title, campaignIds, onCampaignToggle, onSave, onC
       await onSave();
     } catch (err) {
       console.error('[HomebrewEditor] Save failed', err);
-      setError(describeSaveError(err));
+      setError(describeStorageError(err, 'save'));
     } finally {
       setSaving(false);
     }

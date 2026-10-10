@@ -2272,7 +2272,7 @@ No realtime changes were needed: `useRealtimeCampaign` already replaces the whol
 
 ---
 
-## RULE: a homebrew save must never fail silently
+## RULE: a homebrew save or delete must never fail silently
 
 All 13 homebrew editors end their `handleSave` with `onClose()` **after** their
 awaits. For a long time none of them had a `try/catch`, so any rejected write left
@@ -2287,7 +2287,21 @@ for every content type, while reads and deletes kept working.
 a new editor cannot reintroduce the silence. It also disables the button and shows
 "Saving…" while in flight, so a double-tap can't write twice.
 
-`describeSaveError()` translates the throw. **The error's `name` is authoritative
+**Delete had the identical bug**: `HomebrewWorkshopPage.handleDelete` awaited
+`deleteItem` with no catch and only cleared the confirm row afterwards. It now
+reports the reason inside the confirm row. The player who reported this could do
+*neither* — every write failed while the list stayed visible from memory.
+
+`describeStorageError(err, 'save' | 'delete')` in `src/lib/storageErrors.ts`
+translates the throw for both. Besides quota it recognises WebKit's
+"Connection to Indexed Database server lost" and Dexie's `DatabaseClosedError`:
+every iOS browser, Chrome included, is WebKit underneath, and WebKit can drop the
+IndexedDB connection after the app has been backgrounded — already-loaded data
+stays on screen while every write fails until the app is fully closed and reopened.
+That fits "can't save, can't delete, list still shows" better than quota does,
+since deletes usually still succeed under quota pressure. Neither is confirmed.
+
+The translator itself: **The error's `name` is authoritative
 when present; the message is only sniffed for an unnamed failure** — otherwise an
 unrelated error that happens to contain the word "quota" gets reported as a full
 disk (this was caught in testing). Dexie wraps the DOMException, so both `err.name`
@@ -2302,6 +2316,13 @@ it. The editors used to `addItem(…, data: { …, id: '' })` and then immediate
 whose `data.id` was `''`, invisible to every `find(x => x.id === …)` lookup in the
 app. `homebrewRepository.create()` stamps `data.id` before the single `db.homebrew.add()`;
 the 13 copies of the two-step dance are gone. Do not add it back.
+
+**Open hole — offline homebrew deletes resurrect.** `deleteItem` removes the Dexie
+row, then fires `deleteCloudHomebrew()` with an empty `.catch()`. If that cloud call
+fails (offline, transient error) the cloud row stays `deleted: false`, and the next
+startup pull's `mergeCloudHomebrew()` re-inserts it as "new from cloud". Homebrew has
+no tombstone, unlike sessions/encounters/NPCs. Fixing it means a local tombstone (or
+a pending-delete queue) that the pull respects — not yet done.
 
 ---
 
